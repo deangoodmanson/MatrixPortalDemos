@@ -50,7 +50,7 @@ CAMERA_HEIGHT = 480  # Camera captures 480 pixels tall
 # Movies are usually 24 FPS, video games aim for 60 FPS
 # Our little LED matrix works best at 5 FPS
 
-TARGET_FPS = 5  # How many frames to display per second
+TARGET_FPS = 30  # How many frames to display per second
 
 # ===========================================
 # PRINT A SUMMARY

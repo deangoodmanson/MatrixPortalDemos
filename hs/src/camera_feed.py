@@ -2,7 +2,7 @@
 """
 ===========================================
 LED MATRIX CAMERA FEED
-High School Learning Version (Raspberry Pi)
+High School Learning Version (Unified)
 ===========================================
 
 This program captures video from the Pi Camera (or USB webcam)
@@ -57,7 +57,7 @@ import json                         # For saving data in JSON format
 from datetime import datetime       # For timestamps
 
 # ===========================================
-# ADVANCED IMPORTS (Unix/Mac/Linux only)
+# ADVANCED IMPORTS (Unix/Mac/Linux)
 # ===========================================
 # These modules let us read single keypresses without waiting for Enter.
 # This is an ADVANCED concept - normally input() waits for Enter.
@@ -98,15 +98,15 @@ from config import (                # Our settings file
 DEBUG_MODE = True
 
 # Set this to True to show a preview window of what the camera sees
-# NOTE: On Raspberry Pi without a monitor, set this to False!
-SHOW_PREVIEW = False
+# NOTE: Set to False if running on a Raspberry Pi without a monitor!
+SHOW_PREVIEW = True
 
 # The "magic word" we send before each frame so the LED matrix
 # knows a new picture is coming (like saying "incoming!")
 FRAME_HEADER = b'IMG1'
 
 # How fast to send data (2 million bits per second!)
-BAUD_RATE = 2000000
+BAUD_RATE = 4000000
 
 # How long to show each countdown number (in seconds)
 COUNTDOWN_DURATION = 0.5
@@ -167,9 +167,9 @@ def setup_camera(camera_number=0):
     """
     Connect to the camera and get it ready to take pictures.
 
-    RASPBERRY PI SPECIAL:
+    UNIFIED CAMERA SETUP:
     - First, we try to use the Pi Camera (picamera2 library)
-    - If that doesn't work, we fall back to a USB webcam
+    - If that doesn't work (or on Mac/PC), we fall back to a USB webcam
 
     RETURNS:
     - A tuple of (camera_object, camera_type)

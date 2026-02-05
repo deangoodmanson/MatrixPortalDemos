@@ -26,5 +26,5 @@ ui:
   snapshot_pause_duration: 5.0
   enable_frame_limiting: false
 
-target_fps: 10
+target_fps: 30
 debug_save_frames: false

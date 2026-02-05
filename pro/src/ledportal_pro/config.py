@@ -67,7 +67,7 @@ class AppConfig:
     transport: TransportConfig = field(default_factory=TransportConfig)
     processing: ProcessingConfig = field(default_factory=ProcessingConfig)
     ui: UIConfig = field(default_factory=UIConfig)
-    target_fps: int = 10
+    target_fps: int = 30
     debug_save_frames: bool = False
 
     @property

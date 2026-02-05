@@ -16,8 +16,6 @@ Camera → Computer (Pi or Mac) → USB Serial → Matrix Portal M4 → LED Matr
 
 | Folder | Description | Audience |
 |--------|-------------|----------|
-| `sandbox/` | Sandbox/playground - experimental features | Development |
-| `pi/` | Synced copy of sandbox/ for Raspberry Pi | General use |
 | `hs/` | High School learning version | Students learning Python |
 | `pro/` | Professional modular version | Software engineers |
 | `matrix-portal/` | CircuitPython receiver | LED matrix display |
@@ -40,24 +38,16 @@ Follow instructions in `matrix-portal/README.md`:
 - Install libraries with circup
 - Connect 64x32 RGB LED matrix
 
-### 2. Setup Camera Source (macOS)
+### 2. Setup Camera Source
+
+See `pro/README.md` for detailed instructions on running the professional version.
 
 ```bash
-cd sandbox
-uv venv
-source .venv/bin/activate
-uv pip install opencv-python numpy pyserial
-python camera_feed.py
-```
-
-### 3. Setup Camera Source (Raspberry Pi)
-
-```bash
-cd pi
-uv venv
-source .venv/bin/activate
-uv pip install opencv-python numpy pyserial picamera2
-python camera_feed.py
+cd pro
+# Install dependencies
+uv sync
+# Run the application
+uv run ledportal --help
 ```
 
 ## Keyboard Controls

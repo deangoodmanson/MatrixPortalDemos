@@ -16,15 +16,14 @@ Compared to the main `sandbox/` and `pi/` folders, this version has:
 
 ## Files
 
-### mac/
-For macOS computers with a USB webcam:
+## Files
+ 
+### src/
+Unified version for both macOS and Raspberry Pi:
 - `config.py` - Settings with explanations
-- `camera_feed.py` - Main program with educational comments
-
-### pi/
-For Raspberry Pi with Pi Camera or USB webcam:
-- `config.py` - Settings with explanations
-- `camera_feed.py` - Main program with Pi-specific camera support
+- `camera_feed.py` - Main program with unified camera support
+ 
+**Note:** The code automatically detects if it's running on a Raspberry Pi (trying PiCamera first) or another computer (using USB webcam).
 
 ## Getting Started
 
@@ -50,57 +49,36 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 #### Step 2: Create a virtual environment and install packages
-
-**On Mac:**
+ 
+**On all platforms:**
 ```bash
-cd hs/mac
+cd hs/src
 uv venv
 source .venv/bin/activate
 uv pip install opencv-python numpy pyserial
+# If on Raspberry Pi, also install:
+# uv pip install picamera2
 ```
-
-**On Raspberry Pi:**
-```bash
-cd hs/pi
-uv venv
-source .venv/bin/activate
-uv pip install opencv-python numpy pyserial picamera2
-```
-
+ 
 #### Step 3: Run the program
-
-**On Mac:**
+ 
 ```bash
-cd hs/mac
+cd hs/src
 source .venv/bin/activate
 python camera_feed.py
 ```
-
-**On Raspberry Pi:**
-```bash
-cd hs/pi
-source .venv/bin/activate
-python camera_feed.py
-```
-
+ 
 ### Quick Start (if you already have uv installed)
-
-**Mac - one-liner:**
+ 
+**One-liner:**
 ```bash
-cd hs/mac && uv venv && source .venv/bin/activate && uv pip install opencv-python numpy pyserial && python camera_feed.py
+cd hs/src && uv venv && source .venv/bin/activate && uv pip install opencv-python numpy pyserial && python camera_feed.py
 ```
-
-**Raspberry Pi - one-liner:**
-```bash
-cd hs/pi && uv venv && source .venv/bin/activate && uv pip install opencv-python numpy pyserial picamera2 && python camera_feed.py
-```
-
+ 
 ### Alternative: Using pip directly
-
-If you prefer not to use uv, you can use pip:
-
+ 
 ```bash
-cd hs/mac  # or hs/pi
+cd hs/src
 python3 -m venv .venv
 source .venv/bin/activate
 pip install opencv-python numpy pyserial
