@@ -11,10 +11,10 @@ Build a real-time camera feed display system that captures video from a Raspberr
 - **USB cable**: Pi to Matrix Portal connection
 
 ## Technical Requirements
-- **Target Frame Rate**: 10 FPS
+- **Target Frame Rate**: 24 FPS (achieved)
 - **Display Resolution**: 32x64 pixels
-- **Color Depth**: 8-bit (256 colors) or 16-bit (65K colors) depending on performance
-- **Connection Method**: Raw USB transfers (not USB serial)
+- **Color Depth**: 16-bit (RGB565)
+- **Connection Method**: USB Serial (CDC) at 4M baud
 
 ## Architecture
 
@@ -46,8 +46,7 @@ Camera → Pi (Capture) → Pi (Process/Resize) → USB → Matrix Portal → LE
 **Key Libraries**:
 - `picamera2` or `opencv-python`: Camera capture
 - `numpy`: Image processing
-- `pyusb`: Raw USB communication
-- `PIL/Pillow`: Image manipulation (optional)
+- `pyserial`: High-speed serial communication
 
 **Processing Pipeline**:
 1. Capture frame from camera

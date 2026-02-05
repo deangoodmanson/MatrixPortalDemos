@@ -22,10 +22,11 @@ This document outlines two potential versions of the LED Portal codebase, each o
           # Process one pixel at position (x, y)
   ```
 
-### 1.2 Simplified Structure
-
-- Single file per component (no config imports)
-- Inline all constants with explanations
+### 1.2 Simplified Structure (Unified)
+ 
+- Single directory `hs/src/` for all platforms
+- Smart `camera_feed.py` that auto-detects Pi vs Mac/PC
+- Inline configuration in `config.py`
 - Remove argparse - use simple hardcoded values
 - Remove advanced features (snapshot, countdown) initially
 
