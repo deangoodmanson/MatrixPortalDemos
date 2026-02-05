@@ -1,0 +1,30 @@
+# LED Portal Pro - Default Configuration
+
+matrix:
+  width: 64
+  height: 32
+
+camera:
+  width: 640
+  height: 480
+  index: 0
+  prefer_picamera: true
+
+transport:
+  baud_rate: 2000000
+  timeout: 0.1
+  write_timeout: 0.5
+  frame_header: "IMG1"
+
+processing:
+  interpolation: "linear"  # "nearest", "linear", "area", "cubic"
+  enable_gamma_correction: false
+  gamma: 2.2
+
+ui:
+  countdown_duration: 0.5
+  snapshot_pause_duration: 5.0
+  enable_frame_limiting: false
+
+target_fps: 10
+debug_save_frames: false

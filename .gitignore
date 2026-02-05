@@ -1,0 +1,152 @@
+# ===========================================
+# Python
+# ===========================================
+
+# Virtual environments (IMPORTANT - these are large!)
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ===========================================
+# IDE and Editor files
+# ===========================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.#*
+
+# ===========================================
+# Operating System files
+# ===========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# macOS Finder
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ===========================================
+# Project-specific
+# ===========================================
+
+# Debug output files
+last.bmp
+
+# Snapshots (uncomment if you want to track snapshots)
+# snapshot_*.bmp
+# snapshot_*.bin
+
+# Local configuration overrides
+config.local.yaml
+*.local.py
+
+# UV/pip lock files that may differ per platform
+# (uncomment if you want to track these)
+# uv.lock
+
+# ===========================================
+# Secrets and credentials (CRITICAL!)
+# ===========================================
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# API keys or credentials
+*credentials*
+*secret*
+*.pem
+*.key
+secrets.yaml
+secrets.json
+
+# ===========================================
+# CircuitPython device files
+# ===========================================
+
+# These are typically on the CIRCUITPY drive, not in the repo
+# But just in case someone copies them locally:
+lib/
+.fseventsd/
+.metadata_never_index
+.Trashes
+boot_out.txt
+
+# ===========================================
+# Testing and Coverage
+# ===========================================
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# ===========================================
+# Jupyter Notebooks
+# ===========================================
+
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===========================================
+# Logs
+# ===========================================
+
+*.log
+logs/

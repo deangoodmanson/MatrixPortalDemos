@@ -1,0 +1,10 @@
+[project]
+name = "ledportal-mac"
+version = "0.1.0"
+description = "LED Matrix camera feed for macOS"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.0.0",
+    "opencv-python>=4.10.0",
+    "pyserial>=3.5",
+]
