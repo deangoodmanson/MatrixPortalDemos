@@ -65,10 +65,16 @@ def parse_args() -> argparse.Namespace:
         help="Start in black and white mode",
     )
     parser.add_argument(
-        "--mode",
-        choices=["landscape", "portrait", "squish", "letterbox"],
+        "--orientation",
+        choices=["landscape", "portrait"],
         default=None,
-        help="Display mode (overrides config)",
+        help="Display orientation (overrides config)",
+    )
+    parser.add_argument(
+        "--processing",
+        choices=["center", "stretch", "fit"],
+        default=None,
+        help="Processing mode (overrides config)",
     )
 
     return parser.parse_args()
@@ -81,7 +87,8 @@ def run_snapshot_sequence(
     snapshot_manager: SnapshotManager,
     keyboard: KeyboardHandler,
     black_and_white: bool,
-    display_mode: str,
+    orientation: str,
+    processing_mode: str,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -92,7 +99,8 @@ def run_snapshot_sequence(
         snapshot_manager: Snapshot manager instance.
         keyboard: Keyboard handler for abort detection.
         black_and_white: Whether to apply grayscale filter.
-        display_mode: Current display mode.
+        orientation: Current orientation (landscape/portrait).
+        processing_mode: Current processing mode (center/stretch/fit).
 
     Returns:
         True if snapshot completed, False if aborted.
@@ -126,7 +134,9 @@ def run_snapshot_sequence(
             except CameraCaptureFailed:
                 continue
 
-            small_frame = resize_frame(frame, config.matrix, config.processing, display_mode)
+            small_frame = resize_frame(
+                frame, config.matrix, config.processing, orientation, processing_mode
+            )
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
@@ -149,7 +159,9 @@ def run_snapshot_sequence(
     speak("Got it")
     try:
         frame = camera_typed.capture()
-        small_frame = resize_frame(frame, config.matrix, config.processing, display_mode)
+        small_frame = resize_frame(
+            frame, config.matrix, config.processing, orientation, processing_mode
+        )
         if black_and_white:
             small_frame = apply_grayscale(small_frame)
         frame_bytes = convert_to_rgb565(small_frame)
@@ -260,8 +272,8 @@ def main() -> int:
         print("Starting capture loop...")
         print()
         print("Commands (single keypress):")
-        print("  Display: c=crop  s=squish  l=letterbox  p=portrait")
-        print("  Effects: b=B&W  n=normal(color)")
+        print("  Display: l=landscape  p=portrait")
+        print("  Effects: b=B&W  c=color")
         print("  Actions: SPACE=snapshot  v=avatar  d=debug  r=reset  h=help  q=quit")
         print()
         bw_str = "B&W" if black_and_white else "Color"
@@ -291,14 +303,6 @@ def main() -> int:
                 elif cmd == InputCommand.MODE_PORTRAIT:
                     display_mode = "portrait"
                     print("\n=== DISPLAY MODE: PORTRAIT ===\n")
-                    continue
-                elif cmd == InputCommand.MODE_SQUISH:
-                    display_mode = "squish"
-                    print("\n=== DISPLAY MODE: SQUISH ===\n")
-                    continue
-                elif cmd == InputCommand.MODE_LETTERBOX:
-                    display_mode = "letterbox"
-                    print("\n=== DISPLAY MODE: LETTERBOX ===\n")
                     continue
 
                 # Handle effects
@@ -365,7 +369,9 @@ def main() -> int:
                     continue
 
                 # Process frame
-                small_frame = resize_frame(frame, config.matrix, config.processing, display_mode)
+                small_frame = resize_frame(
+                    frame, config.matrix, config.processing, orientation, processing_mode
+                )
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
 

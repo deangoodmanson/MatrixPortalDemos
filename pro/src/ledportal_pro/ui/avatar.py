@@ -100,7 +100,8 @@ class AvatarCaptureManager:
         camera: CameraBase,
         transport: TransportBase | None,
         config: AppConfig,
-        display_mode: str,
+        orientation: str,
+        processing_mode: str,
         resize_fn: Callable[..., Any],
         convert_fn: Callable[..., Any],
     ) -> AvatarSession:
@@ -110,7 +111,8 @@ class AvatarCaptureManager:
             camera: Camera instance for capturing frames.
             transport: Transport for sending to display (may be None).
             config: Application configuration.
-            display_mode: Current display mode.
+            orientation: Current orientation (landscape/portrait).
+            processing_mode: Current processing mode (center/stretch/fit).
             resize_fn: Function to resize frames.
             convert_fn: Function to convert to RGB565.
 
@@ -136,7 +138,8 @@ class AvatarCaptureManager:
                 camera=camera,
                 transport=transport,
                 config=config,
-                display_mode=display_mode,
+                orientation=orientation,
+                processing_mode=processing_mode,
                 resize_fn=resize_fn,
                 convert_fn=convert_fn,
                 avatar_dir=avatar_dir,
@@ -174,7 +177,8 @@ class AvatarCaptureManager:
         camera: CameraBase,
         transport: TransportBase | None,
         config: AppConfig,
-        display_mode: str,
+        orientation: str,
+        processing_mode: str,
         resize_fn: Callable[..., Any],
         convert_fn: Callable[..., Any],
         avatar_dir: Path,
@@ -206,7 +210,7 @@ class AvatarCaptureManager:
             try:
                 frame = camera.capture()
                 small_frame = resize_fn(
-                    frame, config.matrix, config.processing, display_mode
+                    frame, config.matrix, config.processing, orientation, processing_mode
                 )
                 frame_bytes = convert_fn(small_frame)
 

@@ -18,8 +18,9 @@ WHAT YOU'LL LEARN:
 - How to use text-to-speech
 
 FEATURES:
-- Multiple display modes (crop, squish, letterbox, portrait)
-- Black & white mode
+- Display orientations (landscape, portrait)
+- Processing modes (center crop, stretch, fit)
+- Black & white mode toggle
 - Snapshot with countdown
 - Avatar capture mode with voice prompts
 
@@ -53,6 +54,7 @@ import serial.tools.list_ports     # For finding USB devices
 import sys                          # For system-level stuff (stdin, exit)
 import select                       # For checking if keyboard input is ready
 import os                           # For file and directory operations
+from typing import Optional, Tuple, Any  # For type hints (helps understand what data types we use)
 import json                         # For saving data in JSON format
 from datetime import datetime       # For timestamps
 
@@ -119,12 +121,14 @@ COUNTDOWN_DURATION = 0.5
 # Most cameras capture at 4:3 ratio (like 640x480).
 # We need to decide: crop, stretch, or add black bars?
 
-DISPLAY_MODES = ['landscape', 'portrait', 'squish', 'letterbox']
+ORIENTATIONS = ['landscape', 'portrait']
+PROCESSING_MODES = ['center', 'stretch', 'fit']
 
 # Current settings (these can be changed with keyboard commands)
-display_mode = 'landscape'      # How to fit the image
-black_and_white_mode = False    # Color or grayscale?
-debug_output = True             # Show frame rate info?
+orientation = 'landscape'         # Display orientation (wide or tall)
+processing_mode = 'center'        # How to fit the image (crop, stretch, or fit)
+black_and_white_mode = False      # Color or grayscale?
+debug_output = True               # Show frame rate info?
 
 # ===========================================
 # AVATAR CAPTURE POSES
@@ -163,7 +167,7 @@ AVATAR_POSES = [
 # ===========================================
 # FUNCTION: Set up the camera
 # ===========================================
-def setup_camera(camera_number=0):
+def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
     """
     Connect to the camera and get it ready to take pictures.
 
@@ -225,7 +229,7 @@ def setup_camera(camera_number=0):
 # ===========================================
 # FUNCTION: Capture one picture
 # ===========================================
-def capture_frame(camera, camera_type):
+def capture_frame(camera: Any, camera_type: str) -> Optional[np.ndarray]:
     """
     Take a single picture from the camera.
 
@@ -257,9 +261,9 @@ def capture_frame(camera, camera_type):
 
 
 # ===========================================
-# FUNCTION: Resize the image with display modes
+# FUNCTION: Resize the image with orientation and processing modes
 # ===========================================
-def resize_frame(frame, mode='landscape'):
+def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 'center') -> np.ndarray:
     """
     Resize and/or crop the camera image to fit the LED matrix.
 
@@ -268,25 +272,24 @@ def resize_frame(frame, mode='landscape'):
     - LED matrix only has 64x32 = 2,048 pixels (2:1 ratio)
     - The shapes don't match! We need to decide what to do.
 
-    DISPLAY MODES:
-    ==============
+    ORIENTATIONS:
+    =============
+    LANDSCAPE: Horizontal display (wide)
+    PORTRAIT:  Vertical display (tall, rotates 90 degrees)
 
-    LANDSCAPE (default):
-    - Crops to 2:1 ratio from the CENTER of the image
-    - Good for: normal horizontal display
-    - You lose the top and bottom of the image
+    PROCESSING MODES:
+    =================
+    CENTER (default):
+    - Crops from the CENTER to match aspect ratio
+    - Clips edges based on orientation
+    - Good for: keeping the main subject centered
 
-    PORTRAIT:
-    - Crops to 1:2 ratio, then rotates 90 degrees
-    - Good for: when the LED matrix is mounted vertically
-    - You lose the left and right of the image
+    STRETCH:
+    - Stretches entire image to fit (may distort)
+    - No cropping, but proportions change
+    - Good for: seeing everything
 
-    SQUISH:
-    - Stretches the entire image to fit
-    - Nothing is cropped, but proportions are distorted
-    - Good for: seeing everything (faces might look wide)
-
-    LETTERBOX:
+    FIT:
     - Shrinks to fit WITHOUT distortion
     - Adds black bars to fill empty space
     - Good for: no distortion, no cropping
@@ -296,75 +299,62 @@ def resize_frame(frame, mode='landscape'):
     """
     height, width = frame.shape[:2]  # Get image dimensions
 
-    # ===== LETTERBOX MODE =====
-    if mode == 'letterbox':
-        # Calculate how much to shrink to fit entirely
+    # ===== STEP 1: Apply processing mode =====
+    if proc_mode == 'fit':
+        # Letterbox mode - maintain aspect ratio
         scale_width = MATRIX_WIDTH / width
         scale_height = MATRIX_HEIGHT / height
-        scale = min(scale_width, scale_height)  # Use the smaller scale
+        scale = min(scale_width, scale_height)
 
-        # Calculate new size
         new_width = int(width * scale)
         new_height = int(height * scale)
 
-        # Resize the image
         resized = cv2.resize(frame, (new_width, new_height))
 
-        # Create a black canvas (all zeros = black)
+        # Create black canvas
         canvas = np.zeros((MATRIX_HEIGHT, MATRIX_WIDTH, 3), dtype=np.uint8)
 
-        # Calculate where to put the image (centered)
+        # Center the image
         x_offset = (MATRIX_WIDTH - new_width) // 2
         y_offset = (MATRIX_HEIGHT - new_height) // 2
 
-        # Place the resized image on the black canvas
         canvas[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized
+        processed = canvas
 
-        return canvas
+    elif proc_mode == 'stretch':
+        # Stretch mode - just resize directly
+        processed = cv2.resize(frame, (MATRIX_WIDTH, MATRIX_HEIGHT))
 
-    # ===== SQUISH MODE =====
-    elif mode == 'squish':
-        # Just resize directly - stretches to fit
-        return cv2.resize(frame, (MATRIX_WIDTH, MATRIX_HEIGHT))
+    else:  # 'center' (default)
+        # Center crop to target aspect ratio
+        target_aspect = MATRIX_WIDTH / MATRIX_HEIGHT
+        current_aspect = width / height
 
-    # ===== PORTRAIT MODE =====
-    elif mode == 'portrait':
-        # For portrait, we want a tall narrow crop (1:2 ratio)
-        target_width = height // 2  # Width should be half of height
-        if target_width > width:
-            target_width = width
+        if current_aspect > target_aspect:
+            # Image is wider than target, crop width (left and right)
+            new_width = int(height * target_aspect)
+            start_x = (width - new_width) // 2
+            cropped = frame[0:height, start_x:start_x + new_width]
+        else:
+            # Image is taller than target, crop height (top and bottom)
+            new_height = int(width / target_aspect)
+            start_y = (height - new_height) // 2
+            cropped = frame[start_y:start_y + new_height, 0:width]
 
-        # Crop from the CENTER horizontally
-        start_x = (width - target_width) // 2
-        cropped = frame[0:height, start_x:start_x + target_width]
+        processed = cv2.resize(cropped, (MATRIX_WIDTH, MATRIX_HEIGHT))
 
-        # Resize to 32x64 (swapped dimensions)
-        resized = cv2.resize(cropped, (MATRIX_HEIGHT, MATRIX_WIDTH))
+    # ===== STEP 2: Apply orientation (rotation for portrait) =====
+    if orient == 'portrait':
+        # Rotate 90 degrees clockwise for portrait orientation
+        processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
 
-        # Rotate 90 degrees clockwise
-        rotated = cv2.rotate(resized, cv2.ROTATE_90_CLOCKWISE)
-
-        return rotated
-
-    # ===== LANDSCAPE MODE (default) =====
-    else:
-        # For landscape, we want a wide crop (2:1 ratio)
-        target_height = width // 2  # Height should be half of width
-        if target_height > height:
-            target_height = height
-
-        # Crop from the CENTER vertically
-        start_y = (height - target_height) // 2
-        cropped = frame[start_y:start_y + target_height, 0:width]
-
-        # Resize to matrix dimensions
-        return cv2.resize(cropped, (MATRIX_WIDTH, MATRIX_HEIGHT))
+    return processed
 
 
 # ===========================================
 # FUNCTION: Convert to black and white
 # ===========================================
-def apply_black_and_white(frame):
+def apply_black_and_white(frame: np.ndarray) -> np.ndarray:
     """
     Convert a color image to black and white (grayscale).
 
@@ -388,7 +378,7 @@ def apply_black_and_white(frame):
 # ===========================================
 # FUNCTION: Convert colors to RGB565
 # ===========================================
-def convert_to_rgb565(frame):
+def convert_to_rgb565(frame: np.ndarray) -> bytes:
     """
     Convert the image colors to RGB565 format.
 
@@ -457,7 +447,7 @@ def convert_to_rgb565(frame):
 # ===========================================
 # FUNCTION: Find the LED Matrix
 # ===========================================
-def find_matrix_portal():
+def find_matrix_portal() -> Optional[str]:
     """
     Search for the Matrix Portal device on USB.
 
@@ -500,7 +490,7 @@ def find_matrix_portal():
 # ===========================================
 # FUNCTION: Connect to the LED Matrix
 # ===========================================
-def setup_usb_serial():
+def setup_usb_serial() -> Optional[serial.Serial]:
     """
     Establish a connection to the LED Matrix.
 
@@ -534,7 +524,7 @@ def setup_usb_serial():
 # ===========================================
 # FUNCTION: Send a frame to the LED Matrix
 # ===========================================
-def send_frame(serial_connection, frame_bytes):
+def send_frame(serial_connection: serial.Serial, frame_bytes: bytes) -> int:
     """
     Send one frame of image data to the LED Matrix.
 
@@ -554,7 +544,7 @@ def send_frame(serial_connection, frame_bytes):
 # ===========================================
 # FUNCTION: Check for keyboard input
 # ===========================================
-def check_keyboard():
+def check_keyboard() -> Optional[str]:
     """
     Check if a key has been pressed (without waiting).
 
@@ -587,7 +577,7 @@ def check_keyboard():
 # ===========================================
 # FUNCTION: Speak text out loud
 # ===========================================
-def speak(text):
+def speak(text: str) -> None:
     """
     Make the computer speak using text-to-speech.
 
@@ -643,7 +633,7 @@ def speak(text):
 # ===========================================
 # FUNCTION: Save a snapshot
 # ===========================================
-def save_snapshot(frame, frame_bytes):
+def save_snapshot(frame: np.ndarray, frame_bytes: bytes) -> Tuple[str, str]:
     """
     Save the current frame to disk.
 
@@ -679,7 +669,7 @@ def save_snapshot(frame, frame_bytes):
 # ===========================================
 # FUNCTION: Run snapshot countdown
 # ===========================================
-def run_snapshot(camera, camera_type, serial_connection, current_mode, is_bw):
+def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str, is_bw: bool) -> bool:
     """
     Take a snapshot with a 3-2-1 countdown.
 
@@ -716,7 +706,7 @@ def run_snapshot(camera, camera_type, serial_connection, current_mode, is_bw):
             if frame is None:
                 continue
 
-            small_frame = resize_frame(frame, current_mode)
+            small_frame = resize_frame(frame, orient, proc_mode)
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
 
@@ -767,7 +757,7 @@ def run_snapshot(camera, camera_type, serial_connection, current_mode, is_bw):
 # ===========================================
 # FUNCTION: Avatar capture mode
 # ===========================================
-def run_avatar_capture(camera, camera_type, serial_connection, current_mode):
+def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> None:
     """
     Guided avatar capture session with voice prompts.
 
@@ -828,7 +818,7 @@ def run_avatar_capture(camera, camera_type, serial_connection, current_mode):
             # Show live preview
             frame = capture_frame(camera, camera_type)
             if frame is not None:
-                small_frame = resize_frame(frame, current_mode)
+                small_frame = resize_frame(frame, orient, proc_mode)
                 frame_bytes = convert_to_rgb565(small_frame)
                 send_frame(serial_connection, frame_bytes)
 
@@ -885,7 +875,7 @@ def run_avatar_capture(camera, camera_type, serial_connection, current_mode):
     return captured
 
 
-def _save_manifest(avatar_dir, captured, skipped, session_time):
+def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time: str) -> None:
     """Save a JSON file listing all captured poses."""
     manifest = {
         "session": session_time,
@@ -902,7 +892,7 @@ def _save_manifest(avatar_dir, captured, skipped, session_time):
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame, small_frame):
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
     """
     Display preview windows so you can see what's happening.
 
@@ -925,26 +915,27 @@ def show_preview(original_frame, small_frame):
 # ===========================================
 # FUNCTION: Print help
 # ===========================================
-def print_help(mode, bw, debug):
+def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     """Print the help message with current settings."""
     print("")
-    print("=" * 50)
+    print("=" * 60)
     print("KEYBOARD COMMANDS:")
-    print("  Display: C=crop  S=squish  L=letterbox  P=portrait")
-    print("  Effects: B=B&W   N=normal(color)")
-    print("  Actions: SPACE=snapshot  V=avatar  D=debug  R=reset  H=help  Q=quit")
+    print("  Orientation: L=landscape  P=portrait")
+    print("  Processing:  C=center  S=stretch  R=fit")
+    print("  Effects:     B=toggle B&W/Color")
+    print("  Actions:     SPACE=snapshot  V=avatar  D=debug  H=help  Q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
-    print(f"  Current: Mode={mode}, {bw_str}, Debug={debug_str}")
-    print("=" * 50)
+    print(f"  Current: {orient.title()} + {proc_mode.title()}, {bw_str}, Debug={debug_str}")
+    print("=" * 60)
     print("")
 
 
 # ===========================================
 # MAIN PROGRAM
 # ===========================================
-def main():
+def main() -> None:
     """
     The main program that runs everything!
 
@@ -956,7 +947,7 @@ def main():
     IMPORTANT: We MUST restore the terminal settings when we exit,
     or your terminal will be broken! That's why we use try/finally.
     """
-    global display_mode, black_and_white_mode, debug_output
+    global orientation, processing_mode, black_and_white_mode, debug_output
 
     # ===========================================
     # ADVANCED: Save and modify terminal settings
@@ -990,7 +981,7 @@ def main():
     print("STEP 3: Starting the camera feed!")
     print("=" * 50)
     print("")
-    print_help(display_mode, black_and_white_mode, debug_output)
+    print_help(orientation, processing_mode, black_and_white_mode, debug_output)
     print("Press Ctrl+C to force quit")
     print("")
 
@@ -1007,36 +998,38 @@ def main():
             # Check for keyboard input
             key = check_keyboard()
 
-            # === DISPLAY MODE KEYS ===
-            if key == 'c':
-                display_mode = 'landscape'
-                print("\n=== MODE: LANDSCAPE (center crop) ===\n")
-                continue
-
-            if key == 's':
-                display_mode = 'squish'
-                print("\n=== MODE: SQUISH ===\n")
-                continue
-
+            # === ORIENTATION KEYS ===
             if key == 'l':
-                display_mode = 'letterbox'
-                print("\n=== MODE: LETTERBOX ===\n")
+                orientation = 'landscape'
+                print("\n=== ORIENTATION: LANDSCAPE (Wide) ===\n")
                 continue
 
             if key == 'p':
-                display_mode = 'portrait'
-                print("\n=== MODE: PORTRAIT ===\n")
+                orientation = 'portrait'
+                print("\n=== ORIENTATION: PORTRAIT (Tall) ===\n")
+                continue
+
+            # === PROCESSING MODE KEYS ===
+            if key == 'c':
+                processing_mode = 'center'
+                print("\n=== PROCESSING MODE: CENTER (Crop from center) ===\n")
+                continue
+
+            if key == 's':
+                processing_mode = 'stretch'
+                print("\n=== PROCESSING MODE: STRETCH (Distort to fit) ===\n")
+                continue
+
+            if key == 'r':
+                processing_mode = 'fit'
+                print("\n=== PROCESSING MODE: FIT (Letterbox) ===\n")
                 continue
 
             # === EFFECT KEYS ===
             if key == 'b':
-                black_and_white_mode = True
-                print("\n=== BLACK & WHITE MODE ===\n")
-                continue
-
-            if key == 'n':
-                black_and_white_mode = False
-                print("\n=== COLOR MODE ===\n")
+                black_and_white_mode = not black_and_white_mode
+                mode_str = "BLACK & WHITE" if black_and_white_mode else "COLOR"
+                print(f"\n=== {mode_str} MODE ===\n")
                 continue
 
             # === ACTION KEYS ===
@@ -1046,15 +1039,8 @@ def main():
                 print(f"\n=== DEBUG: {status} ===\n")
                 continue
 
-            if key == 'r':
-                display_mode = 'landscape'
-                black_and_white_mode = False
-                debug_output = True
-                print("\n=== RESET TO DEFAULTS ===\n")
-                continue
-
             if key == 'h':
-                print_help(display_mode, black_and_white_mode, debug_output)
+                print_help(orientation, processing_mode, black_and_white_mode, debug_output)
                 continue
 
             if key == 'q':
@@ -1062,14 +1048,14 @@ def main():
                 break
 
             if key == ' ':
-                run_snapshot(camera, camera_type, serial_connection, display_mode, black_and_white_mode)
+                run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
                 continue
 
             if key == 'v':
-                run_avatar_capture(camera, camera_type, serial_connection, display_mode)
+                run_avatar_capture(camera, camera_type, serial_connection, orientation, processing_mode)
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
                 continue
@@ -1081,7 +1067,7 @@ def main():
                 continue
 
             # Process the frame
-            small_frame = resize_frame(frame, display_mode)
+            small_frame = resize_frame(frame, orientation, processing_mode)
 
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
@@ -1098,7 +1084,7 @@ def main():
             if debug_output and frame_count % 10 == 0:
                 elapsed = time.time() - start_time
                 fps = frame_count / elapsed
-                mode_str = f"[{display_mode.upper()}]"
+                mode_str = f"[{orientation[0].upper()}{processing_mode[0].upper()}]"
                 bw_str = " [B&W]" if black_and_white_mode else ""
                 print(f"  Frames: {frame_count}, FPS: {fps:.1f}, Bytes: {bytes_sent}{mode_str}{bw_str}")
 

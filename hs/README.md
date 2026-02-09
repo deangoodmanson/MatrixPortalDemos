@@ -11,7 +11,9 @@ Compared to the main `sandbox/` and `pi/` folders, this version has:
 - **Debug output** showing what's happening at each step
 - **Visual preview** windows to see the camera and matrix output
 - **Glossary terms** defining technical vocabulary
-- **Removed advanced features** (snapshots, command-line arguments)
+- **Interactive keyboard controls** for display modes and effects
+- **Snapshot feature** with countdown overlay
+- **Avatar capture mode** with guided voice prompts
 - **Beginner-friendly error messages** with troubleshooting tips
 
 ## Files
@@ -92,16 +94,11 @@ Visual Studio Code makes it easy to step through your code line by line and see 
 ### Step 1: Open the folder in VS Code
 
 ```bash
-# On Mac
-cd hs/mac
-code .
-
-# On Raspberry Pi
-cd hs/pi
+cd hs/src
 code .
 ```
 
-Or use File → Open Folder and select `hs/mac` or `hs/pi`.
+Or use File → Open Folder and select `hs/src`.
 
 ### Step 2: Install the Python Extension
 
@@ -235,10 +232,35 @@ What color does the image become?
 - Make sure you see "Connected successfully!"
 - Check that frames are being sent (watch the byte count)
 
+## Keyboard Controls
+
+Once the program is running, you can use these single-key commands:
+
+**Orientation (Display Direction):**
+- `l` = Landscape (Wide, horizontal)
+- `p` = Portrait (Tall, rotates 90°)
+
+**Processing Mode (How Image Fits):**
+- `c` = Center (crop from center)
+- `s` = Stretch (distort to fit)
+- `r` = Fit (letterbox with black bars)
+
+**Effects:**
+- `b` = Toggle Black & White / Color
+
+**Tools:**
+- `Space` = Snapshot (3-2-1 countdown, saves BMP file)
+- `v` = Avatar Capture (guided 18-pose session with voice prompts)
+- `d` = Toggle Debug output
+- `h` = Show help
+- `q` = Quit
+
 ## Next Steps
 
-Once you understand this code, check out the full version in the `sandbox/` and `pi/` folders which includes:
-- Snapshot feature (press Enter to save a picture)
-- 3-2-1 countdown overlay
+Once you understand this code, check out the professional version in the `pro/` folder which includes:
+- Modular architecture with separate modules
+- Type hints and type checking
+- YAML configuration files
 - Command-line arguments
-- Frame rate limiting options
+- Comprehensive unit test suite (136 tests)
+- Better error handling and logging

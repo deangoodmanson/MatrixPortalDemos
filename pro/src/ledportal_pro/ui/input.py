@@ -13,14 +13,15 @@ class InputCommand(Enum):
     """Enumeration of possible input commands."""
 
     NONE = auto()
-    # Display modes
-    MODE_LANDSCAPE = auto()
-    MODE_PORTRAIT = auto()
-    MODE_SQUISH = auto()
-    MODE_LETTERBOX = auto()
+    # Display orientation
+    ORIENTATION_LANDSCAPE = auto()
+    ORIENTATION_PORTRAIT = auto()
+    # Processing modes
+    PROCESSING_CENTER = auto()
+    PROCESSING_STRETCH = auto()
+    PROCESSING_FIT = auto()
     # Effects
-    BLACK_WHITE = auto()
-    COLOR = auto()
+    TOGGLE_BW = auto()
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
@@ -129,19 +130,19 @@ class KeyboardHandler:
             InputResult with the parsed command.
         """
         key_map = {
-            # Display modes
-            "c": InputCommand.MODE_LANDSCAPE,
-            "s": InputCommand.MODE_SQUISH,
-            "l": InputCommand.MODE_LETTERBOX,
-            "p": InputCommand.MODE_PORTRAIT,
+            # Display orientation
+            "l": InputCommand.ORIENTATION_LANDSCAPE,
+            "p": InputCommand.ORIENTATION_PORTRAIT,
+            # Processing modes
+            "c": InputCommand.PROCESSING_CENTER,
+            "s": InputCommand.PROCESSING_STRETCH,
+            "r": InputCommand.PROCESSING_FIT,
             # Effects
-            "b": InputCommand.BLACK_WHITE,
-            "n": InputCommand.COLOR,
+            "b": InputCommand.TOGGLE_BW,
             # Actions
             " ": InputCommand.SNAPSHOT,
             "v": InputCommand.AVATAR,
             "d": InputCommand.TOGGLE_DEBUG,
-            "r": InputCommand.RESET,
             "h": InputCommand.HELP,
             "q": InputCommand.QUIT,
         }
@@ -160,24 +161,22 @@ class KeyboardHandler:
         """
         if line == "":
             return InputResult(InputCommand.SNAPSHOT, line)
-        elif line == "b":
-            return InputResult(InputCommand.BLACK_WHITE, line)
-        elif line == "n":
-            return InputResult(InputCommand.COLOR, line)
-        elif line == "c":
-            return InputResult(InputCommand.MODE_LANDSCAPE, line)
-        elif line == "s":
-            return InputResult(InputCommand.MODE_SQUISH, line)
         elif line == "l":
-            return InputResult(InputCommand.MODE_LETTERBOX, line)
+            return InputResult(InputCommand.ORIENTATION_LANDSCAPE, line)
         elif line == "p":
-            return InputResult(InputCommand.MODE_PORTRAIT, line)
+            return InputResult(InputCommand.ORIENTATION_PORTRAIT, line)
+        elif line == "c":
+            return InputResult(InputCommand.PROCESSING_CENTER, line)
+        elif line == "s":
+            return InputResult(InputCommand.PROCESSING_STRETCH, line)
+        elif line == "r":
+            return InputResult(InputCommand.PROCESSING_FIT, line)
+        elif line == "b":
+            return InputResult(InputCommand.TOGGLE_BW, line)
         elif line == "v":
             return InputResult(InputCommand.AVATAR, line)
         elif line == "d":
             return InputResult(InputCommand.TOGGLE_DEBUG, line)
-        elif line == "r":
-            return InputResult(InputCommand.RESET, line)
         elif line == "h":
             return InputResult(InputCommand.HELP, line)
         elif line in ("q", "quit", "exit"):
@@ -194,7 +193,7 @@ class KeyboardHandler:
             True if abort key was pressed.
         """
         result = self.check_input()
-        if result.command in (InputCommand.SNAPSHOT, InputCommand.RESET):
+        if result.command in (InputCommand.SNAPSHOT, InputCommand.PROCESSING_FIT):
             return True
         return result.raw_input in (" ", "r")
 
@@ -218,23 +217,27 @@ class KeyboardHandler:
         self._enabled = True
 
 
-def print_help(display_mode: str, black_and_white: bool, debug_mode: bool) -> None:
+def print_help(
+    orientation: str, processing_mode: str, black_and_white: bool, debug_mode: bool
+) -> None:
     """Print help message with current settings.
 
     Args:
-        display_mode: Current display mode.
+        orientation: Current orientation (landscape/portrait).
+        processing_mode: Current processing mode (center/stretch/fit).
         black_and_white: Whether B&W mode is active.
         debug_mode: Whether debug mode is active.
     """
     print("")
-    print("=" * 50)
+    print("=" * 60)
     print("Commands (single keypress):")
-    print("  Display: c=crop  s=squish  l=letterbox  p=portrait")
-    print("  Effects: b=B&W  n=normal(color)")
-    print("  Actions: SPACE=snapshot  v=avatar  d=debug  r=reset  h=help  q=quit")
+    print("  Orientation: l=landscape  p=portrait")
+    print("  Processing:  c=center  s=stretch  r=fit")
+    print("  Effects:     b=toggle B&W/Color")
+    print("  Actions:     SPACE=snapshot  v=avatar  d=debug  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
-    print(f"Current: Mode={display_mode}, {bw_str}, Debug={debug_str}")
-    print("=" * 50)
+    print(f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}")
+    print("=" * 60)
     print("")

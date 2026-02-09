@@ -44,7 +44,8 @@ class ProcessingConfig:
     interpolation: str = "linear"  # "nearest" or "linear"
     enable_gamma_correction: bool = False
     gamma: float = 2.2
-    display_mode: str = "landscape"  # "landscape", "portrait", "squish", "letterbox"
+    orientation: str = "landscape"  # "landscape" or "portrait"
+    processing_mode: str = "center"  # "center", "stretch", or "fit"
 
 
 @dataclass
@@ -170,7 +171,8 @@ def save_config(config: AppConfig, config_path: Path | str) -> None:
             "interpolation": config.processing.interpolation,
             "enable_gamma_correction": config.processing.enable_gamma_correction,
             "gamma": config.processing.gamma,
-            "display_mode": config.processing.display_mode,
+            "orientation": config.processing.orientation,
+            "processing_mode": config.processing.processing_mode,
         },
         "ui": {
             "countdown_duration": config.ui.countdown_duration,

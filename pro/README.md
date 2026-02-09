@@ -9,7 +9,7 @@ Captures video from a camera, processes it, and displays on a 32x64 RGB LED matr
 - Cross-platform support (macOS, Raspberry Pi)
 - Pi Camera and USB camera support
 - RGB565 color conversion for LED matrix
-- Four display modes: landscape, portrait, squish, letterbox
+- Three display modes: landscape, portrait, letterbox
 - Snapshot capture with 3-2-1 countdown
 - Avatar capture mode with guided voice prompts
 - Black and white mode
@@ -90,7 +90,7 @@ options:
   --camera CAMERA       Camera index to use (overrides config)
   --port PORT           Serial port to use (overrides auto-detection)
   --bw                  Start in black and white mode
-  --mode {landscape,portrait,squish,letterbox}
+  --mode {landscape,portrait,letterbox}
                         Display mode (overrides config)
 ```
 
@@ -102,9 +102,7 @@ Single keypress (no Enter needed, Mac/Linux only):
 
 | Key | Mode |
 |-----|------|
-| `c` | Landscape (center crop, default) |
-| `s` | Squish (stretch to fit) |
-| `l` | Letterbox (aspect-ratio preserved, black bars) |
+| `l` | Landscape (center crop, default) |
 | `p` | Portrait (rotated vertical display) |
 
 **Effects:**
@@ -112,7 +110,7 @@ Single keypress (no Enter needed, Mac/Linux only):
 | Key | Action |
 |-----|--------|
 | `b` | Black & white mode |
-| `n` | Normal (color) mode |
+| `c` | Color mode |
 
 **Actions:**
 
@@ -189,7 +187,7 @@ uv run pytest tests/ -v
 |--------|-------|-------|
 | `config` | 13 | Defaults, YAML round-trip, error handling |
 | `processing/color` | 17 | RGB565 bit-exact encoding, grayscale, gamma |
-| `processing/resize` | 25 | All 4 modes × varied input shapes, letterbox black bars |
+| `processing/resize` | 25 | All 3 modes × varied input shapes, letterbox black bars |
 | `processing/patterns` | 11 | Byte counts, color distinctness, uniformity |
 | `ui/input` | 24 | Every key binding, line-mode fallback, enum completeness |
 | `ui/overlay` | 9 | Non-mutation, shape, pixel-level drawing |
