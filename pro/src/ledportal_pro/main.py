@@ -140,7 +140,7 @@ def run_snapshot_sequence(
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
-            overlay_frame = draw_countdown_overlay(small_frame, countdown, config.matrix)
+            overlay_frame = draw_countdown_overlay(small_frame, countdown, config.matrix, orientation=orientation)
             frame_bytes = convert_to_rgb565(overlay_frame)
 
             if transport is not None:

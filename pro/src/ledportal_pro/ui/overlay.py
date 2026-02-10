@@ -15,6 +15,7 @@ def draw_countdown_overlay(
     number: int,
     matrix_config: MatrixConfig,
     color: tuple[int, int, int] = (0, 0, 255),
+    orientation: str = "landscape",
 ) -> NDArray[np.uint8]:
     """Draw countdown number overlay on frame.
 
@@ -23,25 +24,59 @@ def draw_countdown_overlay(
         number: Number to display (3, 2, 1).
         matrix_config: Matrix configuration for positioning.
         color: BGR color for the text.
+        orientation: Display orientation ("landscape" or "portrait").
 
     Returns:
         New frame with countdown overlay.
     """
     overlay = frame.copy()
 
-    # Position in lower left corner
-    position = (2, matrix_config.height - 4)
+    if orientation == "portrait":
+        # For portrait mode (frame is already rotated 90° CW)
+        # Draw text rotated 90° CCW so it appears upright
+        # Position in lower right (which was lower left before rotation)
+        text = str(number)
 
-    cv2.putText(
-        overlay,
-        str(number),
-        position,
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,  # Font scale
-        color,
-        2,  # Thickness
-        cv2.LINE_AA,
-    )
+        # Create a rotated text image
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+
+        # Create temporary canvas for text
+        temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
+        cv2.putText(
+            temp,
+            text,
+            (5, text_size[1] + 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
+
+        # Rotate text 90° counter-clockwise
+        rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        # Position in lower right corner
+        h, w = rotated_text.shape[:2]
+        y_start = matrix_config.height - h - 2
+        x_start = matrix_config.width - w - 2
+
+        # Overlay the rotated text (only non-black pixels)
+        mask = np.any(rotated_text > 0, axis=2)
+        overlay[y_start:y_start+h, x_start:x_start+w][mask] = rotated_text[mask]
+    else:
+        # Landscape mode - position in lower left corner
+        position = (2, matrix_config.height - 4)
+        cv2.putText(
+            overlay,
+            str(number),
+            position,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
 
     return overlay
 
