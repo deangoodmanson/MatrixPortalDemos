@@ -29,39 +29,83 @@ Unified version for both macOS and Raspberry Pi:
 
 ## Getting Started
 
-### Simple Setup (Recommended for Beginners & Raspberry Pi)
+### Modern Python Setup (Recommended)
 
-This version is designed to be **simple and educational** - no complex build tools required!
+This version is designed to be **simple and educational** while teaching modern Python practices!
+
+**Why use uv?**
+- ✅ Installs modern Python versions (3.12, 3.13) easily
+- ✅ Manages virtual environments automatically
+- ✅ Faster than pip
+- ✅ Industry best practice for Python development
 
 **Requirements:**
-- Python 3.9+ (already included with Raspberry Pi OS)
-- No uv, no build tools - just basic pip!
-- Works with system Python - no need to install Python 3.14
+- Python 3.12+ (we'll install this with uv)
+- uv package manager (fast, modern Python tooling)
 
-#### On Raspberry Pi (Easiest)
+#### Step 1: Install uv
+
+**On Raspberry Pi / Linux / Mac:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**On Windows:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+#### Step 2: Get the Code
 
 ```bash
-# 1. Get the files (choose one method):
-
-# Method A: Download directly
-cd ~
-mkdir ledportal-hs
-cd ledportal-hs
-wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
-wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
-
-# Method B: Clone the whole repo
+# Method A: Clone the repository (recommended)
 git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
 cd MatrixPortalDemos/hs/src
 
-# 2. Install dependencies (simple pip, no virtual env needed!)
-pip3 install opencv-python pyserial numpy pillow
+# Method B: Download just the files you need
+mkdir ~/ledportal-hs
+cd ~/ledportal-hs
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
+```
 
-# For Pi Camera support:
+#### Step 3: Install Python and Dependencies
+
+```bash
+# uv will automatically install Python 3.13 and create a virtual environment!
+uv venv
+
+# Activate the virtual environment
+source .venv/bin/activate  # Mac/Linux
+# OR on Windows: .venv\Scripts\activate
+
+# Install dependencies
+uv pip install opencv-python pyserial numpy pillow
+
+# On Raspberry Pi, also install Pi Camera support:
 sudo apt install -y python3-picamera2
+uv pip install picamera2
+```
 
-# 3. Run the program
-python3 camera_feed.py
+#### Step 4: Run the Program
+
+```bash
+# Make sure virtual environment is activated
+source .venv/bin/activate
+
+# Run!
+python camera_feed.py
+```
+
+### Quick One-Liner Setup
+
+```bash
+# Clone, create venv, install deps, and run (all in one!)
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git && \
+cd MatrixPortalDemos/hs/src && \
+uv venv && source .venv/bin/activate && \
+uv pip install opencv-python pyserial numpy pillow && \
+python camera_feed.py
 ```
 
 #### Pi-Friendly Editors
@@ -89,29 +133,15 @@ python3 camera_feed.py
 code camera_feed.py
 ```
 
-#### On Mac/Linux (Development Computer)
+### Why Learn uv?
 
-For testing on your main computer before deploying to Pi:
+**For Students:** uv teaches modern Python practices:
+- ✅ **Version management**: Use the right Python for each project
+- ✅ **Virtual environments**: Keep projects isolated (no conflicts!)
+- ✅ **Fast installs**: uv is 10-100x faster than pip
+- ✅ **Industry standard**: Companies use these tools
 
-```bash
-cd hs/src
-
-# Create virtual environment (keeps packages isolated)
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install opencv-python numpy pyserial pillow
-
-# Run
-python camera_feed.py
-```
-
-**Note for Advanced Users:** You can use `uv` if you prefer, but it's not required:
-```bash
-uv venv && source .venv/bin/activate
-uv pip install opencv-python numpy pyserial pillow
-```
+**Fun fact:** uv is made by Astral, the same team behind Ruff (the super-fast linter used by major Python projects like FastAPI, Pydantic, and hundreds of others!)
 
 ## Debugging with VS Code
 
