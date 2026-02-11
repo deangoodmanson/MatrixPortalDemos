@@ -1,6 +1,6 @@
 """LED Portal snapshot processing utilities."""
 
-from .snapshot import bmp_to_png, upscale_led_circles, upscale_pixelated
+from .snapshot import export_blocks, export_circles, export_png
 
-__all__ = ["bmp_to_png", "upscale_pixelated", "upscale_led_circles"]
+__all__ = ["export_png", "export_blocks", "export_circles"]
 __version__ = "0.1.0"

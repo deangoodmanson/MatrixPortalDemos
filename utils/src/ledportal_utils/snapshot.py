@@ -10,8 +10,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 
-def bmp_to_png(input_path: str | Path, output_path: str | Path | None = None) -> Path:
-    """Convert BMP snapshot to PNG format.
+def export_png(input_path: str | Path, output_path: str | Path | None = None) -> Path:
+    """Export snapshot as PNG format.
 
     Args:
         input_path: Path to input BMP file.
@@ -21,7 +21,7 @@ def bmp_to_png(input_path: str | Path, output_path: str | Path | None = None) ->
         Path to the created PNG file.
 
     Example:
-        >>> bmp_to_png("snapshot_20260211_120000.bmp")
+        >>> export_png("snapshot_20260211_120000.bmp")
         PosixPath('snapshot_20260211_120000.png')
     """
     input_path = Path(input_path)
@@ -34,15 +34,15 @@ def bmp_to_png(input_path: str | Path, output_path: str | Path | None = None) ->
     return output_path
 
 
-def upscale_pixelated(
+def export_blocks(
     input_path: str | Path,
     output_path: str | Path | None = None,
     scale_factor: int = 10,
 ) -> Path:
-    """Upscale snapshot with square pixel effect.
+    """Export snapshot with square block effect.
 
-    Each original pixel becomes a scale_factor × scale_factor square, creating
-    a pixelated LED display appearance.
+    Each original pixel becomes a scale_factor × scale_factor square block,
+    creating a blocky display appearance.
 
     Args:
         input_path: Path to input image file (BMP or PNG).
@@ -54,12 +54,12 @@ def upscale_pixelated(
         Path to the created PNG file.
 
     Example:
-        >>> upscale_pixelated("snapshot.bmp", scale_factor=10)
-        PosixPath('snapshot_pixelated.png')
+        >>> export_blocks("snapshot.bmp", scale_factor=10)
+        PosixPath('snapshot_blocks.png')
     """
     input_path = Path(input_path)
     output_path = (
-        input_path.with_stem(f"{input_path.stem}_pixelated").with_suffix(".png")
+        input_path.with_stem(f"{input_path.stem}_blocks").with_suffix(".png")
         if output_path is None
         else Path(output_path)
     )
@@ -80,14 +80,14 @@ def upscale_pixelated(
     return output_path
 
 
-def upscale_led_circles(
+def export_circles(
     input_path: str | Path,
     output_path: str | Path | None = None,
     scale_factor: int = 10,
     led_size_ratio: float = 0.9,
     background_color: tuple[int, int, int] = (0, 0, 0),
 ) -> Path:
-    """Upscale snapshot with circular LED effect.
+    """Export snapshot with circular effect.
 
     Each original pixel becomes a circle on a black background, mimicking the
     appearance of a real LED matrix display.
@@ -106,12 +106,12 @@ def upscale_led_circles(
         Path to the created PNG file.
 
     Example:
-        >>> upscale_led_circles("snapshot.bmp", scale_factor=10, led_size_ratio=0.9)
-        PosixPath('snapshot_led.png')
+        >>> export_circles("snapshot.bmp", scale_factor=10, led_size_ratio=0.9)
+        PosixPath('snapshot_circles.png')
     """
     input_path = Path(input_path)
     output_path = (
-        input_path.with_stem(f"{input_path.stem}_led").with_suffix(".png")
+        input_path.with_stem(f"{input_path.stem}_circles").with_suffix(".png")
         if output_path is None
         else Path(output_path)
     )

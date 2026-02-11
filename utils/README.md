@@ -4,9 +4,9 @@ Snapshot processing utilities for LED Portal projects.
 
 ## Features
 
-- **BMP to PNG conversion**: Convert snapshot BMP files to PNG format
-- **Pixelated upscaling**: Create larger images with square LED pixel effect
-- **LED circle upscaling**: Create larger images with circular LED "bulbs" on black background
+- **PNG export**: Export snapshot files as PNG format
+- **Block export**: Create larger images with square block effect
+- **Circle export**: Create larger images with circular elements on black background
 
 ## Installation
 
@@ -21,16 +21,16 @@ dependencies = [
 ## Usage
 
 ```python
-from ledportal_utils import bmp_to_png, upscale_pixelated, upscale_led_circles
+from ledportal_utils import export_png, export_blocks, export_circles
 
-# Convert BMP to PNG
-bmp_to_png("snapshot.bmp")
+# Export as PNG
+export_png("snapshot.bmp")
 
-# Create pixelated version (10x scale = 640×320 from 64×32)
-upscale_pixelated("snapshot.bmp", scale_factor=10)
+# Export with block effect (10x scale = 640×320 from 64×32)
+export_blocks("snapshot.bmp", scale_factor=10)
 
-# Create LED circle version
-upscale_led_circles("snapshot.bmp", scale_factor=10, led_size_ratio=0.9)
+# Export with circle effect
+export_circles("snapshot.bmp", scale_factor=10, led_size_ratio=0.9)
 ```
 
 ## Development
