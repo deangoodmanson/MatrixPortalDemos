@@ -29,58 +29,75 @@ Unified version for both macOS and Raspberry Pi:
 
 ## Getting Started
 
-### Installing Dependencies with uv
+### Simple Setup (Recommended for Beginners & Raspberry Pi)
 
-We recommend using [uv](https://github.com/astral-sh/uv) by Astral - it's a super fast Python package manager!
+This version is designed to be **simple and educational** - no complex build tools required!
 
-#### Step 1: Install uv
+#### On Raspberry Pi (Easiest)
 
-**On Mac:**
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# 1. Get the files (choose one method):
+
+# Method A: Download directly
+cd ~
+mkdir ledportal-hs
+cd ledportal-hs
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
+
+# Method B: Clone the whole repo
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
+cd MatrixPortalDemos/hs/src
+
+# 2. Install dependencies (simple pip, no virtual env needed!)
+pip3 install opencv-python pyserial numpy pillow
+
+# For Pi Camera support:
+sudo apt install -y python3-picamera2
+
+# 3. Run the program
+python3 camera_feed.py
 ```
 
-**On Raspberry Pi / Linux:**
+#### Pi-Friendly Editors
+
+**Thonny (Recommended for Students)**
+- Pre-installed on Raspberry Pi OS
+- Beginner-friendly with visual debugger
+- No terminal knowledge needed
+
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Open in Thonny
+thonny camera_feed.py
+# Click the green "Run" button or press F5
 ```
 
-**On Windows:**
-```powershell
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+**nano (Quick Terminal Edits)**
+```bash
+nano camera_feed.py
+# Edit, Ctrl+O to save, Ctrl+X to exit
+python3 camera_feed.py
 ```
 
-#### Step 2: Create a virtual environment and install packages
- 
-**On all platforms:**
+**VS Code (Advanced)**
+```bash
+code camera_feed.py
+```
+
+#### On Mac/Linux (Using uv - Optional)
+
+For development on your main computer:
+
 ```bash
 cd hs/src
 uv venv
 source .venv/bin/activate
 uv pip install opencv-python numpy pyserial
-# If on Raspberry Pi, also install:
-# uv pip install picamera2
-```
- 
-#### Step 3: Run the program
- 
-```bash
-cd hs/src
-source .venv/bin/activate
 python camera_feed.py
 ```
- 
-### Quick Start (if you already have uv installed)
- 
-**One-liner:**
+
+Or use regular pip:
 ```bash
-cd hs/src && uv venv && source .venv/bin/activate && uv pip install opencv-python numpy pyserial && python camera_feed.py
-```
- 
-### Alternative: Using pip directly
- 
-```bash
-cd hs/src
 python3 -m venv .venv
 source .venv/bin/activate
 pip install opencv-python numpy pyserial

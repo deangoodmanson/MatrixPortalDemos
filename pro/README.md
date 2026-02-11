@@ -56,6 +56,80 @@ For Pi Camera support on Raspberry Pi:
 uv sync --extra pi
 ```
 
+## Raspberry Pi Workflows
+
+### Option 1: VS Code Remote SSH (Recommended)
+
+Develop on your Mac/PC while testing on real Pi hardware:
+
+```bash
+# 1. On your Mac - Install "Remote - SSH" extension in VS Code
+
+# 2. Add Pi to SSH config (~/.ssh/config):
+Host pi-ledportal
+    HostName 192.168.1.xxx  # Your Pi's IP
+    User pi
+    ForwardAgent yes
+
+# 3. In VS Code:
+#    - CMD+Shift+P → "Remote-SSH: Connect to Host" → pi-ledportal
+#    - Open folder: /home/pi/projects/ledportal
+#    - Edit and run directly on Pi with full VS Code features!
+```
+
+**Advantages:**
+- ✅ Full VS Code IntelliSense, debugging, git
+- ✅ Code runs on actual Pi hardware (camera, serial port)
+- ✅ No file syncing needed
+
+### Option 2: Git Clone on Pi
+
+Standard development workflow:
+
+```bash
+# On Raspberry Pi
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
+cd MatrixPortalDemos/pro
+
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Pi Camera requires system packages
+sudo apt install -y python3-picamera2
+
+# Run
+uv run ledportal
+```
+
+### Option 3: Hybrid Development
+
+Develop on Mac, test on Pi:
+
+```bash
+# On Mac - make changes, commit
+git add .
+git commit -m "Test camera feature"
+git push
+
+# On Pi - pull and test
+git pull
+uv run ledportal
+```
+
+### Pi Camera Testing
+
+```bash
+# Camera features ONLY work on actual Pi hardware
+# Quick test:
+python3 -c "from picamera2 import Picamera2; cam = Picamera2(); print('Camera OK')"
+
+# Run with Pi camera
+uv run ledportal --config config/pi.yaml
+```
+
 ## Usage
 
 ### Run with default configuration
