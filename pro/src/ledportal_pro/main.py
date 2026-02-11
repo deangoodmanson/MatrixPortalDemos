@@ -221,8 +221,10 @@ def main() -> int:
     # Override config with command line args
     if args.camera is not None:
         config.camera.index = args.camera
-    if args.mode is not None:
-        config.processing.display_mode = args.mode
+    if args.orientation is not None:
+        config.processing.orientation = args.orientation
+    if args.processing is not None:
+        config.processing.processing_mode = args.processing
 
     # Print startup info
     print("LED Portal Pro v1.0.0")
@@ -237,7 +239,8 @@ def main() -> int:
     camera = None
     transport = None
     black_and_white = args.bw
-    display_mode = config.processing.display_mode
+    orientation = config.processing.orientation
+    processing_mode = config.processing.processing_mode
     debug_mode = config.ui.debug_mode
 
     try:
@@ -278,7 +281,7 @@ def main() -> int:
         print()
         bw_str = "B&W" if black_and_white else "Color"
         debug_str = "ON" if debug_mode else "OFF"
-        print(f"Current: Mode={display_mode}, {bw_str}, Debug={debug_str}")
+        print(f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}")
         print()
         print("Attempting first frame capture...")
 
@@ -295,24 +298,35 @@ def main() -> int:
                 input_result = keyboard.check_input()
                 cmd = input_result.command
 
-                # Handle display mode changes
-                if cmd == InputCommand.MODE_LANDSCAPE:
-                    display_mode = "landscape"
-                    print("\n=== DISPLAY MODE: LANDSCAPE (center crop) ===\n")
+                # Handle orientation changes
+                if cmd == InputCommand.ORIENTATION_LANDSCAPE:
+                    orientation = "landscape"
+                    print("\n=== ORIENTATION: LANDSCAPE ===\n")
                     continue
-                elif cmd == InputCommand.MODE_PORTRAIT:
-                    display_mode = "portrait"
-                    print("\n=== DISPLAY MODE: PORTRAIT ===\n")
+                elif cmd == InputCommand.ORIENTATION_PORTRAIT:
+                    orientation = "portrait"
+                    print("\n=== ORIENTATION: PORTRAIT ===\n")
+                    continue
+
+                # Handle processing mode changes
+                elif cmd == InputCommand.PROCESSING_CENTER:
+                    processing_mode = "center"
+                    print("\n=== PROCESSING: CENTER CROP ===\n")
+                    continue
+                elif cmd == InputCommand.PROCESSING_STRETCH:
+                    processing_mode = "stretch"
+                    print("\n=== PROCESSING: STRETCH ===\n")
+                    continue
+                elif cmd == InputCommand.PROCESSING_FIT:
+                    processing_mode = "fit"
+                    print("\n=== PROCESSING: FIT (letterbox) ===\n")
                     continue
 
                 # Handle effects
-                elif cmd == InputCommand.BLACK_WHITE:
-                    black_and_white = True
-                    print("\n=== BLACK & WHITE MODE ===\n")
-                    continue
-                elif cmd == InputCommand.COLOR:
-                    black_and_white = False
-                    print("\n=== COLOR MODE (normal) ===\n")
+                elif cmd == InputCommand.TOGGLE_BW:
+                    black_and_white = not black_and_white
+                    mode_str = "BLACK & WHITE" if black_and_white else "COLOR"
+                    print(f"\n=== {mode_str} MODE ===\n")
                     continue
 
                 # Handle actions
@@ -322,14 +336,15 @@ def main() -> int:
                     print(f"\n=== DEBUG MODE: {mode_str} ===\n")
                     continue
                 elif cmd == InputCommand.RESET:
-                    display_mode = "landscape"
+                    orientation = "landscape"
+                    processing_mode = "center"
                     black_and_white = False
                     debug_mode = True
                     print("\n=== RESET TO DEFAULTS ===")
-                    print("Mode=landscape, Color, Debug=ON\n")
+                    print("Orientation=landscape, Processing=center, Color, Debug=ON\n")
                     continue
                 elif cmd == InputCommand.HELP:
-                    print_help(display_mode, black_and_white, debug_mode)
+                    print_help(orientation, processing_mode, black_and_white, debug_mode)
                     continue
                 elif cmd == InputCommand.QUIT:
                     print("\n=== QUIT REQUESTED ===\n")
@@ -342,7 +357,8 @@ def main() -> int:
                         snapshot_manager,
                         keyboard,
                         black_and_white,
-                        display_mode,
+                        orientation,
+                        processing_mode,
                     )
                     keyboard.clear_buffer()
                     continue
@@ -353,7 +369,8 @@ def main() -> int:
                         camera=camera,
                         transport=transport,
                         config=config,
-                        display_mode=display_mode,
+                        orientation=orientation,
+                        processing_mode=processing_mode,
                         resize_fn=resize_frame,
                         convert_fn=convert_to_rgb565,
                     )
@@ -397,7 +414,7 @@ def main() -> int:
                     elapsed = time.time() - start_time
                     fps = frame_count / elapsed
                     bw_status = " [B&W]" if black_and_white else ""
-                    mode_status = f" [{display_mode.upper()}]" if display_mode != "landscape" else ""
+                    mode_status = f" [{orientation}/{processing_mode}]"
                     print(
                         f"Frames: {frame_count}, FPS: {fps:.1f}, "
                         f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}"

@@ -7,6 +7,7 @@ import tty
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import TracebackType
+from typing import Any
 
 
 class InputCommand(Enum):
@@ -61,7 +62,7 @@ class KeyboardHandler:
         """
         self._enabled = True
         self._single_keypress = single_keypress
-        self._old_settings: list[int] | None = None
+        self._old_settings: Any = None
         self._in_context = False
 
     def __enter__(self) -> KeyboardHandler:

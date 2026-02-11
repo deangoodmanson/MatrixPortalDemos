@@ -15,16 +15,15 @@ class TestSingleKeyParsing:
     """Every bound key maps to the correct InputCommand."""
 
     EXPECTED_MAP = {
-        "c": InputCommand.MODE_LANDSCAPE,
-        "s": InputCommand.MODE_SQUISH,
-        "l": InputCommand.MODE_LETTERBOX,
-        "p": InputCommand.MODE_PORTRAIT,
-        "b": InputCommand.BLACK_WHITE,
-        "n": InputCommand.COLOR,
+        "l": InputCommand.ORIENTATION_LANDSCAPE,
+        "p": InputCommand.ORIENTATION_PORTRAIT,
+        "c": InputCommand.PROCESSING_CENTER,
+        "s": InputCommand.PROCESSING_STRETCH,
+        "r": InputCommand.PROCESSING_FIT,
+        "b": InputCommand.TOGGLE_BW,
         " ": InputCommand.SNAPSHOT,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
-        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
         "q": InputCommand.QUIT,
     }
@@ -58,15 +57,14 @@ class TestLineParsing:
     """Fallback line-mode parsing maps the same commands."""
 
     LINE_MAP = {
-        "c": InputCommand.MODE_LANDSCAPE,
-        "s": InputCommand.MODE_SQUISH,
-        "l": InputCommand.MODE_LETTERBOX,
-        "p": InputCommand.MODE_PORTRAIT,
-        "b": InputCommand.BLACK_WHITE,
-        "n": InputCommand.COLOR,
+        "l": InputCommand.ORIENTATION_LANDSCAPE,
+        "p": InputCommand.ORIENTATION_PORTRAIT,
+        "c": InputCommand.PROCESSING_CENTER,
+        "s": InputCommand.PROCESSING_STRETCH,
+        "r": InputCommand.PROCESSING_FIT,
+        "b": InputCommand.TOGGLE_BW,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
-        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
     }
 
@@ -104,8 +102,9 @@ class TestInputCommand:
 
     REQUIRED_COMMANDS = {
         "NONE",
-        "MODE_LANDSCAPE", "MODE_PORTRAIT", "MODE_SQUISH", "MODE_LETTERBOX",
-        "BLACK_WHITE", "COLOR",
+        "ORIENTATION_LANDSCAPE", "ORIENTATION_PORTRAIT",
+        "PROCESSING_CENTER", "PROCESSING_STRETCH", "PROCESSING_FIT",
+        "TOGGLE_BW",
         "SNAPSHOT", "AVATAR",
         "TOGGLE_DEBUG", "RESET", "HELP", "QUIT",
         "ABORT",
