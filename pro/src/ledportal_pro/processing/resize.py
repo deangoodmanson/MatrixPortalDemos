@@ -69,6 +69,11 @@ def resize_frame(
     target_width = matrix_config.width
     target_height = matrix_config.height
 
+    # Swap dimensions for portrait mode BEFORE processing
+    # This ensures the rotated result matches the physical display size
+    if current_orientation == "portrait":
+        target_width, target_height = target_height, target_width
+
     # Apply processing mode
     if current_processing_mode == "fit":
         processed = _resize_letterbox(frame, target_width, target_height, interpolation)

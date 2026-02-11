@@ -15,16 +15,16 @@ class TestSingleKeyParsing:
     """Every bound key maps to the correct InputCommand."""
 
     EXPECTED_MAP = {
-        "c": InputCommand.MODE_LANDSCAPE,
-        "s": InputCommand.MODE_SQUISH,
-        "l": InputCommand.MODE_LETTERBOX,
-        "p": InputCommand.MODE_PORTRAIT,
-        "b": InputCommand.BLACK_WHITE,
-        "n": InputCommand.COLOR,
+        "l": InputCommand.ORIENTATION_LANDSCAPE,
+        "p": InputCommand.ORIENTATION_PORTRAIT,
+        "c": InputCommand.PROCESSING_CENTER,
+        "s": InputCommand.PROCESSING_STRETCH,
+        "r": InputCommand.PROCESSING_FIT,
+        "b": InputCommand.TOGGLE_BW,
+        "z": InputCommand.ZOOM_TOGGLE,
         " ": InputCommand.SNAPSHOT,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
-        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
         "q": InputCommand.QUIT,
     }
@@ -38,9 +38,9 @@ class TestSingleKeyParsing:
 
     def test_unbound_key_returns_none(self):
         handler = KeyboardHandler(single_keypress=False)
-        result = handler._parse_single_key("z")
+        result = handler._parse_single_key("x")
         assert result.command == InputCommand.NONE
-        assert result.raw_input == "z"
+        assert result.raw_input == "x"
 
     def test_uppercase_not_mapped(self):
         """Key map uses lowercase; uppercase should be NONE (caller lowercases)."""
@@ -58,15 +58,15 @@ class TestLineParsing:
     """Fallback line-mode parsing maps the same commands."""
 
     LINE_MAP = {
-        "c": InputCommand.MODE_LANDSCAPE,
-        "s": InputCommand.MODE_SQUISH,
-        "l": InputCommand.MODE_LETTERBOX,
-        "p": InputCommand.MODE_PORTRAIT,
-        "b": InputCommand.BLACK_WHITE,
-        "n": InputCommand.COLOR,
+        "l": InputCommand.ORIENTATION_LANDSCAPE,
+        "p": InputCommand.ORIENTATION_PORTRAIT,
+        "c": InputCommand.PROCESSING_CENTER,
+        "s": InputCommand.PROCESSING_STRETCH,
+        "r": InputCommand.PROCESSING_FIT,
+        "b": InputCommand.TOGGLE_BW,
+        "z": InputCommand.ZOOM_TOGGLE,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
-        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
     }
 
@@ -104,8 +104,9 @@ class TestInputCommand:
 
     REQUIRED_COMMANDS = {
         "NONE",
-        "MODE_LANDSCAPE", "MODE_PORTRAIT", "MODE_SQUISH", "MODE_LETTERBOX",
-        "BLACK_WHITE", "COLOR",
+        "ORIENTATION_LANDSCAPE", "ORIENTATION_PORTRAIT",
+        "PROCESSING_CENTER", "PROCESSING_STRETCH", "PROCESSING_FIT",
+        "TOGGLE_BW", "ZOOM_TOGGLE",
         "SNAPSHOT", "AVATAR",
         "TOGGLE_DEBUG", "RESET", "HELP", "QUIT",
         "ABORT",

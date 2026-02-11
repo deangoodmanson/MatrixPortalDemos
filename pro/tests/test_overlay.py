@@ -34,6 +34,21 @@ class TestDrawCountdownOverlay:
         # At least one pixel should have the green channel == 255
         assert np.any(result[:, :, 1] == 255)
 
+    def test_portrait_orientation_changes_output(self, matrix_config):
+        """Portrait orientation should produce different output than landscape."""
+        frame = np.zeros((32, 64, 3), dtype=np.uint8)
+        result_landscape = draw_countdown_overlay(frame, 3, matrix_config, orientation="landscape")
+        result_portrait = draw_countdown_overlay(frame, 3, matrix_config, orientation="portrait")
+        # The two orientations should produce different results
+        assert not np.array_equal(result_landscape, result_portrait)
+
+    def test_portrait_orientation_draws_something(self, matrix_config):
+        """Portrait mode should actually draw text."""
+        frame = np.zeros((32, 64, 3), dtype=np.uint8)
+        result = draw_countdown_overlay(frame, 2, matrix_config, orientation="portrait")
+        # Should have changed some pixels
+        assert not np.array_equal(result, frame)
+
 
 class TestDrawTextOverlay:
     """Generic text overlay works the same way."""

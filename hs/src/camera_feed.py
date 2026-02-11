@@ -712,15 +712,38 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
 
             # Add countdown number to the frame
             overlay = small_frame.copy()
-            cv2.putText(
-                overlay,
-                str(countdown),
-                (2, MATRIX_HEIGHT - 4),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (0, 0, 255),  # Red color (BGR)
-                2
-            )
+
+            if orient == 'portrait':
+                # For portrait mode, draw rotated text
+                text = str(countdown)
+                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+
+                # Create temporary canvas for text
+                temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
+                cv2.putText(temp, text, (5, text_size[1] + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+
+                # Rotate text 90° counter-clockwise
+                rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+                # Position in lower right corner
+                h, w = rotated_text.shape[:2]
+                y_start = MATRIX_HEIGHT - h - 2
+                x_start = MATRIX_WIDTH - w - 2
+
+                # Overlay the rotated text (only non-black pixels)
+                mask = np.any(rotated_text > 0, axis=2)
+                overlay[y_start:y_start+h, x_start:x_start+w][mask] = rotated_text[mask]
+            else:
+                # Landscape mode - position in lower left corner
+                cv2.putText(
+                    overlay,
+                    str(countdown),
+                    (2, MATRIX_HEIGHT - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 0, 255),  # Red color (BGR)
+                    2
+                )
 
             frame_bytes = convert_to_rgb565(overlay)
             send_frame(serial_connection, frame_bytes)

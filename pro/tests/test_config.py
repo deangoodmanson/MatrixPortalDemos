@@ -26,13 +26,14 @@ class TestDefaults:
         assert config.transport.baud_rate == 2_000_000
         assert config.transport.frame_header == b"IMG1"
 
-    def test_default_display_mode(self):
+    def test_default_orientation_and_processing(self):
         config = AppConfig()
-        assert config.processing.display_mode == "landscape"
+        assert config.processing.orientation == "landscape"
+        assert config.processing.processing_mode == "center"
 
     def test_default_target_fps(self):
         config = AppConfig()
-        assert config.target_fps == 10
+        assert config.target_fps == 30
 
     def test_frame_size_bytes_property(self):
         config = AppConfig()
@@ -41,7 +42,7 @@ class TestDefaults:
 
     def test_frame_time_ms_property(self):
         config = AppConfig()
-        assert config.frame_time_ms == 100.0  # 1000 / 10 fps
+        assert config.frame_time_ms == pytest.approx(33.33, rel=0.01)  # 1000 / 30 fps
 
 
 class TestLoadConfig:
@@ -50,7 +51,7 @@ class TestLoadConfig:
     def test_load_none_returns_defaults(self):
         config = load_config(None)
         assert config.matrix.width == 64
-        assert config.target_fps == 10
+        assert config.target_fps == 30
 
     def test_load_missing_file_raises(self, tmp_path):
         with pytest.raises(ConfigNotFoundError):
@@ -92,7 +93,8 @@ class TestSaveAndRoundTrip:
         original.matrix.width = 128
         original.matrix.height = 64
         original.target_fps = 30
-        original.processing.display_mode = "letterbox"
+        original.processing.orientation = "portrait"
+        original.processing.processing_mode = "fit"
 
         path = tmp_path / "roundtrip.yaml"
         save_config(original, path)
@@ -101,7 +103,8 @@ class TestSaveAndRoundTrip:
         assert loaded.matrix.width == 128
         assert loaded.matrix.height == 64
         assert loaded.target_fps == 30
-        assert loaded.processing.display_mode == "letterbox"
+        assert loaded.processing.orientation == "portrait"
+        assert loaded.processing.processing_mode == "fit"
 
     def test_round_trip_preserves_frame_header(self, tmp_path):
         original = AppConfig()
