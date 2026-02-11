@@ -33,6 +33,11 @@ Unified version for both macOS and Raspberry Pi:
 
 This version is designed to be **simple and educational** - no complex build tools required!
 
+**Requirements:**
+- Python 3.9+ (already included with Raspberry Pi OS)
+- No uv, no build tools - just basic pip!
+- Works with system Python - no need to install Python 3.14
+
 #### On Raspberry Pi (Easiest)
 
 ```bash
@@ -84,24 +89,28 @@ python3 camera_feed.py
 code camera_feed.py
 ```
 
-#### On Mac/Linux (Using uv - Optional)
+#### On Mac/Linux (Development Computer)
 
-For development on your main computer:
+For testing on your main computer before deploying to Pi:
 
 ```bash
 cd hs/src
-uv venv
+
+# Create virtual environment (keeps packages isolated)
+python3 -m venv .venv
 source .venv/bin/activate
-uv pip install opencv-python numpy pyserial
+
+# Install dependencies
+pip install opencv-python numpy pyserial pillow
+
+# Run
 python camera_feed.py
 ```
 
-Or use regular pip:
+**Note for Advanced Users:** You can use `uv` if you prefer, but it's not required:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install opencv-python numpy pyserial
-python camera_feed.py
+uv venv && source .venv/bin/activate
+uv pip install opencv-python numpy pyserial pillow
 ```
 
 ## Debugging with VS Code
