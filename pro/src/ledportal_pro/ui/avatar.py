@@ -102,6 +102,7 @@ class AvatarCaptureManager:
         config: AppConfig,
         orientation: str,
         processing_mode: str,
+        zoom_level: float,
         resize_fn: Callable[..., Any],
         convert_fn: Callable[..., Any],
     ) -> AvatarSession:
@@ -113,6 +114,7 @@ class AvatarCaptureManager:
             config: Application configuration.
             orientation: Current orientation (landscape/portrait).
             processing_mode: Current processing mode (center/stretch/fit).
+            zoom_level: Current zoom level (0.25-1.0).
             resize_fn: Function to resize frames.
             convert_fn: Function to convert to RGB565.
 
@@ -140,6 +142,7 @@ class AvatarCaptureManager:
                 config=config,
                 orientation=orientation,
                 processing_mode=processing_mode,
+                zoom_level=zoom_level,
                 resize_fn=resize_fn,
                 convert_fn=convert_fn,
                 avatar_dir=avatar_dir,
@@ -179,6 +182,7 @@ class AvatarCaptureManager:
         config: AppConfig,
         orientation: str,
         processing_mode: str,
+        zoom_level: float,
         resize_fn: Callable[..., Any],
         convert_fn: Callable[..., Any],
         avatar_dir: Path,
@@ -209,6 +213,13 @@ class AvatarCaptureManager:
             # Capture and display live preview
             try:
                 frame = camera.capture()
+
+                # Apply zoom
+                if zoom_level < 1.0:
+                    from ..processing import apply_zoom_crop
+
+                    frame = apply_zoom_crop(frame, zoom_level)
+
                 small_frame = resize_fn(
                     frame, config.matrix, config.processing, orientation, processing_mode
                 )

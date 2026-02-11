@@ -21,6 +21,7 @@ class TestSingleKeyParsing:
         "s": InputCommand.PROCESSING_STRETCH,
         "r": InputCommand.PROCESSING_FIT,
         "b": InputCommand.TOGGLE_BW,
+        "z": InputCommand.ZOOM_TOGGLE,
         " ": InputCommand.SNAPSHOT,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
@@ -37,9 +38,9 @@ class TestSingleKeyParsing:
 
     def test_unbound_key_returns_none(self):
         handler = KeyboardHandler(single_keypress=False)
-        result = handler._parse_single_key("z")
+        result = handler._parse_single_key("x")
         assert result.command == InputCommand.NONE
-        assert result.raw_input == "z"
+        assert result.raw_input == "x"
 
     def test_uppercase_not_mapped(self):
         """Key map uses lowercase; uppercase should be NONE (caller lowercases)."""
@@ -63,6 +64,7 @@ class TestLineParsing:
         "s": InputCommand.PROCESSING_STRETCH,
         "r": InputCommand.PROCESSING_FIT,
         "b": InputCommand.TOGGLE_BW,
+        "z": InputCommand.ZOOM_TOGGLE,
         "v": InputCommand.AVATAR,
         "d": InputCommand.TOGGLE_DEBUG,
         "h": InputCommand.HELP,
@@ -104,7 +106,7 @@ class TestInputCommand:
         "NONE",
         "ORIENTATION_LANDSCAPE", "ORIENTATION_PORTRAIT",
         "PROCESSING_CENTER", "PROCESSING_STRETCH", "PROCESSING_FIT",
-        "TOGGLE_BW",
+        "TOGGLE_BW", "ZOOM_TOGGLE",
         "SNAPSHOT", "AVATAR",
         "TOGGLE_DEBUG", "RESET", "HELP", "QUIT",
         "ABORT",

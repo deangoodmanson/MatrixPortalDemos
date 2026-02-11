@@ -23,6 +23,7 @@ class InputCommand(Enum):
     PROCESSING_FIT = auto()
     # Effects
     TOGGLE_BW = auto()
+    ZOOM_TOGGLE = auto()
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
@@ -140,6 +141,7 @@ class KeyboardHandler:
             "r": InputCommand.PROCESSING_FIT,
             # Effects
             "b": InputCommand.TOGGLE_BW,
+            "z": InputCommand.ZOOM_TOGGLE,
             # Actions
             " ": InputCommand.SNAPSHOT,
             "v": InputCommand.AVATAR,
@@ -174,6 +176,8 @@ class KeyboardHandler:
             return InputResult(InputCommand.PROCESSING_FIT, line)
         elif line == "b":
             return InputResult(InputCommand.TOGGLE_BW, line)
+        elif line == "z":
+            return InputResult(InputCommand.ZOOM_TOGGLE, line)
         elif line == "v":
             return InputResult(InputCommand.AVATAR, line)
         elif line == "d":
@@ -219,7 +223,11 @@ class KeyboardHandler:
 
 
 def print_help(
-    orientation: str, processing_mode: str, black_and_white: bool, debug_mode: bool
+    orientation: str,
+    processing_mode: str,
+    black_and_white: bool,
+    debug_mode: bool,
+    zoom_level: float = 1.0,
 ) -> None:
     """Print help message with current settings.
 
@@ -228,17 +236,21 @@ def print_help(
         processing_mode: Current processing mode (center/stretch/fit).
         black_and_white: Whether B&W mode is active.
         debug_mode: Whether debug mode is active.
+        zoom_level: Current zoom level (0.25-1.0).
     """
     print("")
     print("=" * 60)
     print("Commands (single keypress):")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  r=fit")
-    print("  Effects:     b=toggle B&W/Color")
+    print("  Effects:     b=toggle B&W/Color  z=zoom toggle")
     print("  Actions:     SPACE=snapshot  v=avatar  d=debug  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
-    print(f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}")
+    zoom_pct = int(zoom_level * 100)
+    print(
+        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+    )
     print("=" * 60)
     print("")
