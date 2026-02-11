@@ -1,37 +1,25 @@
 [project]
-name = "ledportal-pro"
-version = "1.0.0"
-description = "Professional LED Matrix camera feed system for Raspberry Pi and macOS"
+name = "ledportal-utils"
+version = "0.1.0"
+description = "Snapshot processing utilities for LED Portal"
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "LED Portal Team" }]
 dependencies = [
-    "numpy>=1.24.0",
-    "opencv-python>=4.8.0",
-    "pyserial>=3.5",
-    "pyyaml>=6.0",
     "pillow>=10.0.0",
-    "ledportal-utils @ file:///Users/frank/projects/ledportal/utils",
+    "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
-# Note: picamera2 only works on Raspberry Pi (Linux). Install manually on Pi:
-# pip install picamera2
 dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]
-
-[project.scripts]
-ledportal = "ledportal_pro.main:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ledportal_pro"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
+packages = ["src/ledportal_utils"]
 
 [dependency-groups]
 dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]
@@ -60,7 +48,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ledportal_pro"]
+known-first-party = ["ledportal_utils"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -72,8 +60,7 @@ line-ending = "auto"
 python-version = "3.14"
 
 [tool.ty.rules]
-# Ignore unresolved-import for optional dependencies (picamera2)
-unresolved-import = "ignore"
-# Ignore numpy array type mismatches - OpenCV returns generic arrays
-invalid-return-type = "warn"
-unsupported-operator = "ignore"
+# Strict type checking for utility library
+invalid-return-type = "error"
+unresolved-import = "error"
+unsupported-operator = "warn"
