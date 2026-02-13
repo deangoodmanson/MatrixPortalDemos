@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-display",
         action="store_true",
-        help="Run without connecting to Matrix Portal (test mode)",
+        help="Start with display output paused (toggle with 't' key)",
     )
     parser.add_argument(
         "--camera",
@@ -290,6 +290,8 @@ def main() -> int:
     processing_mode = config.processing.processing_mode
     debug_mode = config.ui.debug_mode
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
+    display_enabled = not args.no_display  # User's intent to send to display
+    display_status = "unknown"  # Current display status with reason
 
     try:
         # Setup camera
@@ -320,24 +322,26 @@ def main() -> int:
         print("=" * 60)
         print()
 
-        # Setup transport (optional)
-        if not args.no_display:
-            transport = create_transport(config.transport)
-            try:
-                transport.connect(args.port)
-                print(f"Connected to Matrix Portal on {transport.port}")
+        # Setup transport
+        transport = create_transport(config.transport)
+        try:
+            transport.connect(args.port)
+            print(f"Connected to Matrix Portal on {transport.port}")
 
-                # Send test patterns to verify connection
+            # Send test patterns to verify connection (only if display enabled)
+            if display_enabled:
                 test_pattern = create_test_pattern(config.matrix)
                 for i in range(5):
                     bytes_sent = transport.send_frame(test_pattern)
                     print(f"Test pattern {i + 1} sent: {bytes_sent} bytes")
                     time.sleep(0.1)
                 print("Verification frames sent.")
-            except DeviceNotFoundError as e:
-                print(f"Warning: {e}")
-                print("Running in test mode (no display)")
-                transport = None
+            else:
+                print("Display paused (--no-display flag). Press 't' to enable.")
+        except DeviceNotFoundError as e:
+            print(f"Warning: {e}")
+            print("Display paused (device not found). Press 't' to retry.")
+            transport = None
 
         # Setup UI components
         snapshot_manager = SnapshotManager()
@@ -346,9 +350,11 @@ def main() -> int:
         print("Starting capture loop...")
         print()
         print("Commands (single keypress):")
-        print("  Display: l=landscape  p=portrait")
-        print("  Effects: b=B&W  c=color  z=zoom")
-        print("  Actions: SPACE=snapshot  v=avatar  d=debug  r=reset  h=help  q=quit")
+        print("  Orientation: l=landscape  p=portrait")
+        print("  Processing:  c=center  s=stretch  f=fit")
+        print("  Effects:     b=B&W toggle  z=zoom")
+        print("  Actions:     SPACE=snapshot  v=avatar")
+        print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
         print()
         bw_str = "B&W" if black_and_white else "Color"
         debug_str = "ON" if debug_mode else "OFF"
@@ -416,6 +422,24 @@ def main() -> int:
                     continue
 
                 # Handle actions
+                elif cmd == InputCommand.TOGGLE_DISPLAY:
+                    display_enabled = not display_enabled
+                    if display_enabled:
+                        print("\n=== DISPLAY: ENABLED ===")
+                        if transport is None:
+                            print("Attempting to reconnect to Matrix Portal...")
+                            try:
+                                transport = create_transport(config.transport)
+                                transport.connect(args.port)
+                                print(f"Connected to Matrix Portal on {transport.port}\n")
+                            except DeviceNotFoundError as e:
+                                print(f"Connection failed: {e}\n")
+                                transport = None
+                        else:
+                            print()
+                    else:
+                        print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                    continue
                 elif cmd == InputCommand.TOGGLE_DEBUG:
                     debug_mode = not debug_mode
                     mode_str = "ON" if debug_mode else "OFF"
@@ -427,8 +451,9 @@ def main() -> int:
                     black_and_white = False
                     debug_mode = True
                     zoom_level = 1.0
+                    display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
-                    print("Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%\n")
+                    print("Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%, Display=ON\n")
                     continue
                 elif cmd == InputCommand.HELP:
                     print_help(orientation, processing_mode, black_and_white, debug_mode, zoom_level)
@@ -492,15 +517,24 @@ def main() -> int:
                 # Convert and send
                 frame_bytes = convert_to_rgb565(small_frame)
                 bytes_sent = 0
-                if transport is not None:
+
+                # Determine display status and send if enabled
+                if not display_enabled:
+                    display_status = "PAUSED (user)"
+                elif transport is None:
+                    display_status = "PAUSED (no device)"
+                else:
                     try:
                         bytes_sent = transport.send_frame(frame_bytes)
+                        display_status = "ACTIVE"
                     except Exception as e:
-                        print(f"Send failed: {e}")
+                        display_status = f"PAUSED (error: {e})"
+                        if frame_count % 30 == 0:  # Only print error occasionally
+                            print(f"Display send failed: {e}")
 
                 # Frame counting and stats
                 frame_count += 1
-                if frame_count == 1:
+                if frame_count == 1 and display_status == "ACTIVE":
                     print(f"First frame sent: {bytes_sent} bytes")
 
                 if debug_mode and frame_count % 10 == 0:
@@ -509,9 +543,10 @@ def main() -> int:
                     bw_status = " [B&W]" if black_and_white else ""
                     mode_status = f" [{orientation}/{processing_mode}]"
                     zoom_status = f" [zoom={int(zoom_level * 100)}%]" if zoom_level < 1.0 else ""
+                    display_info = f", Display: {display_status}" if display_status != "ACTIVE" else ""
                     print(
                         f"Frames: {frame_count}, FPS: {fps:.1f}, "
-                        f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}"
+                        f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"
                     )
 
                 # Frame rate limiting
