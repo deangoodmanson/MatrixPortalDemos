@@ -196,12 +196,17 @@ def run_snapshot_sequence(
         frame_bytes = convert_to_rgb565(small_frame)
 
         # Save snapshot
-        image_path, rgb565_path = snapshot_manager.save(small_frame, frame_bytes)
+        snapshot_path, debug_path, rgb565_path = snapshot_manager.save(
+            small_frame, frame_bytes, orientation, debug_mode=debug_mode
+        )
         print(f"\n{'=' * 60}")
         print("SNAPSHOT SAVED:")
-        print(f"  Color BMP: {image_path}")
-        if rgb565_path:
-            print(f"  RGB565 data: {rgb565_path}")
+        print(f"  Snapshot: {snapshot_path}")
+        if debug_mode:
+            if debug_path:
+                print(f"  Debug raw: {debug_path}")
+            if rgb565_path:
+                print(f"  Debug RGB565: {rgb565_path}")
         print(f"{'=' * 60}\n")
 
         # Send to display

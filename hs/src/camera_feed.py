@@ -659,37 +659,55 @@ def draw_border(frame: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0)) ->
 # ===========================================
 # FUNCTION: Save a snapshot
 # ===========================================
-def save_snapshot(frame: np.ndarray, frame_bytes: bytes) -> Tuple[str, str]:
+def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode: bool = False) -> str:
     """
     Save the current frame to disk.
 
     WHAT'S SAVED:
-    - A .bmp image file (viewable in any image viewer)
-    - A .bin file with raw RGB565 data (for the LED matrix)
+    - A .bmp snapshot file (viewable in any image viewer, properly oriented for PC viewing)
+    - Debug files (only if debug_mode=True):
+      - A raw .bmp file showing exact LED matrix frame (64x32)
+      - A .bin file with raw RGB565 data
 
     The filename includes a timestamp so each snapshot is unique.
 
     RETURNS:
-    - The filename of the saved image
+    - The filename of the saved snapshot image
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Save the image
-    image_filename = f"snapshot_{timestamp}.bmp"
-    cv2.imwrite(image_filename, frame)
+    # Create properly oriented snapshot for viewing on PC
+    if orient == "portrait":
+        # Rotate back 90° CCW so it appears upright (32x64 tall)
+        viewer_frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    else:
+        # Landscape stays as-is (64x32 wide)
+        viewer_frame = frame
 
-    # Save the raw RGB565 data
-    rgb565_filename = f"snapshot_{timestamp}_rgb565.bin"
-    with open(rgb565_filename, 'wb') as f:
-        f.write(frame_bytes)
+    # Always save the viewer-oriented snapshot
+    snapshot_filename = f"snapshot_{timestamp}.bmp"
+    cv2.imwrite(snapshot_filename, viewer_frame)
 
     print(f"\n{'='*60}")
     print(f"SNAPSHOT SAVED:")
-    print(f"  Color BMP: {image_filename}")
-    print(f"  RGB565 data: {rgb565_filename}")
+    print(f"  Snapshot: {snapshot_filename}")
+
+    # Debug files (only in debug mode)
+    if debug_mode:
+        # Save raw LED matrix frame (64x32 with rotation applied)
+        debug_filename = f"snapshot_{timestamp}_raw.bmp"
+        cv2.imwrite(debug_filename, frame)
+        print(f"  Debug raw: {debug_filename}")
+
+        # Save RGB565 binary data
+        rgb565_filename = f"snapshot_{timestamp}_rgb565.bin"
+        with open(rgb565_filename, 'wb') as f:
+            f.write(frame_bytes)
+        print(f"  Debug RGB565: {rgb565_filename}")
+
     print(f"{'='*60}\n")
 
-    return image_filename
+    return snapshot_filename
 
 
 # ===========================================
@@ -793,7 +811,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
         small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
 
         frame_bytes = convert_to_rgb565(small_frame)
-        save_snapshot(small_frame, frame_bytes)
+        save_snapshot(small_frame, frame_bytes, orient, debug_output)
         send_frame(serial_connection, frame_bytes)
 
         # Pause to admire
