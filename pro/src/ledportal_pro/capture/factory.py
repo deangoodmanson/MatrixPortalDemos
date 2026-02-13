@@ -100,24 +100,26 @@ def list_available_cameras() -> list[dict[str, str | int | float]]:
                 # Get default resolution from first sensor mode
                 if sensor_modes:
                     mode = sensor_modes[0]
-                    width = mode['size'][0]
-                    height = mode['size'][1]
+                    width = mode["size"][0]
+                    height = mode["size"][1]
                     resolution = f"{width}x{height}"
                 else:
                     resolution = "unknown"
                     width = 0
                     height = 0
 
-                cameras.append({
-                    "index": 0,
-                    "type": "picamera",
-                    "backend": "libcamera",
-                    "resolution": resolution,
-                    "width": width,
-                    "height": height,
-                    "fps": "varies",
-                    "name": camera_props.get('Model', 'Pi Camera'),
-                })
+                cameras.append(
+                    {
+                        "index": 0,
+                        "type": "picamera",
+                        "backend": "libcamera",
+                        "resolution": resolution,
+                        "width": width,
+                        "height": height,
+                        "fps": "varies",
+                        "name": camera_props.get("Model", "Pi Camera"),
+                    }
+                )
                 picam.close()
             except Exception:
                 pass

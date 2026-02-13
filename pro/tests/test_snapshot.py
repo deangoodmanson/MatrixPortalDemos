@@ -18,22 +18,25 @@ class TestSnapshotManager:
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
 
-        image_path, rgb565_path = manager.save(frame)
+        image_path, debug_path, rgb565_path = manager.save(frame)
 
         assert image_path.exists()
         assert image_path.suffix == ".bmp"
         assert image_path.name.startswith("snapshot_")
-        # No rgb565 bytes provided → no bin file
+        # No debug mode → no debug files
+        assert debug_path is None
         assert rgb565_path is None
 
-    def test_save_creates_bmp_and_bin(self, tmp_path):
+    def test_save_creates_bmp_and_bin_in_debug_mode(self, tmp_path):
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
         raw = b"\x00" * (64 * 32 * 2)
 
-        image_path, rgb565_path = manager.save(frame, frame_bytes=raw)
+        image_path, debug_path, rgb565_path = manager.save(frame, frame_bytes=raw, debug_mode=True)
 
         assert image_path.exists()
+        assert debug_path is not None
+        assert debug_path.exists()
         assert rgb565_path is not None
         assert rgb565_path.exists()
         assert rgb565_path.suffix == ".bin"
@@ -43,7 +46,7 @@ class TestSnapshotManager:
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
 
-        image_path, _ = manager.save(frame, prefix="avatar_front")
+        image_path, _, _ = manager.save(frame, prefix="avatar_front")
 
         assert image_path.name.startswith("avatar_front_")
 

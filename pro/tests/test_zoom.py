@@ -1,7 +1,6 @@
 """Tests for zoom crop processing."""
 
 import numpy as np
-import pytest
 
 from ledportal_pro.processing.zoom import apply_zoom_crop
 

@@ -24,9 +24,9 @@ def sample_bmp(temp_dir: Path) -> Path:
     for y in range(height):
         for x in range(width):
             img_array[y, x] = [
-                int((x / width) * 255),      # Red gradient
-                int((y / height) * 255),     # Green gradient
-                128,                          # Constant blue
+                int((x / width) * 255),  # Red gradient
+                int((y / height) * 255),  # Green gradient
+                128,  # Constant blue
             ]
 
     # Convert to PIL and save as BMP

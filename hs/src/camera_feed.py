@@ -831,7 +831,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
 # ===========================================
 # FUNCTION: Avatar capture mode
 # ===========================================
-def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> None:
+def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> list:
     """
     Guided avatar capture session with voice prompts.
 

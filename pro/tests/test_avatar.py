@@ -63,7 +63,12 @@ class TestManifestSaving:
 
         session = AvatarSession(session_time="20260201_100000", total_poses=18)
         session.captured.append(
-            CapturedPose(pose_number=1, angle="front", expression="neutral", filename="avatar_front_neutral.bmp")
+            CapturedPose(
+                pose_number=1,
+                angle="front",
+                expression="neutral",
+                filename="avatar_front_neutral.bmp",
+            )
         )
         session.skipped.append({"pose": 2, "angle": "front", "expression": "smile"})
 

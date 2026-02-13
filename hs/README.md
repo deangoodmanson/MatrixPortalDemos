@@ -18,8 +18,6 @@ Compared to the main `sandbox/` and `pi/` folders, this version has:
 
 ## Files
 
-## Files
- 
 ### src/
 Unified version for both macOS and Raspberry Pi:
 - `config.py` - Settings with explanations

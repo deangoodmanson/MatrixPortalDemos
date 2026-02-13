@@ -45,16 +45,16 @@ class OpenCVCamera(CameraBase):
             # Verify camera can actually capture frames with this resolution
             ret, test_frame = self._cap.read()
             if not ret or test_frame is None:
-                print(
-                    f"Warning: Camera doesn't support {self._config.width}x{self._config.height}"
-                )
+                print(f"Warning: Camera doesn't support {self._config.width}x{self._config.height}")
 
                 # Reset to use native resolution
                 self._cap.release()
                 self._cap = cv2.VideoCapture(self._config.index)
 
                 if not self._cap.isOpened():
-                    raise CameraNotFoundError(f"Failed to reopen camera at index {self._config.index}")
+                    raise CameraNotFoundError(
+                        f"Failed to reopen camera at index {self._config.index}"
+                    )
 
                 ret, test_frame = self._cap.read()
                 if not ret or test_frame is None:

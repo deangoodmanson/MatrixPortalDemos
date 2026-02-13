@@ -3,9 +3,7 @@
 import numpy as np
 import pytest
 
-from ledportal_pro.config import MatrixConfig, ProcessingConfig
 from ledportal_pro.processing.resize import ORIENTATIONS, PROCESSING_MODES, resize_frame
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,35 +29,45 @@ class TestOutputDimensions:
     @pytest.mark.parametrize("processing_mode", PROCESSING_MODES)
     def test_standard_input(self, matrix_config, orientation, processing_mode):
         frame = make_frame(480, 640)
-        result = resize_frame(frame, matrix_config, orientation=orientation, processing_mode=processing_mode)
+        result = resize_frame(
+            frame, matrix_config, orientation=orientation, processing_mode=processing_mode
+        )
         assert result.shape == (matrix_config.height, matrix_config.width, 3)
 
     @pytest.mark.parametrize("orientation", ORIENTATIONS)
     @pytest.mark.parametrize("processing_mode", PROCESSING_MODES)
     def test_square_input(self, matrix_config, orientation, processing_mode):
         frame = make_frame(500, 500)
-        result = resize_frame(frame, matrix_config, orientation=orientation, processing_mode=processing_mode)
+        result = resize_frame(
+            frame, matrix_config, orientation=orientation, processing_mode=processing_mode
+        )
         assert result.shape == (matrix_config.height, matrix_config.width, 3)
 
     @pytest.mark.parametrize("orientation", ORIENTATIONS)
     @pytest.mark.parametrize("processing_mode", PROCESSING_MODES)
     def test_wide_input(self, matrix_config, orientation, processing_mode):
         frame = make_frame(100, 1920)
-        result = resize_frame(frame, matrix_config, orientation=orientation, processing_mode=processing_mode)
+        result = resize_frame(
+            frame, matrix_config, orientation=orientation, processing_mode=processing_mode
+        )
         assert result.shape == (matrix_config.height, matrix_config.width, 3)
 
     @pytest.mark.parametrize("orientation", ORIENTATIONS)
     @pytest.mark.parametrize("processing_mode", PROCESSING_MODES)
     def test_tall_input(self, matrix_config, orientation, processing_mode):
         frame = make_frame(1920, 100)
-        result = resize_frame(frame, matrix_config, orientation=orientation, processing_mode=processing_mode)
+        result = resize_frame(
+            frame, matrix_config, orientation=orientation, processing_mode=processing_mode
+        )
         assert result.shape == (matrix_config.height, matrix_config.width, 3)
 
     @pytest.mark.parametrize("orientation", ORIENTATIONS)
     @pytest.mark.parametrize("processing_mode", PROCESSING_MODES)
     def test_already_target_size(self, matrix_config, orientation, processing_mode):
         frame = make_frame(32, 64)
-        result = resize_frame(frame, matrix_config, orientation=orientation, processing_mode=processing_mode)
+        result = resize_frame(
+            frame, matrix_config, orientation=orientation, processing_mode=processing_mode
+        )
         assert result.shape == (32, 64, 3)
 
 
@@ -76,13 +84,21 @@ class TestCenterMode:
         processing_config.orientation = "portrait"
         processing_config.processing_mode = "fit"
         frame = make_frame(480, 640)
-        result = resize_frame(frame, matrix_config, processing_config, orientation="landscape", processing_mode="center")
+        result = resize_frame(
+            frame,
+            matrix_config,
+            processing_config,
+            orientation="landscape",
+            processing_mode="center",
+        )
         assert result.shape == (32, 64, 3)
 
     def test_none_processing_config_defaults(self, matrix_config):
         """None config defaults to landscape + center."""
         frame = make_frame(480, 640)
-        result = resize_frame(frame, matrix_config, processing_config=None, orientation=None, processing_mode=None)
+        result = resize_frame(
+            frame, matrix_config, processing_config=None, orientation=None, processing_mode=None
+        )
         assert result.shape == (32, 64, 3)
 
 
@@ -119,7 +135,9 @@ class TestStretchMode:
     def test_solid_color_preserved(self, matrix_config):
         """A solid-color frame stays solid after stretch (no black bars)."""
         frame = make_frame(480, 640, color=[50, 100, 150])
-        result = resize_frame(frame, matrix_config, orientation="landscape", processing_mode="stretch")
+        result = resize_frame(
+            frame, matrix_config, orientation="landscape", processing_mode="stretch"
+        )
         # Every pixel should be close to the input color (interpolation may shift ±1)
         assert np.all(np.abs(result.astype(int) - np.array([50, 100, 150])) <= 1)
 
@@ -129,7 +147,9 @@ class TestPortraitOrientation:
 
     def test_output_is_correct_shape(self, matrix_config):
         frame = make_frame(480, 640)
-        result = resize_frame(frame, matrix_config, orientation="portrait", processing_mode="center")
+        result = resize_frame(
+            frame, matrix_config, orientation="portrait", processing_mode="center"
+        )
         # Shape is still (matrix_height, matrix_width) = (32, 64) after rotation
         assert result.shape == (32, 64, 3)
 

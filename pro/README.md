@@ -2,7 +2,7 @@
 
 Professional LED Matrix camera feed system for Raspberry Pi and macOS.
 
-Captures video from a camera, processes it, and displays on a 32x64 RGB LED matrix via an Adafruit Matrix Portal M4 controller.
+Captures video from a camera, processes it, and displays on a 64x32 RGB LED matrix via an Adafruit Matrix Portal M4 controller.
 
 ## Features
 
@@ -153,6 +153,8 @@ uv run ledportal --config config/pi.yaml
 ```
 usage: ledportal [-h] [--config CONFIG] [--frames FRAMES] [--no-display]
                  [--camera CAMERA] [--port PORT] [--bw]
+                 [--orientation {landscape,portrait}]
+                 [--processing {center,stretch,fit}]
 
 LED Portal Pro - Camera feed for LED matrix display
 
@@ -164,34 +166,45 @@ options:
   --camera CAMERA       Camera index to use (overrides config)
   --port PORT           Serial port to use (overrides auto-detection)
   --bw                  Start in black and white mode
-  --mode {landscape,portrait,letterbox}
-                        Display mode (overrides config)
+  --orientation {landscape,portrait}
+                        Display orientation (overrides config)
+  --processing {center,stretch,fit}
+                        Processing mode (overrides config)
 ```
 
 ### Interactive Controls
 
 Single keypress (no Enter needed, Mac/Linux only):
 
-**Display modes:**
+**Orientation:**
 
 | Key | Mode |
 |-----|------|
-| `l` | Landscape (center crop, default) |
-| `p` | Portrait (rotated vertical display) |
+| `l` | Landscape (wide, default) |
+| `p` | Portrait (tall, rotated 90°) |
+
+**Processing:**
+
+| Key | Mode |
+|-----|------|
+| `c` | Center crop (default) |
+| `s` | Stretch to fit |
+| `f` | Fit with letterbox |
 
 **Effects:**
 
 | Key | Action |
 |-----|--------|
-| `b` | Black & white mode |
-| `c` | Color mode |
+| `b` | Toggle black & white / color |
+| `z` | Cycle zoom (100% → 75% → 50% → 25%) |
 
 **Actions:**
 
 | Key | Action |
 |-----|--------|
-| `Space` | Snapshot (3-2-1 countdown, saves BMP + RGB565 bin) |
+| `Space` | Snapshot (3-2-1 countdown, saves BMP) |
 | `v` | Avatar capture mode (guided 18-pose session with voice prompts) |
+| `t` | Toggle display output |
 | `d` | Toggle debug stats |
 | `r` | Reset to defaults |
 | `h` | Show help |
@@ -209,12 +222,12 @@ matrix:
   height: 32
 
 camera:
-  width: 640
-  height: 480
+  width: 0     # 0 = use native resolution (recommended)
+  height: 0    # 0 = use native resolution (recommended)
   index: 0
   prefer_picamera: true  # Use Pi Camera on Raspberry Pi
 
-target_fps: 10
+target_fps: 30
 ```
 
 ## Development

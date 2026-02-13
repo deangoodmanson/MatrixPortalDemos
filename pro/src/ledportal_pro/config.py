@@ -142,7 +142,7 @@ def _parse_config(data: dict[str, Any]) -> AppConfig:
         transport=TransportConfig(**transport_data),
         processing=ProcessingConfig(**processing_data),
         ui=UIConfig(**ui_data),
-        target_fps=data.get("target_fps", 10),
+        target_fps=data.get("target_fps", 30),
         debug_save_frames=data.get("debug_save_frames", False),
     )
 

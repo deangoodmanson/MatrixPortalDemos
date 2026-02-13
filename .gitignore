@@ -77,9 +77,10 @@ $RECYCLE.BIN/
 # Debug output files
 last.bmp
 
-# Snapshots (uncomment if you want to track snapshots)
-# snapshot_*.bmp
-# snapshot_*.bin
+# Snapshots
+snapshot_*.bmp
+snapshot_*.png
+snapshot_*.bin
 
 # Local configuration overrides
 config.local.yaml
