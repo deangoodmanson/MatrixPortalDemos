@@ -36,9 +36,42 @@ class OpenCVCamera(CameraBase):
         if not self._cap.isOpened():
             raise CameraNotFoundError(f"Failed to open camera at index {self._config.index}")
 
-        # Set capture resolution
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
+        # Only set resolution if explicitly configured (non-zero values)
+        # Otherwise, use camera's native resolution
+        if self._config.width > 0 and self._config.height > 0:
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
+
+            # Verify camera can actually capture frames with this resolution
+            ret, test_frame = self._cap.read()
+            if not ret or test_frame is None:
+                print(
+                    f"Warning: Camera doesn't support {self._config.width}x{self._config.height}"
+                )
+
+                # Reset to use native resolution
+                self._cap.release()
+                self._cap = cv2.VideoCapture(self._config.index)
+
+                if not self._cap.isOpened():
+                    raise CameraNotFoundError(f"Failed to reopen camera at index {self._config.index}")
+
+                ret, test_frame = self._cap.read()
+                if not ret or test_frame is None:
+                    raise CameraNotFoundError(
+                        f"Camera at index {self._config.index} cannot capture frames"
+                    )
+
+                native_width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                native_height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                print(f"Using native resolution: {native_width}x{native_height}")
+        else:
+            # Use camera's default resolution
+            ret, test_frame = self._cap.read()
+            if not ret or test_frame is None:
+                raise CameraNotFoundError(
+                    f"Camera at index {self._config.index} cannot capture frames"
+                )
 
         self._is_open = True
 
