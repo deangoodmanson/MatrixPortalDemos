@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from .capture import create_camera
+from .capture.factory import list_available_cameras
 from .config import AppConfig, load_config
 from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
@@ -264,6 +265,23 @@ def main() -> int:
         print(f"Will capture {args.frames} frames and exit")
     print()
 
+    # List available cameras
+    print("Detecting cameras...")
+    available_cameras = list_available_cameras()
+    if available_cameras:
+        print(f"Found {len(available_cameras)} camera(s):")
+        for cam in available_cameras:
+            cam_type = cam.get('type', 'unknown')
+            index = cam.get('index', '?')
+            backend = cam.get('backend', 'unknown')
+            resolution = cam.get('resolution', 'unknown')
+            fps = cam.get('fps', 'unknown')
+            name = cam.get('name', cam.get('model', f'Camera {index}'))
+            print(f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps")
+    else:
+        print("  No cameras detected (will try to open anyway)")
+    print()
+
     # Initialize state
     camera = None
     transport = None
@@ -277,7 +295,30 @@ def main() -> int:
         # Setup camera
         camera = create_camera(config.camera)
         camera.open()
-        print(f"Camera ready: {camera.get_camera_type()}")
+
+        # Display camera info
+        cam_info = camera.get_camera_info()
+        print("=" * 60)
+        print("CAMERA INFORMATION:")
+        print("=" * 60)
+        print(f"  Type: {cam_info.get('type', 'unknown')}")
+        if 'index' in cam_info:
+            print(f"  Index: {cam_info['index']}")
+        if 'backend' in cam_info:
+            print(f"  Backend: {cam_info['backend']}")
+        if 'model' in cam_info:
+            print(f"  Model: {cam_info['model']}")
+        print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
+        if 'fps' in cam_info:
+            print(f"  FPS: {cam_info['fps']}")
+        if 'format' in cam_info and cam_info['format'] != 'unknown':
+            print(f"  Format: {cam_info['format']}")
+        if 'requested_resolution' in cam_info:
+            print(f"  Requested: {cam_info['requested_resolution']}")
+        if 'sensor_modes' in cam_info:
+            print(f"  Sensor modes: {cam_info['sensor_modes']}")
+        print("=" * 60)
+        print()
 
         # Setup transport (optional)
         if not args.no_display:

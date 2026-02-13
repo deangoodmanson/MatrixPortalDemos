@@ -70,3 +70,38 @@ class OpenCVCamera(CameraBase):
     def get_camera_type(self) -> str:
         """Get camera type identifier."""
         return "opencv"
+
+    def get_camera_info(self) -> dict[str, str | int | float]:
+        """Get detailed information about the camera.
+
+        Returns:
+            Dictionary with camera information.
+        """
+        if self._cap is None or not self._cap.isOpened():
+            return {
+                "type": "opencv",
+                "index": self._config.index,
+                "status": "not_opened",
+            }
+
+        # Get actual camera properties
+        width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = self._cap.get(cv2.CAP_PROP_FPS)
+        backend = self._cap.getBackendName()
+        fourcc = int(self._cap.get(cv2.CAP_PROP_FOURCC))
+
+        # Decode FOURCC to readable format
+        fourcc_str = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+
+        return {
+            "type": "opencv",
+            "index": self._config.index,
+            "backend": backend,
+            "resolution": f"{width}x{height}",
+            "width": width,
+            "height": height,
+            "fps": fps if fps > 0 else "unknown",
+            "format": fourcc_str if fourcc > 0 else "unknown",
+            "requested_resolution": f"{self._config.width}x{self._config.height}",
+        }

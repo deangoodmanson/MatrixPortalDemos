@@ -68,6 +68,15 @@ class CameraBase(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_camera_info(self) -> dict[str, str | int | float]:
+        """Get detailed information about the camera.
+
+        Returns:
+            Dictionary with camera information including resolution, fps, backend, etc.
+        """
+        pass
+
     def __enter__(self) -> CameraBase:
         """Context manager entry."""
         self.open()

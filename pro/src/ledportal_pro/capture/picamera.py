@@ -83,3 +83,36 @@ class PiCamera(CameraBase):
     def get_camera_type(self) -> str:
         """Get camera type identifier."""
         return "picamera"
+
+    def get_camera_info(self) -> dict[str, str | int | float]:
+        """Get detailed information about the Pi Camera.
+
+        Returns:
+            Dictionary with camera information.
+        """
+        if self._picam is None:
+            return {
+                "type": "picamera",
+                "status": "not_opened",
+            }
+
+        # Get camera properties
+        camera_props = self._picam.camera_properties
+        config = self._picam.camera_configuration()
+
+        # Get current resolution from configuration
+        main_stream = config.get("main", {})
+        size = main_stream.get("size", (0, 0))
+        fmt = main_stream.get("format", "unknown")
+
+        return {
+            "type": "picamera",
+            "backend": "libcamera",
+            "model": camera_props.get("Model", "Unknown"),
+            "resolution": f"{size[0]}x{size[1]}",
+            "width": size[0],
+            "height": size[1],
+            "format": str(fmt),
+            "requested_resolution": f"{self._config.width}x{self._config.height}",
+            "sensor_modes": len(self._picam.sensor_modes),
+        }
