@@ -86,7 +86,7 @@ options:
   -h, --help            show this help message and exit
   --config, -c CONFIG   Path to YAML configuration file
   --frames, -n FRAMES   Number of frames to capture (0 for infinite)
-  --no-display          Run without connecting to Matrix Portal (test mode)
+  --no-display          Start with display output paused (toggle with 't' key)
   --camera CAMERA       Camera index to use (overrides config)
   --port PORT           Serial port to use (overrides auto-detection)
   --bw                  Start in black and white mode
@@ -210,7 +210,7 @@ make install-dev
 # Run with macOS config
 make run-mac
 
-# Run in test mode (no display)
+# Run with display paused (camera only)
 make run-test
 ```
 

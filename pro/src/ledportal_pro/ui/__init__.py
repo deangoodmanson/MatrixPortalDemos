@@ -2,7 +2,7 @@
 
 from .avatar import AVATAR_POSES, AvatarCaptureManager, AvatarSession, CapturedPose
 from .input import InputCommand, KeyboardHandler, print_help
-from .overlay import draw_countdown_overlay
+from .overlay import draw_border, draw_countdown_overlay
 from .snapshot import SnapshotManager
 from .tts import speak, speak_async
 
@@ -19,6 +19,7 @@ __all__ = [
     # Snapshot and overlay
     "SnapshotManager",
     "draw_countdown_overlay",
+    "draw_border",
     # Text-to-speech
     "speak",
     "speak_async",

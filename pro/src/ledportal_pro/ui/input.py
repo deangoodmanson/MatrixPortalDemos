@@ -27,6 +27,7 @@ class InputCommand(Enum):
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
+    TOGGLE_DISPLAY = auto()  # Toggle display output
     TOGGLE_DEBUG = auto()
     RESET = auto()
     HELP = auto()
@@ -138,14 +139,17 @@ class KeyboardHandler:
             # Processing modes
             "c": InputCommand.PROCESSING_CENTER,
             "s": InputCommand.PROCESSING_STRETCH,
-            "r": InputCommand.PROCESSING_FIT,
+            "f": InputCommand.PROCESSING_FIT,
             # Effects
             "b": InputCommand.TOGGLE_BW,
             "z": InputCommand.ZOOM_TOGGLE,
             # Actions
             " ": InputCommand.SNAPSHOT,
             "v": InputCommand.AVATAR,
+            # System
+            "t": InputCommand.TOGGLE_DISPLAY,
             "d": InputCommand.TOGGLE_DEBUG,
+            "r": InputCommand.RESET,
             "h": InputCommand.HELP,
             "q": InputCommand.QUIT,
         }
@@ -172,7 +176,7 @@ class KeyboardHandler:
             return InputResult(InputCommand.PROCESSING_CENTER, line)
         elif line == "s":
             return InputResult(InputCommand.PROCESSING_STRETCH, line)
-        elif line == "r":
+        elif line == "f":
             return InputResult(InputCommand.PROCESSING_FIT, line)
         elif line == "b":
             return InputResult(InputCommand.TOGGLE_BW, line)
@@ -180,8 +184,12 @@ class KeyboardHandler:
             return InputResult(InputCommand.ZOOM_TOGGLE, line)
         elif line == "v":
             return InputResult(InputCommand.AVATAR, line)
+        elif line == "t":
+            return InputResult(InputCommand.TOGGLE_DISPLAY, line)
         elif line == "d":
             return InputResult(InputCommand.TOGGLE_DEBUG, line)
+        elif line == "r":
+            return InputResult(InputCommand.RESET, line)
         elif line == "h":
             return InputResult(InputCommand.HELP, line)
         elif line in ("q", "quit", "exit"):
@@ -190,7 +198,7 @@ class KeyboardHandler:
             return InputResult(InputCommand.NONE, line)
 
     def check_abort(self) -> bool:
-        """Check if abort key (space or r) was pressed.
+        """Check if abort key (space) was pressed.
 
         Used during snapshot countdown/pause to check for abort.
 
@@ -198,9 +206,9 @@ class KeyboardHandler:
             True if abort key was pressed.
         """
         result = self.check_input()
-        if result.command in (InputCommand.SNAPSHOT, InputCommand.PROCESSING_FIT):
+        if result.command == InputCommand.SNAPSHOT:
             return True
-        return result.raw_input in (" ", "r")
+        return result.raw_input == " "
 
     def clear_buffer(self) -> None:
         """Clear any buffered input."""
@@ -242,9 +250,10 @@ def print_help(
     print("=" * 60)
     print("Commands (single keypress):")
     print("  Orientation: l=landscape  p=portrait")
-    print("  Processing:  c=center  s=stretch  r=fit")
-    print("  Effects:     b=toggle B&W/Color  z=zoom toggle")
-    print("  Actions:     SPACE=snapshot  v=avatar  d=debug  h=help  q=quit")
+    print("  Processing:  c=center  s=stretch  f=fit")
+    print("  Effects:     b=B&W toggle  z=zoom")
+    print("  Actions:     SPACE=snapshot  v=avatar")
+    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"

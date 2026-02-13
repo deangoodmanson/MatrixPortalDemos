@@ -19,10 +19,14 @@ class MatrixConfig:
 
 @dataclass
 class CameraConfig:
-    """Camera capture configuration."""
+    """Camera capture configuration.
 
-    width: int = 640
-    height: int = 480
+    Note: width/height of 0 means use camera's native resolution.
+    This is recommended for best compatibility across different cameras.
+    """
+
+    width: int = 0  # 0 = use native resolution
+    height: int = 0  # 0 = use native resolution
     index: int = 0
     prefer_picamera: bool = True
 

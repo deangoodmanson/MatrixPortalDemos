@@ -18,7 +18,7 @@ help:
 	@echo "  make run          Run with default config"
 	@echo "  make run-mac      Run with macOS config"
 	@echo "  make run-pi       Run with Raspberry Pi config"
-	@echo "  make run-test     Run in test mode (no display)"
+	@echo "  make run-test     Run with display paused (camera only)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test         Run unit tests"

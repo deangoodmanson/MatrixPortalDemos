@@ -631,6 +631,32 @@ def speak(text: str) -> None:
 
 
 # ===========================================
+# FUNCTION: Draw border around frame
+# ===========================================
+def draw_border(frame: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0)) -> np.ndarray:
+    """
+    Draw single-pixel border around frame.
+
+    Args:
+        frame: BGR image as numpy array (will be copied).
+        color: BGR color for the border.
+
+    Returns:
+        New frame with border.
+    """
+    bordered = frame.copy()
+    height, width = bordered.shape[:2]
+
+    # Draw 1-pixel border around all edges
+    bordered[0, :] = color  # Top edge
+    bordered[height-1, :] = color  # Bottom edge
+    bordered[:, 0] = color  # Left edge
+    bordered[:, width-1] = color  # Right edge
+
+    return bordered
+
+
+# ===========================================
 # FUNCTION: Save a snapshot
 # ===========================================
 def save_snapshot(frame: np.ndarray, frame_bytes: bytes) -> Tuple[str, str]:
@@ -684,10 +710,12 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
     RETURNS:
     - True if snapshot was taken, False if cancelled
     """
-    print("\n=== SNAPSHOT MODE (SPACE or R to cancel) ===")
+    print("\n=== SNAPSHOT MODE (press any key to cancel) ===")
     speak("Get ready")
 
     # Countdown loop
+    last_small_frame = None
+
     for countdown in [3, 2, 1]:
         print(f"  {countdown}...")
         countdown_start = time.time()
@@ -710,17 +738,23 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
 
+            # Save the last frame from countdown "1" for the snapshot
+            if countdown == 1:
+                last_small_frame = small_frame.copy()
+                # Show blue border during "1" countdown to indicate capture framing
+                small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
+
             # Add countdown number to the frame
             overlay = small_frame.copy()
 
             if orient == 'portrait':
                 # For portrait mode, draw rotated text
                 text = str(countdown)
-                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
 
                 # Create temporary canvas for text
                 temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
-                cv2.putText(temp, text, (5, text_size[1] + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                cv2.putText(temp, text, (5, text_size[1] + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
                 # Rotate text 90° counter-clockwise
                 rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
@@ -740,9 +774,9 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
                     str(countdown),
                     (2, MATRIX_HEIGHT - 4),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
+                    0.5,
                     (0, 0, 255),  # Red color (BGR)
-                    2
+                    1
                 )
 
             frame_bytes = convert_to_rgb565(overlay)
@@ -750,21 +784,20 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
 
             time.sleep(0.01)
 
-    # Take the actual snapshot
+    # Use the last frame from countdown "1" as the snapshot
     print("  SNAP!")
     speak("Got it")
 
-    frame = capture_frame(camera, camera_type)
-    if frame is not None:
-        small_frame = resize_frame(frame, current_mode)
-        if is_bw:
-            small_frame = apply_black_and_white(small_frame)
+    if last_small_frame is not None:
+        # Add blue border around frozen frame
+        small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
+
         frame_bytes = convert_to_rgb565(small_frame)
         save_snapshot(small_frame, frame_bytes)
         send_frame(serial_connection, frame_bytes)
 
         # Pause to admire
-        print("  Pausing for 5 seconds (SPACE or R to resume)...")
+        print("  Pausing for 5 seconds (press any key to skip)...")
         for i in range(5, 0, -1):
             key = check_keyboard()
             if key in (' ', 'r'):
