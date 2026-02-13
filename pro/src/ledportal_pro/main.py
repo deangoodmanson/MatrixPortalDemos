@@ -22,6 +22,7 @@ from .ui import (
     InputCommand,
     KeyboardHandler,
     SnapshotManager,
+    draw_border,
     draw_countdown_overlay,
     print_help,
     speak,
@@ -113,7 +114,7 @@ def run_snapshot_sequence(
     Returns:
         True if snapshot completed, False if aborted.
     """
-    print("\n=== SNAPSHOT MODE (SPACE or r to cancel) ===")
+    print("\n=== SNAPSHOT MODE (press any key to cancel) ===")
     print(f"Countdown: 3... 2... 1... ({config.ui.countdown_duration}s each)")
     speak("Get ready")
 
@@ -125,6 +126,9 @@ def run_snapshot_sequence(
         return False
 
     # Countdown with overlay
+    last_frame = None
+    last_small_frame = None
+
     for countdown in [3, 2, 1]:
         print(f"  Showing: {countdown}", flush=True)
         countdown_start = time.time()
@@ -152,6 +156,13 @@ def run_snapshot_sequence(
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
+            # Save the last frame from countdown "1" for the snapshot
+            if countdown == 1:
+                last_frame = frame
+                last_small_frame = small_frame.copy()
+                # Show blue border during "1" countdown to indicate capture framing
+                small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
+
             overlay_frame = draw_countdown_overlay(small_frame, countdown, config.matrix, orientation=orientation)
             frame_bytes = convert_to_rgb565(overlay_frame)
 
@@ -166,21 +177,21 @@ def run_snapshot_sequence(
 
             time.sleep(0.01)
 
-    # Capture final frame
+    # Use the last frame from countdown "1" as the snapshot
     print("SNAP!")
     speak("Got it")
+
+    if last_small_frame is None:
+        print("Failed to capture snapshot frame")
+        return False
+
     try:
-        frame = camera_typed.capture()
+        # Use the saved frame from countdown "1"
+        small_frame = last_small_frame
 
-        # Apply zoom
-        if zoom_level < 1.0:
-            frame = apply_zoom_crop(frame, zoom_level)
+        # Add blue border around frozen frame
+        small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
 
-        small_frame = resize_frame(
-            frame, config.matrix, config.processing, orientation, processing_mode
-        )
-        if black_and_white:
-            small_frame = apply_grayscale(small_frame)
         frame_bytes = convert_to_rgb565(small_frame)
 
         # Save snapshot
@@ -203,9 +214,10 @@ def run_snapshot_sequence(
                     pass
 
         # Pause (can be aborted)
-        print("Pausing for 3 seconds (SPACE or r to resume)...")
+        pause_duration = int(config.ui.snapshot_pause_duration)
+        print(f"Pausing for {pause_duration} seconds (press any key to skip)...")
         print("Resuming in: ", end="", flush=True)
-        for i in range(int(config.ui.snapshot_pause_duration), 0, -1):
+        for i in range(pause_duration, 0, -1):
             if keyboard.check_abort():
                 print(" Resuming now!\n")
                 keyboard.clear_buffer()

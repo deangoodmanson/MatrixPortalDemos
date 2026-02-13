@@ -33,12 +33,12 @@ def draw_countdown_overlay(
 
     if orientation == "portrait":
         # For portrait mode (frame is already rotated 90° CW)
-        # Draw text rotated 90° CCW so it appears upright
+        # Draw text rotated 90° CW so it appears upright
         # Position in lower right (which was lower left before rotation)
         text = str(number)
 
         # Create a rotated text image
-        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
 
         # Create temporary canvas for text
         temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
@@ -47,14 +47,14 @@ def draw_countdown_overlay(
             text,
             (5, text_size[1] + 2),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
+            0.5,
             color,
-            2,
+            1,
             cv2.LINE_AA,
         )
 
-        # Rotate text 90° counter-clockwise
-        rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # Rotate text 90° clockwise
+        rotated_text = cv2.rotate(temp, cv2.ROTATE_90_CLOCKWISE)
 
         # Position in lower right corner
         h, w = rotated_text.shape[:2]
@@ -72,9 +72,9 @@ def draw_countdown_overlay(
             str(number),
             position,
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
+            0.5,
             color,
-            2,
+            1,
             cv2.LINE_AA,
         )
 
@@ -151,3 +151,28 @@ def draw_mode_indicator(
     )
 
     return overlay
+
+
+def draw_border(
+    frame: NDArray[np.uint8],
+    color: tuple[int, int, int] = (255, 0, 0),
+) -> NDArray[np.uint8]:
+    """Draw single-pixel border around frame.
+
+    Args:
+        frame: BGR image as numpy array (will be copied).
+        color: BGR color for the border.
+
+    Returns:
+        New frame with border.
+    """
+    bordered = frame.copy()
+    height, width = bordered.shape[:2]
+
+    # Draw 1-pixel border around all edges
+    bordered[0, :] = color  # Top edge
+    bordered[height-1, :] = color  # Bottom edge
+    bordered[:, 0] = color  # Left edge
+    bordered[:, width-1] = color  # Right edge
+
+    return bordered
