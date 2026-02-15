@@ -995,9 +995,10 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("=" * 60)
     print("KEYBOARD COMMANDS:")
     print("  Orientation: L=landscape  P=portrait")
-    print("  Processing:  C=center  S=stretch  R=fit")
+    print("  Processing:  C=center  S=stretch  F=fit")
     print("  Effects:     B=toggle B&W/Color")
-    print("  Actions:     SPACE=snapshot  V=avatar  D=debug  H=help  Q=quit")
+    print("  Actions:     SPACE=snapshot  V=avatar")
+    print("  System:      D=debug  R=reset  H=help  Q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1094,7 +1095,7 @@ def main() -> None:
                 print("\n=== PROCESSING MODE: STRETCH (Distort to fit) ===\n")
                 continue
 
-            if key == 'r':
+            if key == 'f':
                 processing_mode = 'fit'
                 print("\n=== PROCESSING MODE: FIT (Letterbox) ===\n")
                 continue
@@ -1104,6 +1105,16 @@ def main() -> None:
                 black_and_white_mode = not black_and_white_mode
                 mode_str = "BLACK & WHITE" if black_and_white_mode else "COLOR"
                 print(f"\n=== {mode_str} MODE ===\n")
+                continue
+
+            # === RESET ===
+            if key == 'r':
+                orientation = 'landscape'
+                processing_mode = 'center'
+                black_and_white_mode = False
+                debug_output = True
+                print("\n=== RESET TO DEFAULTS ===")
+                print("Orientation=landscape, Processing=center, Color, Debug=ON\n")
                 continue
 
             # === ACTION KEYS ===
