@@ -200,8 +200,13 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
         print("  Pi Camera is ready!")
         return picam, "picamera"
 
+    except ImportError:
+        print("  picamera2 not available in this environment.")
+        print("  On Raspberry Pi OS, install with: sudo apt install python3-picamera2")
+        print("  Then recreate venv with: uv venv --system-site-packages && uv sync")
+        print("  Trying USB webcam instead...")
     except Exception as error:
-        print(f"  Pi Camera not available: {error}")
+        print(f"  Pi Camera error: {error}")
         print("  Trying USB webcam instead...")
 
     # Fall back to USB webcam

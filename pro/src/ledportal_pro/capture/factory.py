@@ -36,8 +36,10 @@ def create_camera(config: CameraConfig) -> CameraBase:
             camera = PiCamera(config)
             return camera
         except ImportError:
-            # picamera2 not installed, fall through to OpenCV
-            pass
+            print("picamera2 not available in this environment.")
+            print("On Raspberry Pi OS, install with: sudo apt install python3-picamera2")
+            print("Then recreate venv with: uv venv --system-site-packages && uv sync")
+            print("Falling back to OpenCV...\n")
 
     # Default to OpenCV for all platforms
     return OpenCVCamera(config)
@@ -45,6 +47,9 @@ def create_camera(config: CameraConfig) -> CameraBase:
 
 def list_available_cameras() -> list[dict[str, str | int | float]]:
     """List available cameras on the system with detailed information.
+
+    On Linux, tries picamera2 first. If a Pi Camera is found, skips the OpenCV
+    V4L2 scan (which produces noisy warnings on Raspberry Pi).
 
     Returns:
         List of dictionaries with camera information including:
@@ -56,48 +61,17 @@ def list_available_cameras() -> list[dict[str, str | int | float]]:
         - name: Camera device name (if available)
     """
     cameras: list[dict[str, str | int | float]] = []
-    import cv2
 
-    # Check first 10 camera indices (increased from 5)
-    for i in range(10):
-        cap = cv2.VideoCapture(i)
-        if cap.isOpened():
-            # Get camera properties
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            backend = cap.getBackendName()
-
-            # Try to get camera name/description
-            # This is backend-dependent and may not always work
-            camera_name = f"Camera {i}"
-
-            cameras.append(
-                {
-                    "index": i,
-                    "type": "opencv",
-                    "backend": backend,
-                    "resolution": f"{width}x{height}",
-                    "width": width,
-                    "height": height,
-                    "fps": fps if fps > 0 else "unknown",
-                    "name": camera_name,
-                }
-            )
-            cap.release()
-
-    # Check for Pi Camera on Linux
+    # On Linux, try picamera2 first (before noisy OpenCV V4L2 scan)
     if platform.system() == "Linux":
         try:
             from picamera2 import Picamera2
 
             try:
                 picam = Picamera2()
-                # Get Pi Camera properties
                 camera_props = picam.camera_properties
                 sensor_modes = picam.sensor_modes
 
-                # Get default resolution from first sensor mode
                 if sensor_modes:
                     mode = sensor_modes[0]
                     width = mode["size"][0]
@@ -121,9 +95,37 @@ def list_available_cameras() -> list[dict[str, str | int | float]]:
                     }
                 )
                 picam.close()
+                # Pi Camera found — skip OpenCV V4L2 scan (it produces noisy
+                # warnings and can't use the Pi Camera via libcamera anyway)
+                return cameras
             except Exception:
                 pass
         except ImportError:
             pass
+
+    # OpenCV scan (macOS/Windows, or Linux without picamera2)
+    import cv2
+
+    for i in range(5):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            backend = cap.getBackendName()
+
+            cameras.append(
+                {
+                    "index": i,
+                    "type": "opencv",
+                    "backend": backend,
+                    "resolution": f"{width}x{height}",
+                    "width": width,
+                    "height": height,
+                    "fps": fps if fps > 0 else "unknown",
+                    "name": f"Camera {i}",
+                }
+            )
+            cap.release()
 
     return cameras
