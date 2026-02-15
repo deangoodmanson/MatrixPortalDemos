@@ -26,6 +26,8 @@ def create_camera(config: CameraConfig) -> CameraBase:
     Raises:
         CameraNotFoundError: If no suitable camera can be created.
     """
+    from ..exceptions import CameraNotFoundError
+
     system = platform.system()
 
     # On Linux (Raspberry Pi), try Pi Camera first if preferred
@@ -34,11 +36,20 @@ def create_camera(config: CameraConfig) -> CameraBase:
             from .picamera import PiCamera
 
             camera = PiCamera(config)
+            # Actually try to open it to see if picamera2 is installed
+            camera.open()
+            camera.close()  # Close it so caller can open it properly
             return camera
-        except ImportError:
-            print("picamera2 not available in this environment.")
-            print("On Raspberry Pi OS, install with: sudo apt install python3-picamera2")
-            print("Then recreate venv with: uv venv --system-site-packages && uv sync")
+        except (ImportError, CameraNotFoundError) as e:
+            # Print helpful message based on error type
+            if isinstance(e, CameraNotFoundError):
+                # picamera2 library not installed
+                print("picamera2 not available in this environment.")
+                print("On Raspberry Pi OS, install with: sudo apt install python3-picamera2")
+                print("Then recreate venv with: uv venv --system-site-packages && uv sync")
+            else:
+                # Import error for our .picamera module (shouldn't happen)
+                print("Pi Camera module not available.")
             print("Falling back to OpenCV...\n")
 
     # Default to OpenCV for all platforms

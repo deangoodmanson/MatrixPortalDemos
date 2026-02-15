@@ -31,10 +31,35 @@ class OpenCVCamera(CameraBase):
         Raises:
             CameraNotFoundError: If camera cannot be opened.
         """
+        # Try the requested index first
         self._cap = cv2.VideoCapture(self._config.index)
 
         if not self._cap.isOpened():
-            raise CameraNotFoundError(f"Failed to open camera at index {self._config.index}")
+            # If the requested index fails and it's index 0, try other indices
+            if self._config.index == 0:
+                print(f"Camera index 0 failed, trying other indices...")
+                for i in range(1, 5):
+                    self._cap = cv2.VideoCapture(i)
+                    if self._cap.isOpened():
+                        print(f"Found camera at index {i}")
+                        self._config.index = i  # Update config to reflect actual index
+                        break
+                    self._cap.release()
+
+            # If still not opened, raise error with helpful message
+            if not self._cap.isOpened():
+                import platform
+
+                error_msg = f"Failed to open camera at index {self._config.index}"
+                if platform.system() == "Linux":
+                    error_msg += (
+                        "\n\nTroubleshooting on Raspberry Pi:"
+                        "\n  - Check camera is connected: lsusb (for USB) or vcgencmd get_camera (for Pi Camera)"
+                        "\n  - Try installing system OpenCV: sudo apt install python3-opencv"
+                        "\n  - Check camera isn't in use: fuser /dev/video0"
+                        "\n  - List available cameras: v4l2-ctl --list-devices"
+                    )
+                raise CameraNotFoundError(error_msg)
 
         # Only set resolution if explicitly configured (non-zero values)
         # Otherwise, use camera's native resolution
