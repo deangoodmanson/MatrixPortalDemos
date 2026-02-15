@@ -56,8 +56,21 @@ class SerialTransport(TransportBase):
                 rtscts=False,
                 dsrdtr=False,
             )
-            # Allow connection to stabilize
-            time.sleep(0.5)
+
+            # Prevent DTR reset on CircuitPython devices
+            # Must be done AFTER opening the port
+            self._serial.dtr = False
+            self._serial.rts = False
+
+            # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
+            # If device didn't reset, this just ensures stability
+            print(f"Waiting for Matrix Portal to be ready...")
+            time.sleep(2.0)
+
+            # Flush any boot messages or garbage data
+            self._serial.reset_input_buffer()
+            self._serial.reset_output_buffer()
+
             self._port = port
             self._is_connected = True
         except serial.SerialException as e:

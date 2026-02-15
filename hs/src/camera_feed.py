@@ -214,13 +214,27 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
     camera = cv2.VideoCapture(camera_number)
 
     if not camera.isOpened():
+        # Try other camera indices if index 0 failed
+        if camera_number == 0:
+            print("  Camera index 0 failed, trying other indices...")
+            for i in range(1, 5):
+                camera = cv2.VideoCapture(i)
+                if camera.isOpened():
+                    print(f"  Found camera at index {i}")
+                    camera_number = i
+                    break
+                camera.release()
+
+    if not camera.isOpened():
         print("  ERROR: Could not open any camera!")
         print("  ")
         print("  TROUBLESHOOTING:")
-        print("  - Is the Pi Camera ribbon cable connected properly?")
-        print("  - Did you enable the camera in raspi-config?")
-        print("  - Is a USB webcam plugged in?")
-        print("  - Is another program using the camera?")
+        print("  - Is a USB webcam plugged in? Check with: lsusb")
+        print("  - Is the Pi Camera enabled? Run: vcgencmd get_camera")
+        print("  - List video devices: ls -l /dev/video*")
+        print("  - Check what's using camera: fuser /dev/video0")
+        print("  - Try system OpenCV: sudo apt install python3-opencv")
+        print("  ")
         raise RuntimeError("Failed to open camera")
 
     # Tell the camera what resolution we want
@@ -517,7 +531,21 @@ def setup_usb_serial() -> Optional[serial.Serial]:
             rtscts=False,
             dsrdtr=False
         )
-        time.sleep(0.5)
+
+        # Prevent DTR reset on CircuitPython devices
+        # Must be done AFTER opening the port
+        connection.dtr = False
+        connection.rts = False
+
+        # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
+        # If device didn't reset, this just ensures stability
+        print(f"  Waiting for Matrix Portal to be ready...")
+        time.sleep(2.0)
+
+        # Flush any boot messages or garbage data
+        connection.reset_input_buffer()
+        connection.reset_output_buffer()
+
         print(f"  Connected successfully!")
         return connection
 

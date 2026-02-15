@@ -338,10 +338,12 @@ def main() -> int:
             # Send test patterns to verify connection (only if display enabled)
             if display_enabled:
                 test_pattern = create_test_pattern(config.matrix)
-                for i in range(5):
+                # Only send 2 test frames (reduced from 5) to minimize power draw
+                # during initial connection when matrix may be USB-powered only
+                for i in range(2):
                     bytes_sent = transport.send_frame(test_pattern)
                     print(f"Test pattern {i + 1} sent: {bytes_sent} bytes")
-                    time.sleep(0.1)
+                    time.sleep(0.5)  # Longer delay to avoid power spikes
                 print("Verification frames sent.")
             else:
                 print("Display paused (--no-display flag). Press 't' to enable.")
