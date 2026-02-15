@@ -11,7 +11,7 @@ camera:
   prefer_picamera: true  # Prefer Pi Camera on Raspberry Pi
 
 transport:
-  baud_rate: 2000000
+  baud_rate: 4000000  # Increased from 2M to match Mac (faster transmission)
   timeout: 0.1
   write_timeout: 0.5
   frame_header: "IMG1"
@@ -20,11 +20,12 @@ processing:
   interpolation: "linear"
   enable_gamma_correction: false
   gamma: 2.2
+  max_brightness: 128  # Limit to 50% brightness for USB power safety (prevents brown-outs)
 
 ui:
   countdown_duration: 0.5
   snapshot_pause_duration: 5.0
-  enable_frame_limiting: false
+  enable_frame_limiting: true  # CRITICAL: Enable to prevent buffer overflow
 
-target_fps: 30
+target_fps: 15  # Reduced from 30 to be conservative on Pi (especially USB-powered)
 debug_save_frames: false

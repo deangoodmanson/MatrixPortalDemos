@@ -11,6 +11,7 @@ from .capture.factory import list_available_cameras
 from .config import AppConfig, load_config
 from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
+    apply_brightness_limit,
     apply_grayscale,
     apply_zoom_crop,
     convert_to_rgb565,
@@ -525,6 +526,12 @@ def main() -> int:
                 )
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
+
+                # Apply brightness limiting for USB power safety
+                if config.processing.max_brightness < 255:
+                    small_frame = apply_brightness_limit(
+                        small_frame, config.processing.max_brightness
+                    )
 
                 # Debug save
                 if config.debug_save_frames:

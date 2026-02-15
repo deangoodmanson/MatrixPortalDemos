@@ -107,8 +107,14 @@ class SerialTransport(TransportBase):
             self._serial.write(self._config.frame_header)
             # Send frame data
             bytes_written = self._serial.write(frame_data)
-            # Ensure data is sent
+            # Ensure data is sent immediately (flushes OS buffer to serial port)
             self._serial.flush()
+
+            # Small delay to let receiver process the frame
+            # Prevents overwhelming the CircuitPython serial buffer on Raspberry Pi
+            # At 4M baud, 4100 bytes takes ~8ms; we add 2ms margin for processing
+            time.sleep(0.01)  # 10ms safety margin
+
             return bytes_written
         except serial.SerialException as e:
             raise SendError(f"Failed to send frame: {e}") from e
