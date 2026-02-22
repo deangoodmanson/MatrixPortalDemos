@@ -117,7 +117,7 @@ def list_available_cameras() -> list[dict[str, str | int | float]]:
     # OpenCV scan (macOS/Windows, or Linux without picamera2)
     import cv2
 
-    for i in range(5):
+    for i in range(10):
         cap = cv2.VideoCapture(i)
         if cap.isOpened():
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))

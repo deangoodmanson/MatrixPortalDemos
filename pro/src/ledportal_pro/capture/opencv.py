@@ -61,6 +61,7 @@ class OpenCVCamera(CameraBase):
                     )
                 raise CameraNotFoundError(error_msg)
 
+
         # Only set resolution if explicitly configured (non-zero values)
         # Otherwise, use camera's native resolution
         if self._config.width > 0 and self._config.height > 0:

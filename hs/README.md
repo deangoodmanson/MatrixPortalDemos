@@ -307,6 +307,7 @@ Once the program is running, you can use these single-key commands:
 - `v` = Avatar Capture (guided 18-pose session with voice prompts)
 
 **System:**
+- `t` = Toggle display output (pause/resume sending to LED matrix)
 - `d` = Toggle Debug output
 - `r` = Reset to defaults
 - `h` = Show help
