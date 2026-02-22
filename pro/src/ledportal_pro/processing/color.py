@@ -47,7 +47,7 @@ def apply_grayscale(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
         BGR image where R=G=B (grayscale appearance).
     """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR).astype(np.uint8)
 
 
 def apply_brightness_limit(frame: NDArray[np.uint8], max_brightness: int = 255) -> NDArray[np.uint8]:
@@ -88,7 +88,7 @@ def apply_gamma_correction(frame: NDArray[np.uint8], gamma: float = 2.2) -> NDAr
     inv_gamma = 1.0 / gamma
     table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in range(256)]).astype(np.uint8)
 
-    return cv2.LUT(frame, table)
+    return cv2.LUT(frame, table).astype(np.uint8)
 
 
 def rgb565_to_bgr(data: bytes, width: int, height: int) -> NDArray[np.uint8]:

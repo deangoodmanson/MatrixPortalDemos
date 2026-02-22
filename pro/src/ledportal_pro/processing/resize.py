@@ -87,7 +87,7 @@ def resize_frame(
         # For portrait, rotate 90° clockwise
         processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
 
-    return processed
+    return np.asarray(processed, dtype=np.uint8)
 
 
 def _resize_center_crop(
@@ -115,7 +115,7 @@ def _resize_center_crop(
         cropped = frame[start_y : start_y + new_h, 0:w]
 
     # Resize to matrix dimensions
-    return cv2.resize(cropped, (target_width, target_height), interpolation=interpolation)
+    return cv2.resize(cropped, (target_width, target_height), interpolation=interpolation).astype(np.uint8)
 
 
 def _resize_letterbox(

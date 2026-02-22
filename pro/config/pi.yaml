@@ -11,7 +11,7 @@ camera:
   prefer_picamera: true  # Prefer Pi Camera on Raspberry Pi
 
 transport:
-  baud_rate: 4000000  # Increased from 2M to match Mac (faster transmission)
+  baud_rate: 4000000
   timeout: 0.1
   write_timeout: 0.5
   frame_header: "IMG1"

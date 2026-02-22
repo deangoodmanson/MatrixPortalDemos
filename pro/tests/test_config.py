@@ -23,7 +23,7 @@ class TestDefaults:
 
     def test_default_transport_baud(self):
         config = AppConfig()
-        assert config.transport.baud_rate == 2_000_000
+        assert config.transport.baud_rate == 4_000_000
         assert config.transport.frame_header == b"IMG1"
 
     def test_default_orientation_and_processing(self):

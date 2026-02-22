@@ -124,7 +124,7 @@ class OpenCVCamera(CameraBase):
         if not ret or frame is None:
             raise CameraCaptureFailed("Failed to read frame from camera")
 
-        return frame
+        return np.asarray(frame, dtype=np.uint8)
 
     def get_camera_type(self) -> str:
         """Get camera type identifier."""

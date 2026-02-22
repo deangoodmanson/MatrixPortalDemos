@@ -322,3 +322,60 @@ Once you understand this code, check out the professional version in the `pro/` 
 - Command-line arguments
 - Comprehensive unit test suite (159 tests)
 - Better error handling and logging
+
+---
+
+## For Developers / Maintainers
+
+> This section is for developers maintaining the codebase — not for students running it.
+
+### Dev Environment Setup
+
+The `hs/` folder has a `pyproject.toml` for developer tooling (type checking, linting).
+Students use the manual `uv pip install` approach in `hs/src/` — this is the developer setup.
+
+```bash
+cd hs
+
+# Install dev dependencies (ty, ruff) + runtime deps
+uv sync
+
+# Activate the venv
+source .venv/bin/activate
+```
+
+### Type Checking with ty
+
+[ty](https://docs.astral.sh/ty/) is Astral's fast Python type checker (same team as uv and ruff).
+
+```bash
+cd hs
+
+# Run type checker
+uv run ty check src/
+
+# Expected output (3 warnings are intentional — Pi/Windows-only optional imports):
+# warning[unresolved-import]: picamera2  (Pi-only, not installed on Mac)
+# warning[unresolved-import]: picamera2  (second usage)
+# warning[unresolved-import]: pyttsx3    (Windows TTS, not installed)
+# Found 3 diagnostics
+```
+
+`ty` is configured in `pyproject.toml`:
+
+```toml
+[tool.ty.rules]
+unresolved-import = "warn"   # picamera2 and pyttsx3 are optional platform deps
+```
+
+### Linting with ruff
+
+```bash
+cd hs
+
+# Check for lint issues
+uv run ruff check src/
+
+# Format code
+uv run ruff format src/
+```
