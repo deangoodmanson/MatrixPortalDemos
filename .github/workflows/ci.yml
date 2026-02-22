@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main, maccam]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pro:
+    name: Pro — test, lint, typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pro
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
+
+      - name: Lint (ruff)
+        run: uv run ruff check src/ tests/
+
+      - name: Format check (ruff)
+        run: uv run ruff format --check src/ tests/
+
+      - name: Type check (ty)
+        run: uv run ty check
+
+  hs:
+    name: HS — lint, typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Lint (ruff)
+        run: uv run ruff check src/
+
+      - name: Type check (ty)
+        run: uv run ty check src/
+
+  utils:
+    name: Utils — test, lint, typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: utils
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
+
+      - name: Lint (ruff)
+        run: uv run ruff check src/ tests/
+
+      - name: Type check (ty)
+        run: uv run ty check

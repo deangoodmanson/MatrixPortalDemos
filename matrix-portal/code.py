@@ -1,7 +1,7 @@
 """
 Matrix Portal M4 USB Frame Receiver
-Receives RGB565 frame data via USB serial and displays on 32x64 LED matrix.
-Max frame rate: 5 FPS
+Receives RGB565 frame data via USB serial and displays on 64x32 LED matrix.
+Achieves ~24 FPS using bitmaptools.arrayblit for C-level memory copy.
 """
 
 import time
