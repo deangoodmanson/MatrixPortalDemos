@@ -39,9 +39,12 @@ BYTES_PER_FRAME = TOTAL_PIXELS * 2           # = 4,096 bytes (2 bytes per pixel)
 # - The official Pi Camera (plugs into the CSI ribbon connector)
 # - A USB webcam (plugs into USB port)
 # The program will try Pi Camera first, then fall back to USB.
+#
+# Setting width/height to 0 means "use the camera's native resolution"
+# This is the best setting for compatibility across different cameras!
 
-CAMERA_WIDTH = 640   # Camera captures 640 pixels wide
-CAMERA_HEIGHT = 480  # Camera captures 480 pixels tall
+CAMERA_WIDTH = 0   # 0 = use camera's native resolution
+CAMERA_HEIGHT = 0  # 0 = use camera's native resolution
 
 # ===========================================
 # SPEED SETTINGS

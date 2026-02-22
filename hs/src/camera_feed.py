@@ -165,6 +165,71 @@ AVATAR_POSES = [
 
 
 # ===========================================
+# FUNCTION: List available cameras
+# ===========================================
+def list_available_cameras() -> list:
+    """
+    Detect and list all available cameras on the system.
+
+    RETURNS:
+    - A list of dictionaries with camera information
+    """
+    cameras = []
+
+    # Check first 10 camera indices
+    for i in range(10):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            # Get camera properties
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            backend = cap.getBackendName()
+
+            cameras.append({
+                "index": i,
+                "type": "USB/OpenCV",
+                "backend": backend,
+                "resolution": f"{width}x{height}",
+                "fps": fps if fps > 0 else "unknown",
+            })
+            cap.release()
+
+    # Check for Pi Camera
+    try:
+        from picamera2 import Picamera2
+        try:
+            picam = Picamera2()
+            camera_props = picam.camera_properties
+            sensor_modes = picam.sensor_modes
+
+            # Get default resolution from first sensor mode
+            if sensor_modes:
+                mode = sensor_modes[0]
+                width = mode['size'][0]
+                height = mode['size'][1]
+                resolution = f"{width}x{height}"
+            else:
+                resolution = "unknown"
+
+            cameras.append({
+                "index": "Pi",
+                "type": "Pi Camera",
+                "backend": "libcamera",
+                "resolution": resolution,
+                "model": camera_props.get('Model', 'Unknown'),
+                "fps": "varies",
+            })
+            picam.close()
+        except Exception:
+            pass
+    except ImportError:
+        pass
+
+    return cameras
+
+
+# ===========================================
 # FUNCTION: Set up the camera
 # ===========================================
 def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
@@ -218,9 +283,24 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
         print("  - Is another program using the camera?")
         raise RuntimeError("Failed to open camera")
 
-    # Tell the camera what resolution we want
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+    # Only set resolution if explicitly configured (non-zero values)
+    # Otherwise, use camera's native resolution (recommended!)
+    if CAMERA_WIDTH > 0 and CAMERA_HEIGHT > 0:
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+
+        # Verify what resolution was actually set
+        actual_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if actual_width != CAMERA_WIDTH or actual_height != CAMERA_HEIGHT:
+            print(f"  Note: Camera doesn't support {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
+            print(f"  Using camera's resolution: {actual_width}x{actual_height}")
+    else:
+        # Using native resolution
+        actual_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print(f"  Using native resolution: {actual_width}x{actual_height}")
 
     print("  USB webcam is ready!")
     return camera, "opencv"
@@ -724,7 +804,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
         while time.time() - countdown_start < COUNTDOWN_DURATION:
             # Check for cancel
             key = check_keyboard()
-            if key in (' ', 'r'):
+            if key == ' ':
                 print("  Cancelled!")
                 speak("Cancelled")
                 return False
@@ -797,10 +877,10 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
         send_frame(serial_connection, frame_bytes)
 
         # Pause to admire
-        print("  Pausing for 5 seconds (press any key to skip)...")
+        print("  Pausing for 5 seconds (press space to skip)...")
         for i in range(5, 0, -1):
             key = check_keyboard()
-            if key in (' ', 'r'):
+            if key == ' ':
                 print("  Resuming!")
                 break
             print(f"  {i}...", end=" ", flush=True)
@@ -976,10 +1056,11 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("")
     print("=" * 60)
     print("KEYBOARD COMMANDS:")
-    print("  Orientation: L=landscape  P=portrait")
-    print("  Processing:  C=center  S=stretch  R=fit")
-    print("  Effects:     B=toggle B&W/Color")
-    print("  Actions:     SPACE=snapshot  V=avatar  D=debug  H=help  Q=quit")
+    print("  Orientation: l=landscape  p=portrait")
+    print("  Processing:  c=center  s=stretch  f=fit")
+    print("  Effects:     b=B&W toggle")
+    print("  Actions:     SPACE=snapshot  v=avatar")
+    print("  System:      t=toggle display  d=debug  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1021,16 +1102,60 @@ def main() -> None:
     print(f"Bytes per frame: {MATRIX_WIDTH * MATRIX_HEIGHT * 2}")
     print("")
 
+    # Detect and list all available cameras
+    print("=" * 50)
+    print("DETECTING CAMERAS")
+    print("=" * 50)
+    available_cameras = list_available_cameras()
+    if available_cameras:
+        print(f"Found {len(available_cameras)} camera(s):")
+        for cam in available_cameras:
+            index = cam.get('index', '?')
+            cam_type = cam.get('type', 'unknown')
+            backend = cam.get('backend', 'unknown')
+            resolution = cam.get('resolution', 'unknown')
+            fps = cam.get('fps', 'unknown')
+            model = cam.get('model', '')
+            model_str = f" - {model}" if model else ""
+            print(f"  [{index}] {cam_type} ({backend}){model_str}")
+            print(f"       Resolution: {resolution}, FPS: {fps}")
+    else:
+        print("  No cameras detected")
+    print("")
+
     # Set up camera (tries Pi Camera first, then USB)
+    print("=" * 50)
+    print("OPENING CAMERA")
+    print("=" * 50)
     camera, camera_type = setup_camera()
-    print(f"  Using camera type: {camera_type}")
+    print(f"  Camera type: {camera_type}")
+
+    # Display camera details
+    if camera_type == "opencv":
+        width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = camera.get(cv2.CAP_PROP_FPS)
+        backend = camera.getBackendName()
+        print(f"  Backend: {backend}")
+        print(f"  Resolution: {width}x{height}")
+        print(f"  FPS: {fps if fps > 0 else 'unknown'}")
+    elif camera_type == "picamera":
+        camera_props = camera.camera_properties
+        config = camera.camera_configuration()
+        main_stream = config.get("main", {})
+        size = main_stream.get("size", (0, 0))
+        model = camera_props.get("Model", "Unknown")
+        print(f"  Model: {model}")
+        print(f"  Resolution: {size[0]}x{size[1]}")
+        print(f"  Sensor modes: {len(camera.sensor_modes)}")
+    print("")
 
     # Connect to LED matrix
     serial_connection = setup_usb_serial()
 
     if serial_connection is None:
         print("\nWARNING: LED Matrix not connected!")
-        print("Running in preview-only mode...")
+        print("Display paused (device not found). Press 't' to retry.")
 
     print("")
     print("=" * 50)
@@ -1043,6 +1168,8 @@ def main() -> None:
 
     frame_count = 0
     start_time = time.time()
+    display_enabled = True  # User's intent to send to display
+    display_status = "unknown"  # Current display status with reason
 
     # ===========================================
     # ADVANCED: Enable single-keypress mode
@@ -1076,7 +1203,7 @@ def main() -> None:
                 print("\n=== PROCESSING MODE: STRETCH (Distort to fit) ===\n")
                 continue
 
-            if key == 'r':
+            if key == 'f':
                 processing_mode = 'fit'
                 print("\n=== PROCESSING MODE: FIT (Letterbox) ===\n")
                 continue
@@ -1088,7 +1215,24 @@ def main() -> None:
                 print(f"\n=== {mode_str} MODE ===\n")
                 continue
 
-            # === ACTION KEYS ===
+            # === SYSTEM KEYS ===
+            if key == 't':
+                display_enabled = not display_enabled
+                if display_enabled:
+                    print("\n=== DISPLAY: ENABLED ===")
+                    if serial_connection is None:
+                        print("Attempting to reconnect to Matrix Portal...")
+                        serial_connection = setup_usb_serial()
+                        if serial_connection is None:
+                            print("Connection failed: Matrix Portal not found\n")
+                        else:
+                            print(f"Connected successfully!\n")
+                    else:
+                        print()
+                else:
+                    print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                continue
+
             if key == 'd':
                 debug_output = not debug_output
                 status = "ON" if debug_output else "OFF"
@@ -1130,7 +1274,21 @@ def main() -> None:
 
             # Convert and send
             frame_bytes = convert_to_rgb565(small_frame)
-            bytes_sent = send_frame(serial_connection, frame_bytes)
+            bytes_sent = 0
+
+            # Determine display status and send if enabled
+            if not display_enabled:
+                display_status = "PAUSED (user)"
+            elif serial_connection is None:
+                display_status = "PAUSED (no device)"
+            else:
+                try:
+                    bytes_sent = send_frame(serial_connection, frame_bytes)
+                    display_status = "ACTIVE"
+                except Exception as e:
+                    display_status = f"PAUSED (error: {e})"
+                    if frame_count % 30 == 0:  # Only print error occasionally
+                        print(f"Display send failed: {e}")
 
             # Show preview
             show_preview(frame, small_frame)
@@ -1142,7 +1300,8 @@ def main() -> None:
                 fps = frame_count / elapsed
                 mode_str = f"[{orientation[0].upper()}{processing_mode[0].upper()}]"
                 bw_str = " [B&W]" if black_and_white_mode else ""
-                print(f"  Frames: {frame_count}, FPS: {fps:.1f}, Bytes: {bytes_sent}{mode_str}{bw_str}")
+                display_info = f", Display: {display_status}" if display_status != "ACTIVE" else ""
+                print(f"  Frames: {frame_count}, FPS: {fps:.1f}, Bytes: {bytes_sent}{mode_str}{bw_str}{display_info}")
 
             # Check for quit in preview window
             if SHOW_PREVIEW:

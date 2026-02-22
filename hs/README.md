@@ -243,14 +243,17 @@ Once the program is running, you can use these single-key commands:
 **Processing Mode (How Image Fits):**
 - `c` = Center (crop from center)
 - `s` = Stretch (distort to fit)
-- `r` = Fit (letterbox with black bars)
+- `f` = Fit (letterbox with black bars)
 
 **Effects:**
 - `b` = Toggle Black & White / Color
 
-**Tools:**
+**Actions:**
 - `Space` = Snapshot (3-2-1 countdown, saves BMP file)
 - `v` = Avatar Capture (guided 18-pose session with voice prompts)
+
+**System:**
+- `t` = Toggle display output (pause/resume sending to LED matrix)
 - `d` = Toggle Debug output
 - `h` = Show help
 - `q` = Quit
