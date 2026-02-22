@@ -1086,14 +1086,13 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 # ===========================================
 def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
     """
-    Display preview windows so you can see what's happening.
+    Display a side-by-side preview: camera feed on the left, enlarged matrix
+    view on the right.
 
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
     if not SHOW_PREVIEW:
         return
-
-    cv2.imshow("Camera View", original_frame)
 
     # Enlarge the tiny matrix view (10x bigger)
     enlarged = cv2.resize(
@@ -1101,7 +1100,15 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
         (MATRIX_WIDTH * 10, MATRIX_HEIGHT * 10),
         interpolation=cv2.INTER_NEAREST  # Blocky pixels
     )
-    cv2.imshow("LED Matrix View (10x)", enlarged)
+
+    # Scale camera frame to match the enlarged matrix view height
+    target_height = MATRIX_HEIGHT * 10
+    cam_h, cam_w = original_frame.shape[:2]
+    cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    # Show both views side by side in a single window
+    combined = np.hstack([cam_resized, enlarged])
+    cv2.imshow("Camera | LED Matrix (10x)", combined)
 
 
 # ===========================================
