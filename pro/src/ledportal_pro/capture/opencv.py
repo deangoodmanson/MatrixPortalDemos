@@ -37,7 +37,7 @@ class OpenCVCamera(CameraBase):
         if not self._cap.isOpened():
             # If the requested index fails and it's index 0, try other indices
             if self._config.index == 0:
-                print(f"Camera index 0 failed, trying other indices...")
+                print("Camera index 0 failed, trying other indices...")
                 for i in range(1, 5):
                     self._cap = cv2.VideoCapture(i)
                     if self._cap.isOpened():

@@ -64,7 +64,7 @@ class SerialTransport(TransportBase):
 
             # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
             # If device didn't reset, this just ensures stability
-            print(f"Waiting for Matrix Portal to be ready...")
+            print("Waiting for Matrix Portal to be ready...")
             time.sleep(2.0)
 
             # Flush any boot messages or garbage data

@@ -88,8 +88,7 @@ from config import (                # Our settings file
     MATRIX_WIDTH,
     MATRIX_HEIGHT,
     CAMERA_WIDTH,
-    CAMERA_HEIGHT,
-    TARGET_FPS
+    CAMERA_HEIGHT
 )
 
 # ===========================================
@@ -619,14 +618,14 @@ def setup_usb_serial() -> Optional[serial.Serial]:
 
         # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
         # If device didn't reset, this just ensures stability
-        print(f"  Waiting for Matrix Portal to be ready...")
+        print("  Waiting for Matrix Portal to be ready...")
         time.sleep(2.0)
 
         # Flush any boot messages or garbage data
         connection.reset_input_buffer()
         connection.reset_output_buffer()
 
-        print(f"  Connected successfully!")
+        print("  Connected successfully!")
         return connection
 
     except Exception as error:
@@ -802,7 +801,7 @@ def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode
     cv2.imwrite(snapshot_filename, viewer_frame)
 
     print(f"\n{'='*60}")
-    print(f"SNAPSHOT SAVED:")
+    print("SNAPSHOT SAVED:")
     print(f"  Snapshot: {snapshot_filename}")
 
     # Debug files (only in debug mode)
@@ -1027,7 +1026,7 @@ def run_avatar_capture(camera: Any, camera_type: str, serial_connection: Optiona
                             "expression": expression,
                             "file": filename
                         })
-                        print(f"  Captured!")
+                        print("  Captured!")
                         speak("Got it")
                         waiting = False
                     else:
@@ -1035,7 +1034,7 @@ def run_avatar_capture(camera: Any, camera_type: str, serial_connection: Optiona
 
                 elif key == 's':
                     skipped.append({"pose": pose_num, "angle": angle, "expression": expression})
-                    print(f"  Skipped")
+                    print("  Skipped")
                     speak("Skipped")
                     waiting = False
 
@@ -1277,7 +1276,7 @@ def main() -> None:
                         if serial_connection is None:
                             print("Connection failed: Matrix Portal not found\n")
                         else:
-                            print(f"Connected successfully!\n")
+                            print("Connected successfully!\n")
                     else:
                         print()
                 else:
