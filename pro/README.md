@@ -15,8 +15,8 @@ Captures video from a camera, processes it, and displays on a 64x32 RGB LED matr
 - Black and white mode
 - Cross-platform text-to-speech (macOS say, Linux espeak-ng, Windows pyttsx3)
 - YAML configuration
-- Type-safe Python code
-- 136-test unit test suite
+- Type-safe Python code (checked with `ty`)
+- 159-test unit test suite
 
 ## Requirements
 
@@ -234,11 +234,11 @@ target_fps: 30
 
 ### Code Quality Tools
 
-This project uses Astral's tools:
+This project uses [Astral's](https://astral.sh) full toolchain:
 
-- **uv**: Package management
-- **ruff**: Linting and formatting
-- **ty**: Type checking
+- **uv**: Package and Python version management (`uv sync`, `uv run`)
+- **ruff**: Linting and formatting (`ruff check`, `ruff format`)
+- **ty**: Type checking — extremely fast, written in Rust ([docs](https://docs.astral.sh/ty/))
 
 ### Run Checks
 
@@ -256,9 +256,26 @@ make typecheck
 make check
 ```
 
+### Type Checking Notes
+
+`ty` is configured in `pyproject.toml` under `[tool.ty]`:
+
+```toml
+[tool.ty.rules]
+unresolved-import = "ignore"   # picamera2 is Pi-only, not installed on Mac
+invalid-return-type = "warn"   # OpenCV stubs are imprecise (cv2 returns generic arrays)
+unsupported-operator = "ignore"
+```
+
+Expected clean run:
+```
+$ make typecheck
+All checks passed!
+```
+
 ### Unit Tests
 
-136 tests covering all non-hardware modules. No camera or serial port required.
+159 tests covering all non-hardware modules. No camera or serial port required.
 
 ```bash
 # Run tests
@@ -282,6 +299,7 @@ uv run pytest tests/ -v
 | `ui/avatar` | 8 | Pose definitions, manifest JSON |
 | `ui/tts` | 7 | Platform dispatch (mocked), silent failure |
 | `exceptions` | 5 | Hierarchy, catchability |
+| `ui/tts` | 7 | Platform dispatch (mocked), silent failure |
 
 **Intentionally not unit tested:** `capture/` and `transport/` — these require real hardware (camera, serial port) and belong in integration tests.
 

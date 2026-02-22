@@ -77,10 +77,11 @@ $RECYCLE.BIN/
 # Debug output files
 last.bmp
 
-# Snapshots
+# Snapshots and avatar captures
 snapshot_*.bmp
 snapshot_*.png
 snapshot_*.bin
+avatar_*/
 
 # Local configuration overrides
 config.local.yaml

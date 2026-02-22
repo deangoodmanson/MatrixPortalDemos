@@ -84,18 +84,11 @@ python camera_feed.py
 ## Features
 *   **Auto-Detection**: Code automatically finds the Matrix Portal USB device.
 *   **Cross-Platform**: Works on macOS, Linux, Raspberry Pi, and Windows.
-*   **Display Modes**:
-    *   `l` - **Landscape** (Wide) (default)
-    *   `p` - **Portrait** (Tall)
-*   **Effects**:
-    *   `c` - **Center** (Use the center of the camera image and clip the respected edges. Landscape: Top and Bottom, Portrait: Left and right) (default)
-    *   `s` - **Stretch** (Stretch/Distort/Squish whole image on frame, Wide or Tall mode)
-    *   `r` - **Resize to Fit** (Resized to Center, scale to Fit)
-    *   `b` - **Toggle: Black and White & Color**    
-*   **Tools**:
-    *   `Space` - Take Snapshot (with countdown)
-    *   `v` - Avatar Capture Mode (Guided session)
-    *   `d` - **Toggle: Debug ouput on console**
+*   **Orientation**: `l` landscape (default) · `p` portrait
+*   **Processing**: `c` center crop (default) · `s` stretch · `f` fit (letterbox)
+*   **Effects**: `b` B&W toggle · `z` zoom (100% → 75% → 50% → 25%)
+*   **Actions**: `Space` snapshot · `v` avatar capture
+*   **System**: `t` toggle display · `r` reset · `d` debug · `h` help · `q` quit
 
 ## Performance Optimizations
 We achieved a ~500% performance increase (5 FPS → 24 FPS) by:

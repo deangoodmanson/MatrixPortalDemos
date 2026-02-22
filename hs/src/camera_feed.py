@@ -637,7 +637,7 @@ def setup_usb_serial() -> Optional[serial.Serial]:
 # ===========================================
 # FUNCTION: Send a frame to the LED Matrix
 # ===========================================
-def send_frame(serial_connection: serial.Serial, frame_bytes: bytes) -> int:
+def send_frame(serial_connection: Optional[serial.Serial], frame_bytes: bytes) -> int:
     """
     Send one frame of image data to the LED Matrix.
 
@@ -826,7 +826,7 @@ def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode
 # ===========================================
 # FUNCTION: Run snapshot countdown
 # ===========================================
-def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str, is_bw: bool) -> bool:
+def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool) -> bool:
     """
     Take a snapshot with a 3-2-1 countdown.
 
@@ -944,7 +944,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
 # ===========================================
 # FUNCTION: Avatar capture mode
 # ===========================================
-def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> list:
+def run_avatar_capture(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str) -> list:
     """
     Guided avatar capture session with voice prompts.
 

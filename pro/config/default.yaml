@@ -5,13 +5,13 @@ matrix:
   height: 32
 
 camera:
-  width: 640
-  height: 480
+  width: 0
+  height: 0
   index: 0
   prefer_picamera: true
 
 transport:
-  baud_rate: 2000000
+  baud_rate: 4000000
   timeout: 0.1
   write_timeout: 0.5
   frame_header: "IMG1"

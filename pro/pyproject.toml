@@ -1,6 +1,6 @@
 [project]
 name = "ledportal-pro"
-version = "1.0.0"
+version = "0.1.0"
 description = "Professional LED Matrix camera feed system for Raspberry Pi and macOS"
 readme = "README.md"
 requires-python = ">=3.14"
