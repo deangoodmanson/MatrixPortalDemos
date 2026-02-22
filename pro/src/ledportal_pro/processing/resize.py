@@ -115,7 +115,9 @@ def _resize_center_crop(
         cropped = frame[start_y : start_y + new_h, 0:w]
 
     # Resize to matrix dimensions
-    return cv2.resize(cropped, (target_width, target_height), interpolation=interpolation).astype(np.uint8)
+    return cv2.resize(cropped, (target_width, target_height), interpolation=interpolation).astype(
+        np.uint8
+    )
 
 
 def _resize_letterbox(

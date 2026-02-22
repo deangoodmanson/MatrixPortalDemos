@@ -50,7 +50,9 @@ def apply_grayscale(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR).astype(np.uint8)
 
 
-def apply_brightness_limit(frame: NDArray[np.uint8], max_brightness: int = 255) -> NDArray[np.uint8]:
+def apply_brightness_limit(
+    frame: NDArray[np.uint8], max_brightness: int = 255
+) -> NDArray[np.uint8]:
     """Limit maximum brightness to reduce power consumption.
 
     Useful when LED matrix is powered only via USB (not external power).
