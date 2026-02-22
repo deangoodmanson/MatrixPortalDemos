@@ -924,12 +924,13 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
     speak("Got it")
 
     if last_small_frame is not None:
-        # Add blue border around frozen frame
-        small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
+        # Save the clean frame (no border)
+        frame_bytes = convert_to_rgb565(last_small_frame)
+        save_snapshot(last_small_frame, frame_bytes, orient, debug_output)
 
-        frame_bytes = convert_to_rgb565(small_frame)
-        save_snapshot(small_frame, frame_bytes, orient, debug_output)
-        send_frame(serial_connection, frame_bytes)
+        # Show blue border on the matrix display only
+        small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
+        send_frame(serial_connection, convert_to_rgb565(small_frame))
 
         # Pause to admire
         print("  Pausing for 5 seconds (press space to skip)...")
