@@ -397,11 +397,16 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
     """
     height, width = frame.shape[:2]  # Get image dimensions
 
+    # In portrait mode, swap target dimensions BEFORE processing so the
+    # 90° rotation in step 2 produces the correct 64x32 output buffer.
+    target_w = MATRIX_HEIGHT if orient == 'portrait' else MATRIX_WIDTH
+    target_h = MATRIX_WIDTH if orient == 'portrait' else MATRIX_HEIGHT
+
     # ===== STEP 1: Apply processing mode =====
     if proc_mode == 'fit':
         # Letterbox mode - maintain aspect ratio
-        scale_width = MATRIX_WIDTH / width
-        scale_height = MATRIX_HEIGHT / height
+        scale_width = target_w / width
+        scale_height = target_h / height
         scale = min(scale_width, scale_height)
 
         new_width = int(width * scale)
@@ -410,22 +415,22 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
         resized = cv2.resize(frame, (new_width, new_height))
 
         # Create black canvas
-        canvas = np.zeros((MATRIX_HEIGHT, MATRIX_WIDTH, 3), dtype=np.uint8)
+        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
 
         # Center the image
-        x_offset = (MATRIX_WIDTH - new_width) // 2
-        y_offset = (MATRIX_HEIGHT - new_height) // 2
+        x_offset = (target_w - new_width) // 2
+        y_offset = (target_h - new_height) // 2
 
         canvas[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized
         processed = canvas
 
     elif proc_mode == 'stretch':
         # Stretch mode - just resize directly
-        processed = cv2.resize(frame, (MATRIX_WIDTH, MATRIX_HEIGHT))
+        processed = cv2.resize(frame, (target_w, target_h))
 
     else:  # 'center' (default)
         # Center crop to target aspect ratio
-        target_aspect = MATRIX_WIDTH / MATRIX_HEIGHT
+        target_aspect = target_w / target_h
         current_aspect = width / height
 
         if current_aspect > target_aspect:
@@ -439,7 +444,7 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
             start_y = (height - new_height) // 2
             cropped = frame[start_y:start_y + new_height, 0:width]
 
-        processed = cv2.resize(cropped, (MATRIX_WIDTH, MATRIX_HEIGHT))
+        processed = cv2.resize(cropped, (target_w, target_h))
 
     # ===== STEP 2: Apply orientation (rotation for portrait) =====
     if orient == 'portrait':
@@ -886,8 +891,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
                 temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
                 cv2.putText(temp, text, (5, text_size[1] + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-                # Rotate text 90° counter-clockwise
-                rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                # Rotate text 90° clockwise so it appears upright on the portrait display
+                rotated_text = cv2.rotate(temp, cv2.ROTATE_90_CLOCKWISE)
 
                 # Position in lower right corner
                 h, w = rotated_text.shape[:2]
