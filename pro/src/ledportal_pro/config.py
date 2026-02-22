@@ -62,6 +62,7 @@ class UIConfig:
     enable_frame_limiting: bool = False
     debug_mode: bool = True
     single_keypress: bool = True  # Use single-keypress input (Mac/Linux only)
+    show_preview: bool = False  # Show side-by-side camera/matrix preview window
 
 
 @dataclass

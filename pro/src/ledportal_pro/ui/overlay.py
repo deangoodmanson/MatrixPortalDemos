@@ -1,13 +1,10 @@
 """Overlay drawing functionality."""
 
-from typing import TYPE_CHECKING
-
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    from ..config import MatrixConfig
+from ..config import MatrixConfig
 
 
 def draw_countdown_overlay(
@@ -151,6 +148,47 @@ def draw_mode_indicator(
     )
 
     return overlay
+
+
+def show_preview(
+    original_frame: NDArray[np.uint8],
+    small_frame: NDArray[np.uint8],
+    matrix_config: MatrixConfig,
+    orientation: str = "landscape",
+) -> None:
+    """Display a side-by-side preview window: camera feed on the left, enlarged
+    matrix view on the right.
+
+    In portrait mode the matrix view is rotated 90° CCW to match the physical
+    display orientation.
+
+    Args:
+        original_frame: Full-resolution camera frame.
+        small_frame: Processed matrix-sized frame.
+        matrix_config: Matrix configuration (used for scale factor).
+        orientation: Current display orientation ("landscape" or "portrait").
+    """
+    scale = 10
+
+    # Enlarge the matrix view (nearest-neighbour for crisp pixels)
+    enlarged = cv2.resize(
+        small_frame,
+        (matrix_config.width * scale, matrix_config.height * scale),
+        interpolation=cv2.INTER_NEAREST,
+    )
+
+    # In portrait mode rotate to match the physical display
+    if orientation == "portrait":
+        enlarged = cv2.rotate(enlarged, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    # Scale camera frame to match enlarged matrix view height
+    target_height = enlarged.shape[0]
+    cam_h, cam_w = original_frame.shape[:2]
+    cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    combined = np.hstack([cam_resized, enlarged])
+    cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.waitKey(1)
 
 
 def draw_border(

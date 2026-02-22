@@ -27,6 +27,7 @@ from .ui import (
     draw_border,
     draw_countdown_overlay,
     print_help,
+    show_preview,
     speak,
 )
 
@@ -582,6 +583,10 @@ def main() -> int:
                         f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"
                     )
 
+                # Preview window
+                if config.ui.show_preview:
+                    show_preview(frame, small_frame, config.matrix, orientation)
+
                 # Frame rate limiting
                 if config.ui.enable_frame_limiting:
                     elapsed = time.time() - loop_start
@@ -605,6 +610,10 @@ def main() -> int:
             camera.close()
         if transport is not None:
             transport.disconnect()
+        if config.ui.show_preview:
+            import cv2 as _cv2
+
+            _cv2.destroyAllWindows()
 
     return 0
 
