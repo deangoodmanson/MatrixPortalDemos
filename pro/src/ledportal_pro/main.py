@@ -193,12 +193,8 @@ def run_snapshot_sequence(
         # Use the saved frame from countdown "1"
         small_frame = last_small_frame
 
-        # Add blue border around frozen frame
-        small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
-
+        # Save the clean frame (no border)
         frame_bytes = convert_to_rgb565(small_frame)
-
-        # Save snapshot
         snapshot_path, debug_path, rgb565_path = snapshot_manager.save(
             small_frame, frame_bytes, orientation, debug_mode=debug_mode
         )
@@ -212,13 +208,14 @@ def run_snapshot_sequence(
                 print(f"  Debug RGB565: {rgb565_path}")
         print(f"{'=' * 60}\n")
 
-        # Send to display
+        # Show blue border on the matrix display only
         if transport is not None:
             from .transport.base import TransportBase
 
             if isinstance(transport, TransportBase):
                 try:
-                    transport.send_frame(frame_bytes)
+                    bordered_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
+                    transport.send_frame(convert_to_rgb565(bordered_frame))
                 except Exception:
                     pass
 
@@ -300,6 +297,7 @@ def main() -> int:
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
+    last_sent_frame = None  # Last frame successfully delivered to the device
 
     try:
         # Setup camera
@@ -478,18 +476,27 @@ def main() -> int:
                     print("\n=== QUIT REQUESTED ===\n")
                     break
                 elif cmd == InputCommand.SNAPSHOT:
-                    run_snapshot_sequence(
-                        camera,
-                        transport,
-                        config,
-                        snapshot_manager,
-                        keyboard,
-                        black_and_white,
-                        orientation,
-                        processing_mode,
-                        zoom_level,
-                        debug_mode,
-                    )
+                    if not display_enabled and last_sent_frame is not None:
+                        # Paused: save the frozen frame on the device — no countdown
+                        print("  Saving paused frame...")
+                        frame_bytes_save = convert_to_rgb565(last_sent_frame)
+                        snapshot_manager.save(
+                            last_sent_frame, frame_bytes_save, orientation, debug_mode=debug_mode
+                        )
+                        print("  Saved.")
+                    else:
+                        run_snapshot_sequence(
+                            camera,
+                            transport,
+                            config,
+                            snapshot_manager,
+                            keyboard,
+                            black_and_white,
+                            orientation,
+                            processing_mode,
+                            zoom_level,
+                            debug_mode,
+                        )
                     keyboard.clear_buffer()
                     continue
                 elif cmd == InputCommand.AVATAR:
@@ -550,6 +557,7 @@ def main() -> int:
                     try:
                         bytes_sent = transport.send_frame(frame_bytes)
                         display_status = "ACTIVE"
+                        last_sent_frame = small_frame  # Cache for pause-mode snapshot
                     except Exception as e:
                         display_status = f"PAUSED (error: {e})"
                         if frame_count % 30 == 0:  # Only print error occasionally
