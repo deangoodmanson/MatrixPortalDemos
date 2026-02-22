@@ -1084,10 +1084,13 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape') -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
+
+    In portrait mode the matrix view is rotated 90° CCW to match the physical
+    display orientation.
 
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
@@ -1101,8 +1104,12 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
         interpolation=cv2.INTER_NEAREST  # Blocky pixels
     )
 
+    # In portrait mode, rotate the matrix view to match the physical display
+    if orient == 'portrait':
+        enlarged = cv2.rotate(enlarged, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
     # Scale camera frame to match the enlarged matrix view height
-    target_height = MATRIX_HEIGHT * 10
+    target_height = enlarged.shape[0]
     cam_h, cam_w = original_frame.shape[:2]
     cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
 
@@ -1375,7 +1382,7 @@ def main() -> None:
                         print(f"Display send failed: {e}")
 
             # Show preview
-            show_preview(frame, small_frame)
+            show_preview(frame, small_frame, orientation)
 
             # Statistics
             frame_count += 1
