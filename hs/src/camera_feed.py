@@ -265,8 +265,13 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
         print("  Pi Camera is ready!")
         return picam, "picamera"
 
+    except ImportError:
+        print("  picamera2 not available in this environment.")
+        print("  On Raspberry Pi OS, install with: sudo apt install python3-picamera2")
+        print("  Then recreate venv with: uv venv --system-site-packages && uv sync")
+        print("  Trying USB webcam instead...")
     except Exception as error:
-        print(f"  Pi Camera not available: {error}")
+        print(f"  Pi Camera error: {error}")
         print("  Trying USB webcam instead...")
 
     # Fall back to USB webcam
@@ -274,13 +279,27 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
     camera = cv2.VideoCapture(camera_number)
 
     if not camera.isOpened():
+        # Try other camera indices if index 0 failed
+        if camera_number == 0:
+            print("  Camera index 0 failed, trying other indices...")
+            for i in range(1, 5):
+                camera = cv2.VideoCapture(i)
+                if camera.isOpened():
+                    print(f"  Found camera at index {i}")
+                    camera_number = i
+                    break
+                camera.release()
+
+    if not camera.isOpened():
         print("  ERROR: Could not open any camera!")
         print("  ")
         print("  TROUBLESHOOTING:")
-        print("  - Is the Pi Camera ribbon cable connected properly?")
-        print("  - Did you enable the camera in raspi-config?")
-        print("  - Is a USB webcam plugged in?")
-        print("  - Is another program using the camera?")
+        print("  - Is a USB webcam plugged in? Check with: lsusb")
+        print("  - Is the Pi Camera enabled? Run: vcgencmd get_camera")
+        print("  - List video devices: ls -l /dev/video*")
+        print("  - Check what's using camera: fuser /dev/video0")
+        print("  - Try system OpenCV: sudo apt install python3-opencv")
+        print("  ")
         raise RuntimeError("Failed to open camera")
 
     # Only set resolution if explicitly configured (non-zero values)
@@ -592,7 +611,21 @@ def setup_usb_serial() -> Optional[serial.Serial]:
             rtscts=False,
             dsrdtr=False
         )
-        time.sleep(0.5)
+
+        # Prevent DTR reset on CircuitPython devices
+        # Must be done AFTER opening the port
+        connection.dtr = False
+        connection.rts = False
+
+        # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
+        # If device didn't reset, this just ensures stability
+        print(f"  Waiting for Matrix Portal to be ready...")
+        time.sleep(2.0)
+
+        # Flush any boot messages or garbage data
+        connection.reset_input_buffer()
+        connection.reset_output_buffer()
+
         print(f"  Connected successfully!")
         return connection
 
@@ -739,37 +772,55 @@ def draw_border(frame: np.ndarray, color: Tuple[int, int, int] = (255, 0, 0)) ->
 # ===========================================
 # FUNCTION: Save a snapshot
 # ===========================================
-def save_snapshot(frame: np.ndarray, frame_bytes: bytes) -> Tuple[str, str]:
+def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode: bool = False) -> str:
     """
     Save the current frame to disk.
 
     WHAT'S SAVED:
-    - A .bmp image file (viewable in any image viewer)
-    - A .bin file with raw RGB565 data (for the LED matrix)
+    - A .bmp snapshot file (viewable in any image viewer, properly oriented for PC viewing)
+    - Debug files (only if debug_mode=True):
+      - A raw .bmp file showing exact LED matrix frame (64x32)
+      - A .bin file with raw RGB565 data
 
     The filename includes a timestamp so each snapshot is unique.
 
     RETURNS:
-    - The filename of the saved image
+    - The filename of the saved snapshot image
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Save the image
-    image_filename = f"snapshot_{timestamp}.bmp"
-    cv2.imwrite(image_filename, frame)
+    # Create properly oriented snapshot for viewing on PC
+    if orient == "portrait":
+        # Rotate back 90° CCW so it appears upright (32x64 tall)
+        viewer_frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    else:
+        # Landscape stays as-is (64x32 wide)
+        viewer_frame = frame
 
-    # Save the raw RGB565 data
-    rgb565_filename = f"snapshot_{timestamp}_rgb565.bin"
-    with open(rgb565_filename, 'wb') as f:
-        f.write(frame_bytes)
+    # Always save the viewer-oriented snapshot
+    snapshot_filename = f"snapshot_{timestamp}.bmp"
+    cv2.imwrite(snapshot_filename, viewer_frame)
 
     print(f"\n{'='*60}")
     print(f"SNAPSHOT SAVED:")
-    print(f"  Color BMP: {image_filename}")
-    print(f"  RGB565 data: {rgb565_filename}")
+    print(f"  Snapshot: {snapshot_filename}")
+
+    # Debug files (only in debug mode)
+    if debug_mode:
+        # Save raw LED matrix frame (64x32 with rotation applied)
+        debug_filename = f"snapshot_{timestamp}_raw.bmp"
+        cv2.imwrite(debug_filename, frame)
+        print(f"  Debug raw: {debug_filename}")
+
+        # Save RGB565 binary data
+        rgb565_filename = f"snapshot_{timestamp}_rgb565.bin"
+        with open(rgb565_filename, 'wb') as f:
+            f.write(frame_bytes)
+        print(f"  Debug RGB565: {rgb565_filename}")
+
     print(f"{'='*60}\n")
 
-    return image_filename
+    return snapshot_filename
 
 
 # ===========================================
@@ -873,7 +924,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
         small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
 
         frame_bytes = convert_to_rgb565(small_frame)
-        save_snapshot(small_frame, frame_bytes)
+        save_snapshot(small_frame, frame_bytes, orient, debug_output)
         send_frame(serial_connection, frame_bytes)
 
         # Pause to admire
@@ -893,7 +944,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: serial.Serial
 # ===========================================
 # FUNCTION: Avatar capture mode
 # ===========================================
-def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> None:
+def run_avatar_capture(camera: Any, camera_type: str, serial_connection: serial.Serial, orient: str, proc_mode: str) -> list:
     """
     Guided avatar capture session with voice prompts.
 
@@ -1060,7 +1111,7 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  d=debug  h=help  q=quit")
+    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1233,6 +1284,18 @@ def main() -> None:
                     print("\n=== DISPLAY: PAUSED (by user) ===\n")
                 continue
 
+            # === RESET ===
+            if key == 'r':
+                orientation = 'landscape'
+                processing_mode = 'center'
+                black_and_white_mode = False
+                debug_output = True
+                display_enabled = True
+                print("\n=== RESET TO DEFAULTS ===")
+                print("Orientation=landscape, Processing=center, Color, Debug=ON, Display=ON\n")
+                continue
+
+            # === ACTION KEYS ===
             if key == 'd':
                 debug_output = not debug_output
                 status = "ON" if debug_output else "OFF"

@@ -164,9 +164,7 @@ class AvatarCaptureManager:
                     )
                 )
             elif result == "skipped":
-                session.skipped.append(
-                    {"pose": pose_num, "angle": angle, "expression": expression}
-                )
+                session.skipped.append({"pose": pose_num, "angle": angle, "expression": expression})
             elif result == "quit":
                 break
 

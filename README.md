@@ -20,6 +20,37 @@ Camera → Computer (Pi, Mac, PC) → USB Serial (4M baud) → Matrix Portal M4 
 | **`hs/`** | **High School** | Educational, single-folder version (`hs/src`) for students. Simplified code, cross-platform. |
 | **`matrix-portal/`**| **Firmware** | CircuitPython code for the Adafruit Matrix Portal M4. |
 
+## Raspberry Pi Workflows
+
+### For Pro Version
+**Best:** VS Code Remote SSH - develop on Mac, run on Pi hardware
+```bash
+# In VS Code: CMD+Shift+P → "Remote-SSH: Connect to Host"
+# See pro/README.md for full setup
+```
+
+**Alternative:** Git clone + uv on Pi
+```bash
+git clone <repo>
+cd pro
+uv sync
+uv run ledportal
+```
+
+### For HS Version (Educational)
+**Simplest:** Direct file copy + Thonny editor
+```bash
+# No git, no build tools needed!
+cd ~
+mkdir ledportal-hs
+wget <camera_feed.py>
+pip3 install opencv-python pyserial numpy
+python3 camera_feed.py
+# Or open in Thonny IDE (pre-installed on Pi)
+```
+
+See `hs/README.md` and `pro/README.md` for detailed workflows.
+
 ## Quick Start
 
 ### 1. Setup Matrix Portal M4

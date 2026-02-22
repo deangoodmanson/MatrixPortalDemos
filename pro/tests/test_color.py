@@ -1,7 +1,6 @@
 """Tests for color conversion and manipulation."""
 
 import numpy as np
-import pytest
 
 from ledportal_pro.processing.color import (
     apply_gamma_correction,

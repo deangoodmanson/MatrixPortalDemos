@@ -50,6 +50,27 @@ def apply_grayscale(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
+def apply_brightness_limit(frame: NDArray[np.uint8], max_brightness: int = 255) -> NDArray[np.uint8]:
+    """Limit maximum brightness to reduce power consumption.
+
+    Useful when LED matrix is powered only via USB (not external power).
+    Prevents brown-outs and resets caused by excessive current draw.
+
+    Args:
+        frame: BGR image as numpy array.
+        max_brightness: Maximum brightness value (0-255). Default 255 (no limit).
+                       Use 64 for ~25% brightness (USB-safe), 128 for ~50%.
+
+    Returns:
+        BGR image with brightness limited.
+    """
+    if max_brightness >= 255:
+        return frame  # No limiting needed
+
+    # Clip all channels to max brightness
+    return np.minimum(frame, max_brightness).astype(np.uint8)
+
+
 def apply_gamma_correction(frame: NDArray[np.uint8], gamma: float = 2.2) -> NDArray[np.uint8]:
     """Apply gamma correction for better LED display appearance.
 

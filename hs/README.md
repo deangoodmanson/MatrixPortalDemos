@@ -4,7 +4,7 @@ This folder contains educational versions of the LED Matrix Camera Feed code, de
 
 ## What's Different?
 
-Compared to the main `sandbox/` and `pi/` folders, this version has:
+Compared to the `pro/` version, this version has:
 
 - **Extensive comments** explaining every section of code
 - **Simplified logic** using multiplication/division instead of bit shifting
@@ -18,8 +18,6 @@ Compared to the main `sandbox/` and `pi/` folders, this version has:
 
 ## Files
 
-## Files
- 
 ### src/
 Unified version for both macOS and Raspberry Pi:
 - `config.py` - Settings with explanations
@@ -29,18 +27,23 @@ Unified version for both macOS and Raspberry Pi:
 
 ## Getting Started
 
-### Installing Dependencies with uv
+### Modern Python Setup (Recommended)
 
-We recommend using [uv](https://github.com/astral-sh/uv) by Astral - it's a super fast Python package manager!
+This version is designed to be **simple and educational** while teaching modern Python practices!
+
+**Why use uv?**
+- ✅ Installs modern Python versions (3.12, 3.13) easily
+- ✅ Manages virtual environments automatically
+- ✅ Faster than pip
+- ✅ Industry best practice for Python development
+
+**Requirements:**
+- Python 3.12+ (we'll install this with uv)
+- uv package manager (fast, modern Python tooling)
 
 #### Step 1: Install uv
 
-**On Mac:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**On Raspberry Pi / Linux:**
+**On Raspberry Pi / Linux / Mac:**
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -50,42 +53,93 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-#### Step 2: Create a virtual environment and install packages
- 
-**On all platforms:**
+#### Step 2: Get the Code
+
 ```bash
-cd hs/src
+# Method A: Clone the repository (recommended)
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
+cd MatrixPortalDemos/hs/src
+
+# Method B: Download just the files you need
+mkdir ~/ledportal-hs
+cd ~/ledportal-hs
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
+```
+
+#### Step 3: Install Python and Dependencies
+
+```bash
+# uv will automatically install Python 3.13 and create a virtual environment!
 uv venv
-source .venv/bin/activate
-uv pip install opencv-python numpy pyserial
-# If on Raspberry Pi, also install:
-# uv pip install picamera2
+
+# Activate the virtual environment
+source .venv/bin/activate  # Mac/Linux
+# OR on Windows: .venv\Scripts\activate
+
+# Install dependencies
+uv pip install opencv-python pyserial numpy pillow
+
+# On Raspberry Pi, also install Pi Camera support:
+sudo apt install -y python3-picamera2
+uv pip install picamera2
 ```
- 
-#### Step 3: Run the program
- 
+
+#### Step 4: Run the Program
+
 ```bash
-cd hs/src
+# Make sure virtual environment is activated
 source .venv/bin/activate
+
+# Run!
 python camera_feed.py
 ```
- 
-### Quick Start (if you already have uv installed)
- 
-**One-liner:**
+
+### Quick One-Liner Setup
+
 ```bash
-cd hs/src && uv venv && source .venv/bin/activate && uv pip install opencv-python numpy pyserial && python camera_feed.py
-```
- 
-### Alternative: Using pip directly
- 
-```bash
-cd hs/src
-python3 -m venv .venv
-source .venv/bin/activate
-pip install opencv-python numpy pyserial
+# Clone, create venv, install deps, and run (all in one!)
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git && \
+cd MatrixPortalDemos/hs/src && \
+uv venv && source .venv/bin/activate && \
+uv pip install opencv-python pyserial numpy pillow && \
 python camera_feed.py
 ```
+
+#### Pi-Friendly Editors
+
+**Thonny (Recommended for Students)**
+- Pre-installed on Raspberry Pi OS
+- Beginner-friendly with visual debugger
+- No terminal knowledge needed
+
+```bash
+# Open in Thonny
+thonny camera_feed.py
+# Click the green "Run" button or press F5
+```
+
+**nano (Quick Terminal Edits)**
+```bash
+nano camera_feed.py
+# Edit, Ctrl+O to save, Ctrl+X to exit
+python3 camera_feed.py
+```
+
+**VS Code (Advanced)**
+```bash
+code camera_feed.py
+```
+
+### Why Learn uv?
+
+**For Students:** uv teaches modern Python practices:
+- ✅ **Version management**: Use the right Python for each project
+- ✅ **Virtual environments**: Keep projects isolated (no conflicts!)
+- ✅ **Fast installs**: uv is 10-100x faster than pip
+- ✅ **Industry standard**: Companies use these tools
+
+**Fun fact:** uv is made by Astral, the same team behind Ruff (the super-fast linter used by major Python projects like FastAPI, Pydantic, and hundreds of others!)
 
 ## Debugging with VS Code
 
@@ -255,6 +309,7 @@ Once the program is running, you can use these single-key commands:
 **System:**
 - `t` = Toggle display output (pause/resume sending to LED matrix)
 - `d` = Toggle Debug output
+- `r` = Reset to defaults
 - `h` = Show help
 - `q` = Quit
 
@@ -265,5 +320,5 @@ Once you understand this code, check out the professional version in the `pro/` 
 - Type hints and type checking
 - YAML configuration files
 - Command-line arguments
-- Comprehensive unit test suite (136 tests)
+- Comprehensive unit test suite (159 tests)
 - Better error handling and logging

@@ -25,18 +25,12 @@ name = "ledportal-pro"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "ledportal-utils" },
     { name = "numpy" },
     { name = "opencv-python" },
     { name = "pillow" },
     { name = "pyserial" },
     { name = "pyyaml" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "ty" },
 ]
 
 [package.dev-dependencies]
@@ -48,16 +42,35 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ledportal-utils", editable = "../utils" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "opencv-python", specifier = ">=4.8.0" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pyserial", specifier = ">=3.5" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a6" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.4.0" },
+    { name = "ty", specifier = ">=0.0.1a6" },
+]
+
+[[package]]
+name = "ledportal-utils"
+version = "0.1.0"
+source = { editable = "../utils" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.24.0" },
+    { name = "pillow", specifier = ">=10.0.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [

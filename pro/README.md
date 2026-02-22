@@ -2,7 +2,7 @@
 
 Professional LED Matrix camera feed system for Raspberry Pi and macOS.
 
-Captures video from a camera, processes it, and displays on a 32x64 RGB LED matrix via an Adafruit Matrix Portal M4 controller.
+Captures video from a camera, processes it, and displays on a 64x32 RGB LED matrix via an Adafruit Matrix Portal M4 controller.
 
 ## Features
 
@@ -56,6 +56,80 @@ For Pi Camera support on Raspberry Pi:
 uv sync --extra pi
 ```
 
+## Raspberry Pi Workflows
+
+### Option 1: VS Code Remote SSH (Recommended)
+
+Develop on your Mac/PC while testing on real Pi hardware:
+
+```bash
+# 1. On your Mac - Install "Remote - SSH" extension in VS Code
+
+# 2. Add Pi to SSH config (~/.ssh/config):
+Host pi-ledportal
+    HostName 192.168.1.xxx  # Your Pi's IP
+    User pi
+    ForwardAgent yes
+
+# 3. In VS Code:
+#    - CMD+Shift+P → "Remote-SSH: Connect to Host" → pi-ledportal
+#    - Open folder: /home/pi/projects/ledportal
+#    - Edit and run directly on Pi with full VS Code features!
+```
+
+**Advantages:**
+- ✅ Full VS Code IntelliSense, debugging, git
+- ✅ Code runs on actual Pi hardware (camera, serial port)
+- ✅ No file syncing needed
+
+### Option 2: Git Clone on Pi
+
+Standard development workflow:
+
+```bash
+# On Raspberry Pi
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
+cd MatrixPortalDemos/pro
+
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Pi Camera requires system packages
+sudo apt install -y python3-picamera2
+
+# Run
+uv run ledportal
+```
+
+### Option 3: Hybrid Development
+
+Develop on Mac, test on Pi:
+
+```bash
+# On Mac - make changes, commit
+git add .
+git commit -m "Test camera feature"
+git push
+
+# On Pi - pull and test
+git pull
+uv run ledportal
+```
+
+### Pi Camera Testing
+
+```bash
+# Camera features ONLY work on actual Pi hardware
+# Quick test:
+python3 -c "from picamera2 import Picamera2; cam = Picamera2(); print('Camera OK')"
+
+# Run with Pi camera
+uv run ledportal --config config/pi.yaml
+```
+
 ## Usage
 
 ### Run with default configuration
@@ -79,6 +153,8 @@ uv run ledportal --config config/pi.yaml
 ```
 usage: ledportal [-h] [--config CONFIG] [--frames FRAMES] [--no-display]
                  [--camera CAMERA] [--port PORT] [--bw]
+                 [--orientation {landscape,portrait}]
+                 [--processing {center,stretch,fit}]
 
 LED Portal Pro - Camera feed for LED matrix display
 
@@ -90,34 +166,45 @@ options:
   --camera CAMERA       Camera index to use (overrides config)
   --port PORT           Serial port to use (overrides auto-detection)
   --bw                  Start in black and white mode
-  --mode {landscape,portrait,letterbox}
-                        Display mode (overrides config)
+  --orientation {landscape,portrait}
+                        Display orientation (overrides config)
+  --processing {center,stretch,fit}
+                        Processing mode (overrides config)
 ```
 
 ### Interactive Controls
 
 Single keypress (no Enter needed, Mac/Linux only):
 
-**Display modes:**
+**Orientation:**
 
 | Key | Mode |
 |-----|------|
-| `l` | Landscape (center crop, default) |
-| `p` | Portrait (rotated vertical display) |
+| `l` | Landscape (wide, default) |
+| `p` | Portrait (tall, rotated 90°) |
+
+**Processing:**
+
+| Key | Mode |
+|-----|------|
+| `c` | Center crop (default) |
+| `s` | Stretch to fit |
+| `f` | Fit with letterbox |
 
 **Effects:**
 
 | Key | Action |
 |-----|--------|
-| `b` | Black & white mode |
-| `c` | Color mode |
+| `b` | Toggle black & white / color |
+| `z` | Cycle zoom (100% → 75% → 50% → 25%) |
 
 **Actions:**
 
 | Key | Action |
 |-----|--------|
-| `Space` | Snapshot (3-2-1 countdown, saves BMP + RGB565 bin) |
+| `Space` | Snapshot (3-2-1 countdown, saves BMP) |
 | `v` | Avatar capture mode (guided 18-pose session with voice prompts) |
+| `t` | Toggle display output |
 | `d` | Toggle debug stats |
 | `r` | Reset to defaults |
 | `h` | Show help |
@@ -135,12 +222,12 @@ matrix:
   height: 32
 
 camera:
-  width: 640
-  height: 480
+  width: 0     # 0 = use native resolution (recommended)
+  height: 0    # 0 = use native resolution (recommended)
   index: 0
   prefer_picamera: true  # Use Pi Camera on Raspberry Pi
 
-target_fps: 10
+target_fps: 30
 ```
 
 ## Development

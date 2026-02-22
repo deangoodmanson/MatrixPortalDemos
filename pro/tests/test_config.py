@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-from ledportal_pro.config import AppConfig, MatrixConfig, load_config, save_config
+from ledportal_pro.config import AppConfig, load_config, save_config
 from ledportal_pro.exceptions import ConfigNotFoundError, ConfigValidationError
 
 
@@ -17,8 +17,8 @@ class TestDefaults:
 
     def test_default_camera_resolution(self):
         config = AppConfig()
-        assert config.camera.width == 640
-        assert config.camera.height == 480
+        assert config.camera.width == 0  # 0 = use native resolution
+        assert config.camera.height == 0  # 0 = use native resolution
         assert config.camera.index == 0
 
     def test_default_transport_baud(self):
