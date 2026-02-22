@@ -29,13 +29,6 @@ dependencies = [
     { name = "pillow" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
@@ -47,11 +40,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a6" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [

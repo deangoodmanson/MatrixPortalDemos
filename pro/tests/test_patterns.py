@@ -84,8 +84,8 @@ class TestCreateCheckerboard:
         result = create_checkerboard(
             matrix_config,
             cell_size=2,
-            color1=(255, 0, 0),   # BGR blue
-            color2=(0, 0, 255),   # BGR red
+            color1=(255, 0, 0),  # BGR blue
+            color2=(0, 0, 255),  # BGR red
         )
         pixels = np.frombuffer(result, dtype="<u2")
         assert len(np.unique(pixels)) == 2

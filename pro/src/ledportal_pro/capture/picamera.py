@@ -35,15 +35,22 @@ class PiCamera(CameraBase):
             from picamera2 import Picamera2
         except ImportError as e:
             raise CameraNotFoundError(
-                "picamera2 is not installed. Install with: pip install picamera2"
+                "picamera2 is not installed. On Raspberry Pi OS, install with:\n"
+                "  sudo apt install python3-picamera2\n"
+                "Then recreate your venv with:\n"
+                "  uv venv --system-site-packages && uv sync"
             ) from e
 
         try:
             self._picam = Picamera2()
-            config = self._picam.create_preview_configuration(
-                main={"size": (self._config.width, self._config.height)}
-            )
-            self._picam.configure(config)
+            # If width/height are 0, let picamera2 choose its native resolution
+            if self._config.width > 0 and self._config.height > 0:
+                preview_config = self._picam.create_preview_configuration(
+                    main={"size": (self._config.width, self._config.height)}
+                )
+            else:
+                preview_config = self._picam.create_preview_configuration()
+            self._picam.configure(preview_config)
             self._picam.start()
             self._is_open = True
         except Exception as e:

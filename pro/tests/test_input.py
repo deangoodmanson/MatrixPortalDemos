@@ -4,7 +4,6 @@ import pytest
 
 from ledportal_pro.ui.input import InputCommand, InputResult, KeyboardHandler
 
-
 # ---------------------------------------------------------------------------
 # Single-key mapping — tests _parse_single_key via a freshly constructed handler
 # (no terminal manipulation needed; we call the method directly)
@@ -19,12 +18,14 @@ class TestSingleKeyParsing:
         "p": InputCommand.ORIENTATION_PORTRAIT,
         "c": InputCommand.PROCESSING_CENTER,
         "s": InputCommand.PROCESSING_STRETCH,
-        "r": InputCommand.PROCESSING_FIT,
+        "f": InputCommand.PROCESSING_FIT,
         "b": InputCommand.TOGGLE_BW,
         "z": InputCommand.ZOOM_TOGGLE,
         " ": InputCommand.SNAPSHOT,
         "v": InputCommand.AVATAR,
+        "t": InputCommand.TOGGLE_DISPLAY,
         "d": InputCommand.TOGGLE_DEBUG,
+        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
         "q": InputCommand.QUIT,
     }
@@ -62,11 +63,13 @@ class TestLineParsing:
         "p": InputCommand.ORIENTATION_PORTRAIT,
         "c": InputCommand.PROCESSING_CENTER,
         "s": InputCommand.PROCESSING_STRETCH,
-        "r": InputCommand.PROCESSING_FIT,
+        "f": InputCommand.PROCESSING_FIT,
         "b": InputCommand.TOGGLE_BW,
         "z": InputCommand.ZOOM_TOGGLE,
         "v": InputCommand.AVATAR,
+        "t": InputCommand.TOGGLE_DISPLAY,
         "d": InputCommand.TOGGLE_DEBUG,
+        "r": InputCommand.RESET,
         "h": InputCommand.HELP,
     }
 
@@ -104,17 +107,26 @@ class TestInputCommand:
 
     REQUIRED_COMMANDS = {
         "NONE",
-        "ORIENTATION_LANDSCAPE", "ORIENTATION_PORTRAIT",
-        "PROCESSING_CENTER", "PROCESSING_STRETCH", "PROCESSING_FIT",
-        "TOGGLE_BW", "ZOOM_TOGGLE",
-        "SNAPSHOT", "AVATAR",
-        "TOGGLE_DEBUG", "RESET", "HELP", "QUIT",
+        "ORIENTATION_LANDSCAPE",
+        "ORIENTATION_PORTRAIT",
+        "PROCESSING_CENTER",
+        "PROCESSING_STRETCH",
+        "PROCESSING_FIT",
+        "TOGGLE_BW",
+        "ZOOM_TOGGLE",
+        "SNAPSHOT",
+        "AVATAR",
+        "TOGGLE_DISPLAY",
+        "TOGGLE_DEBUG",
+        "RESET",
+        "HELP",
+        "QUIT",
         "ABORT",
     }
 
     def test_all_required_commands_exist(self):
         names = {cmd.name for cmd in InputCommand}
-        assert self.REQUIRED_COMMANDS == names
+        assert names == self.REQUIRED_COMMANDS
 
 
 class TestInputResult:

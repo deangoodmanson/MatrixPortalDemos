@@ -63,7 +63,7 @@ def draw_countdown_overlay(
 
         # Overlay the rotated text (only non-black pixels)
         mask = np.any(rotated_text > 0, axis=2)
-        overlay[y_start:y_start+h, x_start:x_start+w][mask] = rotated_text[mask]
+        overlay[y_start : y_start + h, x_start : x_start + w][mask] = rotated_text[mask]
     else:
         # Landscape mode - position in lower left corner
         position = (2, matrix_config.height - 4)
@@ -171,8 +171,8 @@ def draw_border(
 
     # Draw 1-pixel border around all edges
     bordered[0, :] = color  # Top edge
-    bordered[height-1, :] = color  # Bottom edge
+    bordered[height - 1, :] = color  # Bottom edge
     bordered[:, 0] = color  # Left edge
-    bordered[:, width-1] = color  # Right edge
+    bordered[:, width - 1] = color  # Right edge
 
     return bordered

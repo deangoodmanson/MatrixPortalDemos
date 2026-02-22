@@ -11,6 +11,7 @@ from .capture.factory import list_available_cameras
 from .config import AppConfig, load_config
 from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
+    apply_brightness_limit,
     apply_grayscale,
     apply_zoom_crop,
     convert_to_rgb565,
@@ -98,6 +99,7 @@ def run_snapshot_sequence(
     orientation: str,
     processing_mode: str,
     zoom_level: float,
+    debug_mode: bool = False,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -111,6 +113,7 @@ def run_snapshot_sequence(
         orientation: Current orientation (landscape/portrait).
         processing_mode: Current processing mode (center/stretch/fit).
         zoom_level: Current zoom level (0.25-1.0).
+        debug_mode: Whether to save debug files alongside snapshot.
 
     Returns:
         True if snapshot completed, False if aborted.
@@ -127,7 +130,6 @@ def run_snapshot_sequence(
         return False
 
     # Countdown with overlay
-    last_frame = None
     last_small_frame = None
 
     for countdown in [3, 2, 1]:
@@ -159,12 +161,13 @@ def run_snapshot_sequence(
 
             # Save the last frame from countdown "1" for the snapshot
             if countdown == 1:
-                last_frame = frame
                 last_small_frame = small_frame.copy()
                 # Show blue border during "1" countdown to indicate capture framing
                 small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
 
-            overlay_frame = draw_countdown_overlay(small_frame, countdown, config.matrix, orientation=orientation)
+            overlay_frame = draw_countdown_overlay(
+                small_frame, countdown, config.matrix, orientation=orientation
+            )
             frame_bytes = convert_to_rgb565(overlay_frame)
 
             if transport is not None:
@@ -276,12 +279,12 @@ def main() -> int:
     if available_cameras:
         print(f"Found {len(available_cameras)} camera(s):")
         for cam in available_cameras:
-            cam_type = cam.get('type', 'unknown')
-            index = cam.get('index', '?')
-            backend = cam.get('backend', 'unknown')
-            resolution = cam.get('resolution', 'unknown')
-            fps = cam.get('fps', 'unknown')
-            name = cam.get('name', cam.get('model', f'Camera {index}'))
+            cam_type = cam.get("type", "unknown")
+            index = cam.get("index", "?")
+            backend = cam.get("backend", "unknown")
+            resolution = cam.get("resolution", "unknown")
+            fps = cam.get("fps", "unknown")
+            name = cam.get("name", cam.get("model", f"Camera {index}"))
             print(f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps")
     else:
         print("  No cameras detected (will try to open anyway)")
@@ -309,20 +312,20 @@ def main() -> int:
         print("CAMERA INFORMATION:")
         print("=" * 60)
         print(f"  Type: {cam_info.get('type', 'unknown')}")
-        if 'index' in cam_info:
+        if "index" in cam_info:
             print(f"  Index: {cam_info['index']}")
-        if 'backend' in cam_info:
+        if "backend" in cam_info:
             print(f"  Backend: {cam_info['backend']}")
-        if 'model' in cam_info:
+        if "model" in cam_info:
             print(f"  Model: {cam_info['model']}")
         print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
-        if 'fps' in cam_info:
+        if "fps" in cam_info:
             print(f"  FPS: {cam_info['fps']}")
-        if 'format' in cam_info and cam_info['format'] != 'unknown':
+        if "format" in cam_info and cam_info["format"] != "unknown":
             print(f"  Format: {cam_info['format']}")
-        if 'requested_resolution' in cam_info:
+        if "requested_resolution" in cam_info:
             print(f"  Requested: {cam_info['requested_resolution']}")
-        if 'sensor_modes' in cam_info:
+        if "sensor_modes" in cam_info:
             print(f"  Sensor modes: {cam_info['sensor_modes']}")
         print("=" * 60)
         print()
@@ -336,10 +339,12 @@ def main() -> int:
             # Send test patterns to verify connection (only if display enabled)
             if display_enabled:
                 test_pattern = create_test_pattern(config.matrix)
-                for i in range(5):
+                # Only send 2 test frames (reduced from 5) to minimize power draw
+                # during initial connection when matrix may be USB-powered only
+                for i in range(2):
                     bytes_sent = transport.send_frame(test_pattern)
                     print(f"Test pattern {i + 1} sent: {bytes_sent} bytes")
-                    time.sleep(0.1)
+                    time.sleep(0.5)  # Longer delay to avoid power spikes
                 print("Verification frames sent.")
             else:
                 print("Display paused (--no-display flag). Press 't' to enable.")
@@ -364,7 +369,9 @@ def main() -> int:
         bw_str = "B&W" if black_and_white else "Color"
         debug_str = "ON" if debug_mode else "OFF"
         zoom_pct = int(zoom_level * 100)
-        print(f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%")
+        print(
+            f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+        )
         print()
         print("Attempting first frame capture...")
 
@@ -458,10 +465,14 @@ def main() -> int:
                     zoom_level = 1.0
                     display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
-                    print("Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%, Display=ON\n")
+                    print(
+                        "Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%, Display=ON\n"
+                    )
                     continue
                 elif cmd == InputCommand.HELP:
-                    print_help(orientation, processing_mode, black_and_white, debug_mode, zoom_level)
+                    print_help(
+                        orientation, processing_mode, black_and_white, debug_mode, zoom_level
+                    )
                     continue
                 elif cmd == InputCommand.QUIT:
                     print("\n=== QUIT REQUESTED ===\n")
@@ -477,6 +488,7 @@ def main() -> int:
                         orientation,
                         processing_mode,
                         zoom_level,
+                        debug_mode,
                     )
                     keyboard.clear_buffer()
                     continue
@@ -515,6 +527,12 @@ def main() -> int:
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
 
+                # Apply brightness limiting for USB power safety
+                if config.processing.max_brightness < 255:
+                    small_frame = apply_brightness_limit(
+                        small_frame, config.processing.max_brightness
+                    )
+
                 # Debug save
                 if config.debug_save_frames:
                     snapshot_manager.save_debug_frame(small_frame)
@@ -548,7 +566,9 @@ def main() -> int:
                     bw_status = " [B&W]" if black_and_white else ""
                     mode_status = f" [{orientation}/{processing_mode}]"
                     zoom_status = f" [zoom={int(zoom_level * 100)}%]" if zoom_level < 1.0 else ""
-                    display_info = f", Display: {display_status}" if display_status != "ACTIVE" else ""
+                    display_info = (
+                        f", Display: {display_status}" if display_status != "ACTIVE" else ""
+                    )
                     print(
                         f"Frames: {frame_count}, FPS: {fps:.1f}, "
                         f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"

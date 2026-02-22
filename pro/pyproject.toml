@@ -12,16 +12,14 @@ dependencies = [
     "pyserial>=3.5",
     "pyyaml>=6.0",
     "pillow>=10.0.0",
-    "ledportal-utils @ file:///Users/frank/projects/ledportal/utils",
+    "ledportal-utils",
 ]
-
-[project.optional-dependencies]
-# Note: picamera2 only works on Raspberry Pi (Linux). Install manually on Pi:
-# pip install picamera2
-dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]
 
 [project.scripts]
 ledportal = "ledportal_pro.main:main"
+
+[tool.uv.sources]
+ledportal-utils = { path = "../utils", editable = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -29,9 +27,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ledportal_pro"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [dependency-groups]
 dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]

@@ -56,8 +56,21 @@ class SerialTransport(TransportBase):
                 rtscts=False,
                 dsrdtr=False,
             )
-            # Allow connection to stabilize
-            time.sleep(0.5)
+
+            # Prevent DTR reset on CircuitPython devices
+            # Must be done AFTER opening the port
+            self._serial.dtr = False
+            self._serial.rts = False
+
+            # Wait for device to boot (CircuitPython takes ~1.5-2s to boot if reset)
+            # If device didn't reset, this just ensures stability
+            print(f"Waiting for Matrix Portal to be ready...")
+            time.sleep(2.0)
+
+            # Flush any boot messages or garbage data
+            self._serial.reset_input_buffer()
+            self._serial.reset_output_buffer()
+
             self._port = port
             self._is_connected = True
         except serial.SerialException as e:
@@ -94,8 +107,14 @@ class SerialTransport(TransportBase):
             self._serial.write(self._config.frame_header)
             # Send frame data
             bytes_written = self._serial.write(frame_data)
-            # Ensure data is sent
+            # Ensure data is sent immediately (flushes OS buffer to serial port)
             self._serial.flush()
+
+            # Small delay to let receiver process the frame
+            # Prevents overwhelming the CircuitPython serial buffer on Raspberry Pi
+            # At 4M baud, 4100 bytes takes ~8ms; we add 2ms margin for processing
+            time.sleep(0.01)  # 10ms safety margin
+
             return bytes_written
         except serial.SerialException as e:
             raise SendError(f"Failed to send frame: {e}") from e

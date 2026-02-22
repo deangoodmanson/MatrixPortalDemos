@@ -18,6 +18,9 @@ def create_test_pattern(matrix_config: MatrixConfig) -> bytes:
     - Green gradient vertically
     - Blue constant
 
+    NOTE: Uses low brightness (max 64 instead of 255) to avoid power issues
+    when the matrix is powered only via USB (not external power supply).
+
     Args:
         matrix_config: Matrix configuration with dimensions.
 
@@ -29,12 +32,14 @@ def create_test_pattern(matrix_config: MatrixConfig) -> bytes:
 
     frame = np.zeros((height, width, 3), dtype=np.uint8)
 
-    # Create gradient pattern
+    # Create gradient pattern with LOW brightness to avoid USB power issues
+    # Full brightness can cause Matrix Portal to brown out and reset
+    MAX_BRIGHTNESS = 64  # Limit to 25% brightness for USB power safety
     for y in range(height):
         for x in range(width):
-            frame[y, x, 2] = int((x / width) * 255)  # Red (BGR order)
-            frame[y, x, 1] = int((y / height) * 255)  # Green
-            frame[y, x, 0] = 128  # Blue constant
+            frame[y, x, 2] = int((x / width) * MAX_BRIGHTNESS)  # Red (BGR order)
+            frame[y, x, 1] = int((y / height) * MAX_BRIGHTNESS)  # Green
+            frame[y, x, 0] = MAX_BRIGHTNESS // 2  # Blue constant
 
     return convert_to_rgb565(frame)
 

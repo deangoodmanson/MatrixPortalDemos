@@ -48,6 +48,7 @@ class ProcessingConfig:
     interpolation: str = "linear"  # "nearest" or "linear"
     enable_gamma_correction: bool = False
     gamma: float = 2.2
+    max_brightness: int = 255  # 0-255, limit to reduce power (64=25%, 128=50%)
     orientation: str = "landscape"  # "landscape" or "portrait"
     processing_mode: str = "center"  # "center", "stretch", or "fit"
 
@@ -142,7 +143,7 @@ def _parse_config(data: dict[str, Any]) -> AppConfig:
         transport=TransportConfig(**transport_data),
         processing=ProcessingConfig(**processing_data),
         ui=UIConfig(**ui_data),
-        target_fps=data.get("target_fps", 10),
+        target_fps=data.get("target_fps", 30),
         debug_save_frames=data.get("debug_save_frames", False),
     )
 
@@ -175,6 +176,7 @@ def save_config(config: AppConfig, config_path: Path | str) -> None:
             "interpolation": config.processing.interpolation,
             "enable_gamma_correction": config.processing.enable_gamma_correction,
             "gamma": config.processing.gamma,
+            "max_brightness": config.processing.max_brightness,
             "orientation": config.processing.orientation,
             "processing_mode": config.processing.processing_mode,
         },

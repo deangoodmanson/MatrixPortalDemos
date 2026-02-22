@@ -4,7 +4,7 @@ This folder contains educational versions of the LED Matrix Camera Feed code, de
 
 ## What's Different?
 
-Compared to the main `sandbox/` and `pi/` folders, this version has:
+Compared to the `pro/` version, this version has:
 
 - **Extensive comments** explaining every section of code
 - **Simplified logic** using multiplication/division instead of bit shifting
@@ -18,8 +18,6 @@ Compared to the main `sandbox/` and `pi/` folders, this version has:
 
 ## Files
 
-## Files
- 
 ### src/
 Unified version for both macOS and Raspberry Pi:
 - `config.py` - Settings with explanations
@@ -299,15 +297,18 @@ Once the program is running, you can use these single-key commands:
 **Processing Mode (How Image Fits):**
 - `c` = Center (crop from center)
 - `s` = Stretch (distort to fit)
-- `r` = Fit (letterbox with black bars)
+- `f` = Fit (letterbox with black bars)
 
 **Effects:**
 - `b` = Toggle Black & White / Color
 
-**Tools:**
+**Actions:**
 - `Space` = Snapshot (3-2-1 countdown, saves BMP file)
 - `v` = Avatar Capture (guided 18-pose session with voice prompts)
+
+**System:**
 - `d` = Toggle Debug output
+- `r` = Reset to defaults
 - `h` = Show help
 - `q` = Quit
 
@@ -318,5 +319,5 @@ Once you understand this code, check out the professional version in the `pro/` 
 - Type hints and type checking
 - YAML configuration files
 - Command-line arguments
-- Comprehensive unit test suite (136 tests)
+- Comprehensive unit test suite (159 tests)
 - Better error handling and logging
