@@ -1226,6 +1226,7 @@ def main() -> None:
     start_time = time.time()
     display_enabled = True  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
+    last_sent_frame = None  # Last frame successfully delivered to the device
 
     # ===========================================
     # ADVANCED: Enable single-keypress mode
@@ -1316,7 +1317,14 @@ def main() -> None:
                 break
 
             if key == ' ':
-                run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
+                if not display_enabled and last_sent_frame is not None:
+                    # Paused: save the frozen frame that's on the device — no countdown
+                    print("  Saving paused frame...")
+                    frame_bytes_save = convert_to_rgb565(last_sent_frame)
+                    save_snapshot(last_sent_frame, frame_bytes_save, orientation, debug_output)
+                    speak("Saved")
+                else:
+                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
@@ -1353,6 +1361,7 @@ def main() -> None:
                 try:
                     bytes_sent = send_frame(serial_connection, frame_bytes)
                     display_status = "ACTIVE"
+                    last_sent_frame = small_frame  # Cache for pause-mode snapshot
                 except Exception as e:
                     display_status = f"PAUSED (error: {e})"
                     if frame_count % 30 == 0:  # Only print error occasionally
