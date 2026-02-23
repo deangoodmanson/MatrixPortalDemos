@@ -468,7 +468,9 @@ def main() -> int:
                                     print(f"Connected to Matrix Portal on {transport.port}\n")
                                 except DeviceNotFoundError as e:
                                     print(f"Connection failed: {e}")
-                                    print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                                    print(
+                                        "!!! Press 't' to try again when the portal is connected. !!!\n"
+                                    )
                                     transport = None
                             else:
                                 print()
@@ -602,7 +604,9 @@ def main() -> int:
                         transport = None  # Mark as disconnected so 't' can reconnect
                         display_status = "PAUSED (disconnected)"
                         print(f"Display disconnected: {e}")
-                        print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
+                        print(
+                            "\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n"
+                        )
 
                 # Frame counting and stats
                 frame_count += 1
