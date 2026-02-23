@@ -268,7 +268,7 @@ def main() -> int:
         config.processing.processing_mode = args.processing
 
     # Print startup info
-    print("LED Portal Pro v0.1.0")
+    print("LED Portal Pro v0.2.0")
     print(f"Matrix: {config.matrix.width}x{config.matrix.height}")
     print(f"Target FPS: {config.target_fps}")
     print(f"Frame size: {config.frame_size_bytes} bytes (RGB565)")
