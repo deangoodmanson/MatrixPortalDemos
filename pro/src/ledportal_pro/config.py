@@ -88,11 +88,15 @@ class AppConfig:
         return 1000.0 / self.target_fps
 
 
+_DEFAULT_YAML = Path(__file__).parent.parent.parent / "config" / "default.yaml"
+
+
 def load_config(config_path: Path | str | None = None) -> AppConfig:
     """Load configuration from YAML file.
 
     Args:
-        config_path: Path to YAML config file. If None, returns default config.
+        config_path: Path to YAML config file. If None, loads default.yaml
+            bundled with the package.
 
     Returns:
         AppConfig instance with loaded or default values.
@@ -102,7 +106,10 @@ def load_config(config_path: Path | str | None = None) -> AppConfig:
         ConfigValidationError: If config file is invalid.
     """
     if config_path is None:
-        return AppConfig()
+        if _DEFAULT_YAML.exists():
+            config_path = _DEFAULT_YAML
+        else:
+            return AppConfig()
 
     config_path = Path(config_path)
     if not config_path.exists():
@@ -187,6 +194,7 @@ def save_config(config: AppConfig, config_path: Path | str) -> None:
             "enable_frame_limiting": config.ui.enable_frame_limiting,
             "debug_mode": config.ui.debug_mode,
             "single_keypress": config.ui.single_keypress,
+            "show_preview": config.ui.show_preview,
         },
         "target_fps": config.target_fps,
         "debug_save_frames": config.debug_save_frames,

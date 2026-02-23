@@ -26,6 +26,7 @@ ui:
   countdown_duration: 0.5
   snapshot_pause_duration: 5.0
   enable_frame_limiting: true  # CRITICAL: Enable to prevent buffer overflow
+  show_preview: false
 
 target_fps: 15  # Reduced from 30 to be conservative on Pi (especially USB-powered)
 debug_save_frames: false

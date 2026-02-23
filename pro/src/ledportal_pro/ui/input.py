@@ -240,6 +240,7 @@ def print_help(
     black_and_white: bool,
     debug_mode: bool,
     zoom_level: float = 1.0,
+    show_preview: bool = False,
 ) -> None:
     """Print help message with current settings.
 
@@ -249,6 +250,7 @@ def print_help(
         black_and_white: Whether B&W mode is active.
         debug_mode: Whether debug mode is active.
         zoom_level: Current zoom level (0.25-1.0).
+        show_preview: Whether preview window is enabled.
     """
     print("")
     print("=" * 60)
@@ -262,8 +264,9 @@ def print_help(
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
     zoom_pct = int(zoom_level * 100)
+    preview_str = "ON" if show_preview else "OFF"
     print(
-        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%, Preview={preview_str}"
     )
     print("=" * 60)
     print("")

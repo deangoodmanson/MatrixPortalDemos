@@ -381,7 +381,7 @@ def main() -> int:
         print()
         if config.ui.show_preview:
             print("Preview window: ENABLED (press 'w' to toggle)")
-        print("Attempting first frame capture...")
+        print("Starting — capturing and sending frames to Matrix Portal...")
 
         # Main loop with keyboard handler context manager
         with KeyboardHandler(single_keypress=config.ui.single_keypress) as keyboard:
@@ -490,7 +490,12 @@ def main() -> int:
                     continue
                 elif cmd == InputCommand.HELP:
                     print_help(
-                        orientation, processing_mode, black_and_white, debug_mode, zoom_level
+                        orientation,
+                        processing_mode,
+                        black_and_white,
+                        debug_mode,
+                        zoom_level,
+                        config.ui.show_preview,
                     )
                     continue
                 elif cmd == InputCommand.QUIT:
@@ -580,9 +585,9 @@ def main() -> int:
                         display_status = "ACTIVE"
                         last_sent_frame = small_frame  # Cache for pause-mode snapshot
                     except Exception as e:
-                        display_status = f"PAUSED (error: {e})"
-                        if frame_count % 30 == 0:  # Only print error occasionally
-                            print(f"Display send failed: {e}")
+                        transport = None  # Mark as disconnected so 't' can reconnect
+                        display_status = "PAUSED (disconnected)"
+                        print(f"Display disconnected: {e}")
 
                 # Frame counting and stats
                 frame_count += 1
