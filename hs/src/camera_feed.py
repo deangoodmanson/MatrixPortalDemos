@@ -1208,7 +1208,7 @@ def main() -> None:
         backend = camera.getBackendName()
         print(f"  Backend: {backend}")
         print(f"  Resolution: {width}x{height}")
-        print(f"  FPS (reported by driver): {fps if fps > 0 else 'unknown'} — may not reflect actual capture speed")
+        print(f"  FPS (reported by driver): {fps if fps > 0 else 'unknown'} — camera driver reported speed.")
     elif camera_type == "picamera":
         camera_props = camera.camera_properties
         config = camera.camera_configuration()
