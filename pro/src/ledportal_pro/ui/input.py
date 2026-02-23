@@ -75,7 +75,7 @@ class KeyboardHandler:
             try:
                 self._old_settings = termios.tcgetattr(sys.stdin)
                 tty.setcbreak(sys.stdin.fileno())
-            except (termios.error, OSError):
+            except termios.error, OSError:
                 # Not a terminal or not supported
                 self._single_keypress = False
                 self._old_settings = None
@@ -96,7 +96,7 @@ class KeyboardHandler:
         if self._old_settings is not None:
             try:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self._old_settings)
-            except (termios.error, OSError):
+            except termios.error, OSError:
                 pass
             self._old_settings = None
 
@@ -119,7 +119,7 @@ class KeyboardHandler:
                     # Line-based input
                     line = sys.stdin.readline().strip().lower()
                     return self._parse_line(line)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
         return InputResult(InputCommand.NONE)
@@ -222,7 +222,7 @@ class KeyboardHandler:
                     sys.stdin.read(1)
                 else:
                     sys.stdin.readline()
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
     def disable(self) -> None:
