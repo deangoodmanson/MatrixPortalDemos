@@ -88,7 +88,7 @@ python camera_feed.py
 *   **Processing**: `c` center crop (default) · `s` stretch · `f` fit (letterbox)
 *   **Effects**: `b` B&W toggle · `z` zoom (100% → 75% → 50% → 25%)
 *   **Actions**: `Space` snapshot · `v` avatar capture
-*   **System**: `t` toggle display · `r` reset · `d` debug · `h` help · `q` quit
+*   **System**: `t` toggle transmission · `r` reset · `d` debug · `h` help · `q` quit
 
 ## Performance Optimizations
 We achieved a ~500% performance increase (5 FPS → 24 FPS) by:

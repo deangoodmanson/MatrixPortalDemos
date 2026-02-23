@@ -1131,7 +1131,7 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1249,6 +1249,8 @@ def main() -> None:
     if show_preview_enabled:
         print("Preview window: ENABLED (press 'w' to toggle)")
     print("Press Ctrl+C to force quit")
+    if serial_connection is None:
+        print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
     print("")
 
     frame_count = 0
@@ -1303,20 +1305,31 @@ def main() -> None:
 
             # === SYSTEM KEYS ===
             if key == 't':
-                display_enabled = not display_enabled
-                if display_enabled:
-                    print("\n=== DISPLAY: ENABLED ===")
+                if display_enabled and serial_connection is None:
+                    # Already enabled but disconnected — reconnect without toggling to paused
+                    print("\n=== RECONNECTING TO MATRIX PORTAL ===")
+                    serial_connection = setup_usb_serial()
                     if serial_connection is None:
-                        print("Attempting to reconnect to Matrix Portal...")
-                        serial_connection = setup_usb_serial()
-                        if serial_connection is None:
-                            print("Connection failed: Matrix Portal not found\n")
-                        else:
-                            print("Connected successfully!\n")
+                        print("Connection failed: Matrix Portal not found")
+                        print("!!! Press 't' to try again when the portal is connected. !!!\n")
                     else:
-                        print()
+                        print("Connected successfully!\n")
                 else:
-                    print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                    display_enabled = not display_enabled
+                    if display_enabled:
+                        print("\n=== DISPLAY: ENABLED ===")
+                        if serial_connection is None:
+                            print("Attempting to reconnect to Matrix Portal...")
+                            serial_connection = setup_usb_serial()
+                            if serial_connection is None:
+                                print("Connection failed: Matrix Portal not found")
+                                print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                            else:
+                                print("Connected successfully!\n")
+                        else:
+                            print()
+                    else:
+                        print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
                 continue
 
             # === RESET ===
@@ -1378,7 +1391,6 @@ def main() -> None:
             # === MAIN CAPTURE LOOP ===
             frame = capture_frame(camera, camera_type)
             if frame is None:
-                print("WARNING: Failed to capture frame")
                 continue
 
             # Process the frame
@@ -1402,9 +1414,10 @@ def main() -> None:
                     display_status = "ACTIVE"
                     last_sent_frame = small_frame  # Cache for pause-mode snapshot
                 except Exception as e:
-                    display_status = f"PAUSED (error: {e})"
-                    if frame_count % 30 == 0:  # Only print error occasionally
-                        print(f"Display send failed: {e}")
+                    serial_connection = None  # Mark as disconnected so 't' can reconnect
+                    display_status = "PAUSED (disconnected)"
+                    print(f"Display disconnected: {e}")
+                    print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
             show_preview(frame, small_frame, orientation, show_preview_enabled)

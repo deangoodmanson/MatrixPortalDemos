@@ -27,7 +27,7 @@ class InputCommand(Enum):
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
-    TOGGLE_DISPLAY = auto()  # Toggle display output
+    TOGGLE_DISPLAY = auto()  # Toggle transmission to matrix
     TOGGLE_DEBUG = auto()
     TOGGLE_PREVIEW = auto()  # Toggle preview window
     RESET = auto()
@@ -259,7 +259,7 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  z=zoom")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"

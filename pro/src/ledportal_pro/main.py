@@ -370,7 +370,7 @@ def main() -> int:
         print("  Processing:  c=center  s=stretch  f=fit")
         print("  Effects:     b=B&W toggle  z=zoom")
         print("  Actions:     SPACE=snapshot  v=avatar")
-        print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+        print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
         print()
         bw_str = "B&W" if black_and_white else "Color"
         debug_str = "ON" if debug_mode else "OFF"
@@ -382,6 +382,8 @@ def main() -> int:
         if config.ui.show_preview:
             print("Preview window: ENABLED (press 'w' to toggle)")
         print("Starting — capturing and sending frames to Matrix Portal...")
+        if transport is None:
+            print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
 
         # Main loop with keyboard handler context manager
         with KeyboardHandler(single_keypress=config.ui.single_keypress) as keyboard:
@@ -443,22 +445,35 @@ def main() -> int:
 
                 # Handle actions
                 elif cmd == InputCommand.TOGGLE_DISPLAY:
-                    display_enabled = not display_enabled
-                    if display_enabled:
-                        print("\n=== DISPLAY: ENABLED ===")
-                        if transport is None:
-                            print("Attempting to reconnect to Matrix Portal...")
-                            try:
-                                transport = create_transport(config.transport)
-                                transport.connect(args.port)
-                                print(f"Connected to Matrix Portal on {transport.port}\n")
-                            except DeviceNotFoundError as e:
-                                print(f"Connection failed: {e}\n")
-                                transport = None
-                        else:
-                            print()
+                    if display_enabled and transport is None:
+                        # Already enabled but disconnected — reconnect without toggling to paused
+                        print("\n=== RECONNECTING TO MATRIX PORTAL ===")
+                        try:
+                            transport = create_transport(config.transport)
+                            transport.connect(args.port)
+                            print(f"Connected to Matrix Portal on {transport.port}\n")
+                        except DeviceNotFoundError as e:
+                            print(f"Connection failed: {e}")
+                            print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                            transport = None
                     else:
-                        print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                        display_enabled = not display_enabled
+                        if display_enabled:
+                            print("\n=== DISPLAY: ENABLED ===")
+                            if transport is None:
+                                print("Attempting to reconnect to Matrix Portal...")
+                                try:
+                                    transport = create_transport(config.transport)
+                                    transport.connect(args.port)
+                                    print(f"Connected to Matrix Portal on {transport.port}\n")
+                                except DeviceNotFoundError as e:
+                                    print(f"Connection failed: {e}")
+                                    print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                                    transport = None
+                            else:
+                                print()
+                        else:
+                            print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
                     continue
                 elif cmd == InputCommand.TOGGLE_DEBUG:
                     debug_mode = not debug_mode
@@ -544,8 +559,7 @@ def main() -> int:
                 # Capture frame
                 try:
                     frame = camera.capture()
-                except CameraCaptureFailed as e:
-                    print(f"Capture failed: {e}")
+                except CameraCaptureFailed:
                     time.sleep(0.1)
                     continue
 
@@ -588,6 +602,7 @@ def main() -> int:
                         transport = None  # Mark as disconnected so 't' can reconnect
                         display_status = "PAUSED (disconnected)"
                         print(f"Display disconnected: {e}")
+                        print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
                 # Frame counting and stats
                 frame_count += 1

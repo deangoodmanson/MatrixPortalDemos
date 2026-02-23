@@ -36,7 +36,7 @@ Initial release of the LED Matrix Portal Camera Feed system.
 - Single-file educational Python application (`camera_feed.py`)
 - Extensive inline comments explaining every concept for students
 - Same feature set as Pro: all display modes, snapshot, avatar, display toggle
-- Key bindings: `l/p` orientation, `c/s/f` processing, `b` B&W, `z` zoom, `t` toggle display, `r` reset, `space` snapshot, `v` avatar, `d` debug, `h` help, `q` quit
+- Key bindings: `l/p` orientation, `c/s/f` processing, `b` B&W, `z` zoom, `t` toggle transmission, `r` reset, `space` snapshot, `v` avatar, `d` debug, `h` help, `q` quit
 - Developer tooling (`hs/pyproject.toml`) with `ty` and `ruff` — students unaffected
 - Type-safe: `Optional[serial.Serial]` throughout serial-accepting functions
 
