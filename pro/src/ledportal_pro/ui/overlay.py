@@ -155,9 +155,14 @@ def show_preview(
     small_frame: NDArray[np.uint8],
     matrix_config: MatrixConfig,
     orientation: str = "landscape",
+    processing_mode: str = "center",
 ) -> None:
     """Display a side-by-side preview window: camera feed on the left, enlarged
     matrix view on the right.
+
+    A blue rectangle on the camera side shows exactly which region of the camera
+    frame is sent to the matrix portal.  For center-crop mode this is an inner
+    crop rectangle; for stretch/fit it frames the whole camera image.
 
     In portrait mode the matrix view is rotated 90° CCW to match the physical
     display orientation.
@@ -167,6 +172,7 @@ def show_preview(
         small_frame: Processed matrix-sized frame.
         matrix_config: Matrix configuration (used for scale factor).
         orientation: Current display orientation ("landscape" or "portrait").
+        processing_mode: Current processing mode ("center", "stretch", or "fit").
     """
     scale = 10
 
@@ -185,6 +191,31 @@ def show_preview(
     target_height = enlarged.shape[0]
     cam_h, cam_w = original_frame.shape[:2]
     cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    # Draw blue border showing the region sent to the matrix portal
+    if processing_mode == "center":
+        # Target dims before rotation (portrait swaps w/h before cropping)
+        tw = matrix_config.height if orientation == "portrait" else matrix_config.width
+        th = matrix_config.width if orientation == "portrait" else matrix_config.height
+        target_aspect = tw / th
+        cam_aspect = cam_w / cam_h
+        if cam_aspect > target_aspect:
+            crop_w = int(cam_h * target_aspect)
+            x1, y1 = (cam_w - crop_w) // 2, 0
+            x2, y2 = x1 + crop_w, cam_h
+        else:
+            crop_h = int(cam_w / target_aspect)
+            x1, y1 = 0, (cam_h - crop_h) // 2
+            x2, y2 = cam_w, y1 + crop_h
+    else:
+        # stretch / fit — full camera frame is used
+        x1, y1, x2, y2 = 0, 0, cam_w, cam_h
+
+    # Scale crop rect from original camera coordinates to preview coordinates
+    s = target_height / cam_h
+    px1, py1 = int(x1 * s), int(y1 * s)
+    px2, py2 = min(int(x2 * s), cam_resized.shape[1]) - 1, int(y2 * s) - 1
+    cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
     combined = np.hstack([cam_resized, enlarged])
     cv2.imshow("Camera | LED Matrix (10x)", combined)

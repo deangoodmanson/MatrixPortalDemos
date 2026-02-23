@@ -22,7 +22,7 @@ This repository contains **three distinct versions**:
 
 ### 2. `hs/` - High School Educational Version
 - **Purpose**: Educational, learning-focused
-- **Python**: 3.12+ (modern but accessible)
+- **Python**: 3.14+ (modern but accessible)
 - **Tooling**: uv (teaching modern practices)
 - **Architecture**: Single-file with extensive comments
 - **Config**: Simple constants in config.py
@@ -196,7 +196,7 @@ python camera_feed.py
 - **Resolution is 64×32**: Width=64, Height=32 (landscape default)
 - **Serial not bulk**: USB CDC serial communication, not PyUSB bulk
 - **Two versions**: Keep pro and hs in sync for features, but different styles
-- **Modern Python**: Use Python 3.12+ minimum, teach current practices
+- **Modern Python**: Use Python 3.14+ minimum, teach current practices
 - **uv everywhere**: Both pro and hs now use uv for Python management
 - **Pillow for utils**: Use PIL for snapshot processing utilities
 

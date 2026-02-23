@@ -3,7 +3,7 @@ name = "ledportal-hs"
 version = "0.1.0"
 description = "Educational LED Matrix camera feed - High School version"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 dependencies = [
     "numpy>=1.24.0",
@@ -17,10 +17,10 @@ dev = ["ty>=0.0.1a6", "ruff>=0.4.0"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py314"
 
 [tool.ty.environment]
-python-version = "3.12"
+python-version = "3.14"
 
 [tool.ty.rules]
 # picamera2 and pyttsx3 are optional Pi/platform-specific imports

@@ -1085,10 +1085,14 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True) -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center') -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
+
+    A blue rectangle on the camera side shows exactly which region of the camera
+    frame is sent to the matrix portal.  For center-crop mode this is an inner
+    crop rectangle; for stretch/fit it frames the whole camera image.
 
     In portrait mode the matrix view is rotated 90° CCW to match the physical
     display orientation.
@@ -1113,6 +1117,31 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     target_height = enlarged.shape[0]
     cam_h, cam_w = original_frame.shape[:2]
     cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    # Draw blue border showing the region sent to the matrix portal
+    if proc_mode == 'center':
+        # Target dims before rotation (portrait swaps w/h before cropping)
+        tw = MATRIX_HEIGHT if orient == 'portrait' else MATRIX_WIDTH
+        th = MATRIX_WIDTH if orient == 'portrait' else MATRIX_HEIGHT
+        target_aspect = tw / th
+        cam_aspect = cam_w / cam_h
+        if cam_aspect > target_aspect:
+            crop_w = int(cam_h * target_aspect)
+            x1, y1 = (cam_w - crop_w) // 2, 0
+            x2, y2 = x1 + crop_w, cam_h
+        else:
+            crop_h = int(cam_w / target_aspect)
+            x1, y1 = 0, (cam_h - crop_h) // 2
+            x2, y2 = cam_w, y1 + crop_h
+    else:
+        # stretch / fit — full camera frame is used
+        x1, y1, x2, y2 = 0, 0, cam_w, cam_h
+
+    # Scale crop rect from original camera coordinates to preview coordinates
+    s = target_height / cam_h
+    px1, py1 = int(x1 * s), int(y1 * s)
+    px2, py2 = min(int(x2 * s), cam_resized.shape[1]) - 1, int(y2 * s) - 1
+    cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
     # Show both views side by side in a single window
     combined = np.hstack([cam_resized, enlarged])
@@ -1420,7 +1449,7 @@ def main() -> None:
                     print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
-            show_preview(frame, small_frame, orientation, show_preview_enabled)
+            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode)
 
             # Statistics
             frame_count += 1

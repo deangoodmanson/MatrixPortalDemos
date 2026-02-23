@@ -32,13 +32,13 @@ Unified version for both macOS and Raspberry Pi:
 This version is designed to be **simple and educational** while teaching modern Python practices!
 
 **Why use uv?**
-- ✅ Installs modern Python versions (3.12, 3.13) easily
+- ✅ Installs modern Python versions (3.14+) easily
 - ✅ Manages virtual environments automatically
 - ✅ Faster than pip
 - ✅ Industry best practice for Python development
 
 **Requirements:**
-- Python 3.12+ (we'll install this with uv)
+- Python 3.14+ (we'll install this with uv)
 - uv package manager (fast, modern Python tooling)
 
 #### Step 1: Install uv
@@ -70,7 +70,7 @@ wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/
 #### Step 3: Install Python and Dependencies
 
 ```bash
-# uv will automatically install Python 3.13 and create a virtual environment!
+# uv will automatically install Python 3.14 and create a virtual environment!
 uv venv
 
 # Activate the virtual environment

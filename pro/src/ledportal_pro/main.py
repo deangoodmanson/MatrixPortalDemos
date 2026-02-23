@@ -625,7 +625,7 @@ def main() -> int:
 
                 # Preview window
                 if config.ui.show_preview:
-                    show_preview(frame, small_frame, config.matrix, orientation)
+                    show_preview(frame, small_frame, config.matrix, orientation, processing_mode)
 
                 # Frame rate limiting
                 if config.ui.enable_frame_limiting:
