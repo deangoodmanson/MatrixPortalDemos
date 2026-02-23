@@ -283,7 +283,9 @@ def main() -> int:
             resolution = cam.get("resolution", "unknown")
             fps = cam.get("fps", "unknown")
             name = cam.get("name", cam.get("model", f"Camera {index}"))
-            print(f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps")
+            print(
+                f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps (driver-reported)"
+            )
     else:
         print("  No cameras detected (will try to open anyway)")
     print()
@@ -319,7 +321,7 @@ def main() -> int:
             print(f"  Model: {cam_info['model']}")
         print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
         if "fps" in cam_info:
-            print(f"  FPS: {cam_info['fps']}")
+            print(f"  FPS (driver-reported): {cam_info['fps']} — actual rate shown at runtime")
         if "format" in cam_info and cam_info["format"] != "unknown":
             print(f"  Format: {cam_info['format']}")
         if "requested_resolution" in cam_info:
