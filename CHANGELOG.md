@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-02-23
+
+### Connection UX
+
+- `t` key now reconnects in one press when display is enabled but portal is disconnected (previously required two presses)
+- Loud `!!!` banners on portal disconnect and failed reconnect, each with a `press 't'` prompt
+- Startup message when portal not found includes `press 't' to connect when ready`
+- Paused message now reads `press 't' to resume`
+- All failed reconnect attempts followed by `press 't' to try again` prompt
+
+### Terminology
+
+- Renamed `toggle display` → `toggle transmission` across all help text and READMEs (more accurate: matrix holds last frame; only frame sending stops)
+
+### Preview Window
+
+- Blue 1-pixel border on camera side of preview shows the exact region being sent to the matrix portal
+- Center mode: inner crop rectangle reflecting the actual aspect-ratio crop
+- Stretch/fit modes: full-image border (entire frame is used)
+- Both Pro and HS versions updated
+
+### Python & Tooling
+
+- Minimum Python version bumped to 3.14 for both Pro and HS
+- Updated ruff 0.14.14 → 0.15.2, ty 0.0.14 → 0.0.18, opencv 4.13.0.90 → 4.13.0.92, pillow 12.1.0 → 12.1.1
+
+### Bug Fixes
+
+- Silent camera frame drops (transient, self-recovering — no warning printed)
+- Fixed two-press reconnect bug in `t` key handler
+
 ## [0.1.0] - 2026-02-22
 
 Initial release of the LED Matrix Portal Camera Feed system.
@@ -36,7 +67,7 @@ Initial release of the LED Matrix Portal Camera Feed system.
 - Single-file educational Python application (`camera_feed.py`)
 - Extensive inline comments explaining every concept for students
 - Same feature set as Pro: all display modes, snapshot, avatar, display toggle
-- Key bindings: `l/p` orientation, `c/s/f` processing, `b` B&W, `z` zoom, `t` toggle display, `r` reset, `space` snapshot, `v` avatar, `d` debug, `h` help, `q` quit
+- Key bindings: `l/p` orientation, `c/s/f` processing, `b` B&W, `z` zoom, `t` toggle transmission, `r` reset, `space` snapshot, `v` avatar, `d` debug, `h` help, `q` quit
 - Developer tooling (`hs/pyproject.toml`) with `ty` and `ruff` — students unaffected
 - Type-safe: `Optional[serial.Serial]` throughout serial-accepting functions
 

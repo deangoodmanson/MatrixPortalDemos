@@ -1,13 +1,10 @@
 """Overlay drawing functionality."""
 
-from typing import TYPE_CHECKING
-
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    from ..config import MatrixConfig
+from ..config import MatrixConfig
 
 
 def draw_countdown_overlay(
@@ -151,6 +148,95 @@ def draw_mode_indicator(
     )
 
     return overlay
+
+
+def show_preview(
+    original_frame: NDArray[np.uint8],
+    small_frame: NDArray[np.uint8],
+    matrix_config: MatrixConfig,
+    orientation: str = "landscape",
+    processing_mode: str = "center",
+    zoom_level: float = 1.0,
+) -> None:
+    """Display a side-by-side preview window: camera feed on the left, enlarged
+    matrix view on the right.
+
+    A blue rectangle on the camera side shows exactly which region of the camera
+    frame is sent to the matrix portal, accounting for both zoom and processing
+    mode.  The camera side always shows the full unzoomed frame so the border
+    visibly shrinks as zoom increases.
+
+    In portrait mode the matrix view is rotated 90° CCW to match the physical
+    display orientation.
+
+    Args:
+        original_frame: Full-resolution camera frame (pre-zoom).
+        small_frame: Processed matrix-sized frame.
+        matrix_config: Matrix configuration (used for scale factor).
+        orientation: Current display orientation ("landscape" or "portrait").
+        processing_mode: Current processing mode ("center", "stretch", or "fit").
+        zoom_level: Current zoom level (1.0 = full frame, 0.5 = centre 50%).
+    """
+    scale = 10
+
+    # Enlarge the matrix view (nearest-neighbour for crisp pixels)
+    enlarged = cv2.resize(
+        small_frame,
+        (matrix_config.width * scale, matrix_config.height * scale),
+        interpolation=cv2.INTER_NEAREST,
+    )
+
+    # In portrait mode rotate to match the physical display
+    if orientation == "portrait":
+        enlarged = cv2.rotate(enlarged, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    # Scale camera frame to match enlarged matrix view height
+    target_height = enlarged.shape[0]
+    cam_h, cam_w = original_frame.shape[:2]
+    cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    # --- Compute the effective capture region in original camera coordinates ---
+    # Step 1: zoom crop (shrinks from centre)
+    if zoom_level < 1.0:
+        zoom_w = int(cam_w * zoom_level)
+        zoom_h = int(cam_h * zoom_level)
+        zoom_x1 = (cam_w - zoom_w) // 2
+        zoom_y1 = (cam_h - zoom_h) // 2
+    else:
+        zoom_w, zoom_h = cam_w, cam_h
+        zoom_x1, zoom_y1 = 0, 0
+
+    # Step 2: processing crop within the zoomed region
+    if processing_mode == "center":
+        # Target dims before rotation (portrait swaps w/h before cropping)
+        tw = matrix_config.height if orientation == "portrait" else matrix_config.width
+        th = matrix_config.width if orientation == "portrait" else matrix_config.height
+        target_aspect = tw / th
+        zoom_aspect = zoom_w / zoom_h
+        if zoom_aspect > target_aspect:
+            inner_w = int(zoom_h * target_aspect)
+            inner_x1 = (zoom_w - inner_w) // 2
+            x1, y1 = zoom_x1 + inner_x1, zoom_y1
+            x2, y2 = x1 + inner_w, zoom_y1 + zoom_h
+        else:
+            inner_h = int(zoom_w / target_aspect)
+            inner_y1 = (zoom_h - inner_h) // 2
+            x1, y1 = zoom_x1, zoom_y1 + inner_y1
+            x2, y2 = zoom_x1 + zoom_w, y1 + inner_h
+    else:
+        # stretch / fit — full zoomed area is used
+        x1, y1 = zoom_x1, zoom_y1
+        x2, y2 = zoom_x1 + zoom_w, zoom_y1 + zoom_h
+
+    # Scale rect from original camera coordinates to preview coordinates
+    s = target_height / cam_h
+    px1, py1 = int(x1 * s), int(y1 * s)
+    px2, py2 = min(int(x2 * s), cam_resized.shape[1]) - 1, int(y2 * s) - 1
+    cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
+
+    combined = np.hstack([cam_resized, enlarged])
+    cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.waitKey(1)
 
 
 def draw_border(

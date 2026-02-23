@@ -27,6 +27,7 @@ from .ui import (
     draw_border,
     draw_countdown_overlay,
     print_help,
+    show_preview,
     speak,
 )
 
@@ -84,6 +85,11 @@ def parse_args() -> argparse.Namespace:
         choices=["center", "stretch", "fit"],
         default=None,
         help="Processing mode (overrides config)",
+    )
+    parser.add_argument(
+        "--no-debug",
+        action="store_true",
+        help="Disable debug/stats output (toggle with 'd' key)",
     )
 
     return parser.parse_args()
@@ -193,12 +199,8 @@ def run_snapshot_sequence(
         # Use the saved frame from countdown "1"
         small_frame = last_small_frame
 
-        # Add blue border around frozen frame
-        small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
-
+        # Save the clean frame (no border)
         frame_bytes = convert_to_rgb565(small_frame)
-
-        # Save snapshot
         snapshot_path, debug_path, rgb565_path = snapshot_manager.save(
             small_frame, frame_bytes, orientation, debug_mode=debug_mode
         )
@@ -212,13 +214,14 @@ def run_snapshot_sequence(
                 print(f"  Debug RGB565: {rgb565_path}")
         print(f"{'=' * 60}\n")
 
-        # Send to display
+        # Show blue border on the matrix display only
         if transport is not None:
             from .transport.base import TransportBase
 
             if isinstance(transport, TransportBase):
                 try:
-                    transport.send_frame(frame_bytes)
+                    bordered_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
+                    transport.send_frame(convert_to_rgb565(bordered_frame))
                 except Exception:
                     pass
 
@@ -265,7 +268,7 @@ def main() -> int:
         config.processing.processing_mode = args.processing
 
     # Print startup info
-    print("LED Portal Pro v0.1.0")
+    print("LED Portal Pro v0.2.0")
     print(f"Matrix: {config.matrix.width}x{config.matrix.height}")
     print(f"Target FPS: {config.target_fps}")
     print(f"Frame size: {config.frame_size_bytes} bytes (RGB565)")
@@ -285,7 +288,9 @@ def main() -> int:
             resolution = cam.get("resolution", "unknown")
             fps = cam.get("fps", "unknown")
             name = cam.get("name", cam.get("model", f"Camera {index}"))
-            print(f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps")
+            print(
+                f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps (driver-reported)"
+            )
     else:
         print("  No cameras detected (will try to open anyway)")
     print()
@@ -296,10 +301,11 @@ def main() -> int:
     black_and_white = args.bw
     orientation = config.processing.orientation
     processing_mode = config.processing.processing_mode
-    debug_mode = config.ui.debug_mode
+    debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
+    last_sent_frame = None  # Last frame successfully delivered to the device
 
     try:
         # Setup camera
@@ -320,7 +326,7 @@ def main() -> int:
             print(f"  Model: {cam_info['model']}")
         print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
         if "fps" in cam_info:
-            print(f"  FPS: {cam_info['fps']}")
+            print(f"  FPS (driver-reported): {cam_info['fps']} — camera driver reported speed.")
         if "format" in cam_info and cam_info["format"] != "unknown":
             print(f"  Format: {cam_info['format']}")
         if "requested_resolution" in cam_info:
@@ -364,7 +370,7 @@ def main() -> int:
         print("  Processing:  c=center  s=stretch  f=fit")
         print("  Effects:     b=B&W toggle  z=zoom")
         print("  Actions:     SPACE=snapshot  v=avatar")
-        print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+        print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
         print()
         bw_str = "B&W" if black_and_white else "Color"
         debug_str = "ON" if debug_mode else "OFF"
@@ -373,7 +379,11 @@ def main() -> int:
             f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
         )
         print()
-        print("Attempting first frame capture...")
+        if config.ui.show_preview:
+            print("Preview window: ENABLED (press 'w' to toggle)")
+        print("Starting — capturing and sending frames to Matrix Portal...")
+        if transport is None:
+            print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
 
         # Main loop with keyboard handler context manager
         with KeyboardHandler(single_keypress=config.ui.single_keypress) as keyboard:
@@ -435,27 +445,53 @@ def main() -> int:
 
                 # Handle actions
                 elif cmd == InputCommand.TOGGLE_DISPLAY:
-                    display_enabled = not display_enabled
-                    if display_enabled:
-                        print("\n=== DISPLAY: ENABLED ===")
-                        if transport is None:
-                            print("Attempting to reconnect to Matrix Portal...")
-                            try:
-                                transport = create_transport(config.transport)
-                                transport.connect(args.port)
-                                print(f"Connected to Matrix Portal on {transport.port}\n")
-                            except DeviceNotFoundError as e:
-                                print(f"Connection failed: {e}\n")
-                                transport = None
-                        else:
-                            print()
+                    if display_enabled and transport is None:
+                        # Already enabled but disconnected — reconnect without toggling to paused
+                        print("\n=== RECONNECTING TO MATRIX PORTAL ===")
+                        try:
+                            transport = create_transport(config.transport)
+                            transport.connect(args.port)
+                            print(f"Connected to Matrix Portal on {transport.port}\n")
+                        except DeviceNotFoundError as e:
+                            print(f"Connection failed: {e}")
+                            print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                            transport = None
                     else:
-                        print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                        display_enabled = not display_enabled
+                        if display_enabled:
+                            print("\n=== DISPLAY: ENABLED ===")
+                            if transport is None:
+                                print("Attempting to reconnect to Matrix Portal...")
+                                try:
+                                    transport = create_transport(config.transport)
+                                    transport.connect(args.port)
+                                    print(f"Connected to Matrix Portal on {transport.port}\n")
+                                except DeviceNotFoundError as e:
+                                    print(f"Connection failed: {e}")
+                                    print(
+                                        "!!! Press 't' to try again when the portal is connected. !!!\n"
+                                    )
+                                    transport = None
+                            else:
+                                print()
+                        else:
+                            print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
                     continue
                 elif cmd == InputCommand.TOGGLE_DEBUG:
                     debug_mode = not debug_mode
                     mode_str = "ON" if debug_mode else "OFF"
                     print(f"\n=== DEBUG MODE: {mode_str} ===\n")
+                    continue
+                elif cmd == InputCommand.TOGGLE_PREVIEW:
+                    config.ui.show_preview = not config.ui.show_preview
+                    if config.ui.show_preview:
+                        print("\n=== PREVIEW WINDOW: ENABLED ===\n")
+                    else:
+                        import cv2 as _cv2
+
+                        _cv2.destroyAllWindows()
+                        _cv2.waitKey(1)
+                        print("\n=== PREVIEW WINDOW: DISABLED ===\n")
                     continue
                 elif cmd == InputCommand.RESET:
                     orientation = "landscape"
@@ -471,25 +507,39 @@ def main() -> int:
                     continue
                 elif cmd == InputCommand.HELP:
                     print_help(
-                        orientation, processing_mode, black_and_white, debug_mode, zoom_level
+                        orientation,
+                        processing_mode,
+                        black_and_white,
+                        debug_mode,
+                        zoom_level,
+                        config.ui.show_preview,
                     )
                     continue
                 elif cmd == InputCommand.QUIT:
                     print("\n=== QUIT REQUESTED ===\n")
                     break
                 elif cmd == InputCommand.SNAPSHOT:
-                    run_snapshot_sequence(
-                        camera,
-                        transport,
-                        config,
-                        snapshot_manager,
-                        keyboard,
-                        black_and_white,
-                        orientation,
-                        processing_mode,
-                        zoom_level,
-                        debug_mode,
-                    )
+                    if not display_enabled and last_sent_frame is not None:
+                        # Paused: save the frozen frame on the device — no countdown
+                        print("  Saving paused frame...")
+                        frame_bytes_save = convert_to_rgb565(last_sent_frame)
+                        snapshot_manager.save(
+                            last_sent_frame, frame_bytes_save, orientation, debug_mode=debug_mode
+                        )
+                        print("  Saved.")
+                    else:
+                        run_snapshot_sequence(
+                            camera,
+                            transport,
+                            config,
+                            snapshot_manager,
+                            keyboard,
+                            black_and_white,
+                            orientation,
+                            processing_mode,
+                            zoom_level,
+                            debug_mode,
+                        )
                     keyboard.clear_buffer()
                     continue
                 elif cmd == InputCommand.AVATAR:
@@ -510,13 +560,13 @@ def main() -> int:
 
                 # Capture frame
                 try:
-                    frame = camera.capture()
-                except CameraCaptureFailed as e:
-                    print(f"Capture failed: {e}")
+                    original_frame = camera.capture()  # Full resolution, pre-zoom
+                except CameraCaptureFailed:
                     time.sleep(0.1)
                     continue
 
-                # Apply zoom
+                # Apply zoom (frame is the working copy; original_frame stays full-res for preview)
+                frame = original_frame
                 if zoom_level < 1.0:
                     frame = apply_zoom_crop(frame, zoom_level)
 
@@ -550,10 +600,14 @@ def main() -> int:
                     try:
                         bytes_sent = transport.send_frame(frame_bytes)
                         display_status = "ACTIVE"
+                        last_sent_frame = small_frame  # Cache for pause-mode snapshot
                     except Exception as e:
-                        display_status = f"PAUSED (error: {e})"
-                        if frame_count % 30 == 0:  # Only print error occasionally
-                            print(f"Display send failed: {e}")
+                        transport = None  # Mark as disconnected so 't' can reconnect
+                        display_status = "PAUSED (disconnected)"
+                        print(f"Display disconnected: {e}")
+                        print(
+                            "\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n"
+                        )
 
                 # Frame counting and stats
                 frame_count += 1
@@ -572,6 +626,17 @@ def main() -> int:
                     print(
                         f"Frames: {frame_count}, FPS: {fps:.1f}, "
                         f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"
+                    )
+
+                # Preview window
+                if config.ui.show_preview:
+                    show_preview(
+                        original_frame,
+                        small_frame,
+                        config.matrix,
+                        orientation,
+                        processing_mode,
+                        zoom_level,
                     )
 
                 # Frame rate limiting
@@ -597,6 +662,10 @@ def main() -> int:
             camera.close()
         if transport is not None:
             transport.disconnect()
+        if config.ui.show_preview:
+            import cv2 as _cv2
+
+            _cv2.destroyAllWindows()
 
     return 0
 

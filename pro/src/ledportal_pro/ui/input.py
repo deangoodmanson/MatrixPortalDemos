@@ -27,8 +27,9 @@ class InputCommand(Enum):
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
-    TOGGLE_DISPLAY = auto()  # Toggle display output
+    TOGGLE_DISPLAY = auto()  # Toggle transmission to matrix
     TOGGLE_DEBUG = auto()
+    TOGGLE_PREVIEW = auto()  # Toggle preview window
     RESET = auto()
     HELP = auto()
     QUIT = auto()
@@ -74,7 +75,7 @@ class KeyboardHandler:
             try:
                 self._old_settings = termios.tcgetattr(sys.stdin)
                 tty.setcbreak(sys.stdin.fileno())
-            except (termios.error, OSError):
+            except termios.error, OSError:
                 # Not a terminal or not supported
                 self._single_keypress = False
                 self._old_settings = None
@@ -95,7 +96,7 @@ class KeyboardHandler:
         if self._old_settings is not None:
             try:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self._old_settings)
-            except (termios.error, OSError):
+            except termios.error, OSError:
                 pass
             self._old_settings = None
 
@@ -118,7 +119,7 @@ class KeyboardHandler:
                     # Line-based input
                     line = sys.stdin.readline().strip().lower()
                     return self._parse_line(line)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
         return InputResult(InputCommand.NONE)
@@ -149,6 +150,7 @@ class KeyboardHandler:
             # System
             "t": InputCommand.TOGGLE_DISPLAY,
             "d": InputCommand.TOGGLE_DEBUG,
+            "w": InputCommand.TOGGLE_PREVIEW,
             "r": InputCommand.RESET,
             "h": InputCommand.HELP,
             "q": InputCommand.QUIT,
@@ -188,6 +190,8 @@ class KeyboardHandler:
             return InputResult(InputCommand.TOGGLE_DISPLAY, line)
         elif line == "d":
             return InputResult(InputCommand.TOGGLE_DEBUG, line)
+        elif line == "w":
+            return InputResult(InputCommand.TOGGLE_PREVIEW, line)
         elif line == "r":
             return InputResult(InputCommand.RESET, line)
         elif line == "h":
@@ -218,7 +222,7 @@ class KeyboardHandler:
                     sys.stdin.read(1)
                 else:
                     sys.stdin.readline()
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass
 
     def disable(self) -> None:
@@ -236,6 +240,7 @@ def print_help(
     black_and_white: bool,
     debug_mode: bool,
     zoom_level: float = 1.0,
+    show_preview: bool = False,
 ) -> None:
     """Print help message with current settings.
 
@@ -245,6 +250,7 @@ def print_help(
         black_and_white: Whether B&W mode is active.
         debug_mode: Whether debug mode is active.
         zoom_level: Current zoom level (0.25-1.0).
+        show_preview: Whether preview window is enabled.
     """
     print("")
     print("=" * 60)
@@ -253,13 +259,14 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  z=zoom")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
     zoom_pct = int(zoom_level * 100)
+    preview_str = "ON" if show_preview else "OFF"
     print(
-        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%, Preview={preview_str}"
     )
     print("=" * 60)
     print("")

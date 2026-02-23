@@ -204,7 +204,7 @@ Single keypress (no Enter needed, Mac/Linux only):
 |-----|--------|
 | `Space` | Snapshot (3-2-1 countdown, saves BMP) |
 | `v` | Avatar capture mode (guided 18-pose session with voice prompts) |
-| `t` | Toggle display output |
+| `t` | Toggle transmission (toggle sending images to the LED display, or reconnect) |
 | `d` | Toggle debug stats |
 | `r` | Reset to defaults |
 | `h` | Show help |

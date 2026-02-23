@@ -46,6 +46,7 @@ REQUIREMENTS:
 # Think of these like importing LEGO sets before building.
 # Each "import" gives us new abilities.
 
+import argparse                      # For command-line arguments
 import time                         # For timing and delays
 import numpy as np                  # For fast math on images (np = "numpy")
 import cv2                          # OpenCV - for camera and images
@@ -397,11 +398,16 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
     """
     height, width = frame.shape[:2]  # Get image dimensions
 
+    # In portrait mode, swap target dimensions BEFORE processing so the
+    # 90° rotation in step 2 produces the correct 64x32 output buffer.
+    target_w = MATRIX_HEIGHT if orient == 'portrait' else MATRIX_WIDTH
+    target_h = MATRIX_WIDTH if orient == 'portrait' else MATRIX_HEIGHT
+
     # ===== STEP 1: Apply processing mode =====
     if proc_mode == 'fit':
         # Letterbox mode - maintain aspect ratio
-        scale_width = MATRIX_WIDTH / width
-        scale_height = MATRIX_HEIGHT / height
+        scale_width = target_w / width
+        scale_height = target_h / height
         scale = min(scale_width, scale_height)
 
         new_width = int(width * scale)
@@ -410,22 +416,22 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
         resized = cv2.resize(frame, (new_width, new_height))
 
         # Create black canvas
-        canvas = np.zeros((MATRIX_HEIGHT, MATRIX_WIDTH, 3), dtype=np.uint8)
+        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
 
         # Center the image
-        x_offset = (MATRIX_WIDTH - new_width) // 2
-        y_offset = (MATRIX_HEIGHT - new_height) // 2
+        x_offset = (target_w - new_width) // 2
+        y_offset = (target_h - new_height) // 2
 
         canvas[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized
         processed = canvas
 
     elif proc_mode == 'stretch':
         # Stretch mode - just resize directly
-        processed = cv2.resize(frame, (MATRIX_WIDTH, MATRIX_HEIGHT))
+        processed = cv2.resize(frame, (target_w, target_h))
 
     else:  # 'center' (default)
         # Center crop to target aspect ratio
-        target_aspect = MATRIX_WIDTH / MATRIX_HEIGHT
+        target_aspect = target_w / target_h
         current_aspect = width / height
 
         if current_aspect > target_aspect:
@@ -439,7 +445,7 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
             start_y = (height - new_height) // 2
             cropped = frame[start_y:start_y + new_height, 0:width]
 
-        processed = cv2.resize(cropped, (MATRIX_WIDTH, MATRIX_HEIGHT))
+        processed = cv2.resize(cropped, (target_w, target_h))
 
     # ===== STEP 2: Apply orientation (rotation for portrait) =====
     if orient == 'portrait':
@@ -886,8 +892,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
                 temp = np.zeros((text_size[1] + 10, text_size[0] + 10, 3), dtype=np.uint8)
                 cv2.putText(temp, text, (5, text_size[1] + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-                # Rotate text 90° counter-clockwise
-                rotated_text = cv2.rotate(temp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                # Rotate text 90° clockwise so it appears upright on the portrait display
+                rotated_text = cv2.rotate(temp, cv2.ROTATE_90_CLOCKWISE)
 
                 # Position in lower right corner
                 h, w = rotated_text.shape[:2]
@@ -919,12 +925,13 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
     speak("Got it")
 
     if last_small_frame is not None:
-        # Add blue border around frozen frame
-        small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
+        # Save the clean frame (no border)
+        frame_bytes = convert_to_rgb565(last_small_frame)
+        save_snapshot(last_small_frame, frame_bytes, orient, debug_output)
 
-        frame_bytes = convert_to_rgb565(small_frame)
-        save_snapshot(small_frame, frame_bytes, orient, debug_output)
-        send_frame(serial_connection, frame_bytes)
+        # Show blue border on the matrix display only
+        small_frame = draw_border(last_small_frame, color=(255, 0, 0))  # Blue in BGR
+        send_frame(serial_connection, convert_to_rgb565(small_frame))
 
         # Pause to admire
         print("  Pausing for 5 seconds (press space to skip)...")
@@ -1078,16 +1085,22 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center') -> None:
     """
-    Display preview windows so you can see what's happening.
+    Display a side-by-side preview: camera feed on the left, enlarged matrix
+    view on the right.
+
+    A blue rectangle on the camera side shows exactly which region of the camera
+    frame is sent to the matrix portal.  For center-crop mode this is an inner
+    crop rectangle; for stretch/fit it frames the whole camera image.
+
+    In portrait mode the matrix view is rotated 90° CCW to match the physical
+    display orientation.
 
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
-    if not SHOW_PREVIEW:
+    if not enabled:
         return
-
-    cv2.imshow("Camera View", original_frame)
 
     # Enlarge the tiny matrix view (10x bigger)
     enlarged = cv2.resize(
@@ -1095,7 +1108,44 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray) -> None:
         (MATRIX_WIDTH * 10, MATRIX_HEIGHT * 10),
         interpolation=cv2.INTER_NEAREST  # Blocky pixels
     )
-    cv2.imshow("LED Matrix View (10x)", enlarged)
+
+    # In portrait mode, rotate the matrix view to match the physical display
+    if orient == 'portrait':
+        enlarged = cv2.rotate(enlarged, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    # Scale camera frame to match the enlarged matrix view height
+    target_height = enlarged.shape[0]
+    cam_h, cam_w = original_frame.shape[:2]
+    cam_resized = cv2.resize(original_frame, (int(cam_w * target_height / cam_h), target_height))
+
+    # Draw blue border showing the region sent to the matrix portal
+    if proc_mode == 'center':
+        # Target dims before rotation (portrait swaps w/h before cropping)
+        tw = MATRIX_HEIGHT if orient == 'portrait' else MATRIX_WIDTH
+        th = MATRIX_WIDTH if orient == 'portrait' else MATRIX_HEIGHT
+        target_aspect = tw / th
+        cam_aspect = cam_w / cam_h
+        if cam_aspect > target_aspect:
+            crop_w = int(cam_h * target_aspect)
+            x1, y1 = (cam_w - crop_w) // 2, 0
+            x2, y2 = x1 + crop_w, cam_h
+        else:
+            crop_h = int(cam_w / target_aspect)
+            x1, y1 = 0, (cam_h - crop_h) // 2
+            x2, y2 = cam_w, y1 + crop_h
+    else:
+        # stretch / fit — full camera frame is used
+        x1, y1, x2, y2 = 0, 0, cam_w, cam_h
+
+    # Scale crop rect from original camera coordinates to preview coordinates
+    s = target_height / cam_h
+    px1, py1 = int(x1 * s), int(y1 * s)
+    px2, py2 = min(int(x2 * s), cam_resized.shape[1]) - 1, int(y2 * s) - 1
+    cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
+
+    # Show both views side by side in a single window
+    combined = np.hstack([cam_resized, enlarged])
+    cv2.imshow("Camera | LED Matrix (10x)", combined)
 
 
 # ===========================================
@@ -1110,7 +1160,7 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1135,6 +1185,18 @@ def main() -> None:
     or your terminal will be broken! That's why we use try/finally.
     """
     global orientation, processing_mode, black_and_white_mode, debug_output
+    show_preview_enabled = SHOW_PREVIEW  # Local toggle; SHOW_PREVIEW sets the startup default
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="LED Matrix Camera Feed")
+    parser.add_argument(
+        "--no-debug",
+        action="store_true",
+        help="Disable debug/stats output (toggle with 'd' key)",
+    )
+    args = parser.parse_args()
+    if args.no_debug:
+        debug_output = False
 
     # ===========================================
     # ADVANCED: Save and modify terminal settings
@@ -1188,7 +1250,7 @@ def main() -> None:
         backend = camera.getBackendName()
         print(f"  Backend: {backend}")
         print(f"  Resolution: {width}x{height}")
-        print(f"  FPS: {fps if fps > 0 else 'unknown'}")
+        print(f"  FPS (reported by driver): {fps if fps > 0 else 'unknown'} — camera driver reported speed.")
     elif camera_type == "picamera":
         camera_props = camera.camera_properties
         config = camera.camera_configuration()
@@ -1213,13 +1275,18 @@ def main() -> None:
     print("=" * 50)
     print("")
     print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+    if show_preview_enabled:
+        print("Preview window: ENABLED (press 'w' to toggle)")
     print("Press Ctrl+C to force quit")
+    if serial_connection is None:
+        print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
     print("")
 
     frame_count = 0
     start_time = time.time()
     display_enabled = True  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
+    last_sent_frame = None  # Last frame successfully delivered to the device
 
     # ===========================================
     # ADVANCED: Enable single-keypress mode
@@ -1267,20 +1334,31 @@ def main() -> None:
 
             # === SYSTEM KEYS ===
             if key == 't':
-                display_enabled = not display_enabled
-                if display_enabled:
-                    print("\n=== DISPLAY: ENABLED ===")
+                if display_enabled and serial_connection is None:
+                    # Already enabled but disconnected — reconnect without toggling to paused
+                    print("\n=== RECONNECTING TO MATRIX PORTAL ===")
+                    serial_connection = setup_usb_serial()
                     if serial_connection is None:
-                        print("Attempting to reconnect to Matrix Portal...")
-                        serial_connection = setup_usb_serial()
-                        if serial_connection is None:
-                            print("Connection failed: Matrix Portal not found\n")
-                        else:
-                            print("Connected successfully!\n")
+                        print("Connection failed: Matrix Portal not found")
+                        print("!!! Press 't' to try again when the portal is connected. !!!\n")
                     else:
-                        print()
+                        print("Connected successfully!\n")
                 else:
-                    print("\n=== DISPLAY: PAUSED (by user) ===\n")
+                    display_enabled = not display_enabled
+                    if display_enabled:
+                        print("\n=== DISPLAY: ENABLED ===")
+                        if serial_connection is None:
+                            print("Attempting to reconnect to Matrix Portal...")
+                            serial_connection = setup_usb_serial()
+                            if serial_connection is None:
+                                print("Connection failed: Matrix Portal not found")
+                                print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                            else:
+                                print("Connected successfully!\n")
+                        else:
+                            print()
+                    else:
+                        print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
                 continue
 
             # === RESET ===
@@ -1301,6 +1379,16 @@ def main() -> None:
                 print(f"\n=== DEBUG: {status} ===\n")
                 continue
 
+            if key == 'w':
+                show_preview_enabled = not show_preview_enabled
+                if show_preview_enabled:
+                    print("\n=== PREVIEW WINDOW: ENABLED ===\n")
+                else:
+                    cv2.destroyAllWindows()
+                    cv2.waitKey(1)
+                    print("\n=== PREVIEW WINDOW: DISABLED ===\n")
+                continue
+
             if key == 'h':
                 print_help(orientation, processing_mode, black_and_white_mode, debug_output)
                 continue
@@ -1310,7 +1398,14 @@ def main() -> None:
                 break
 
             if key == ' ':
-                run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
+                if not display_enabled and last_sent_frame is not None:
+                    # Paused: save the frozen frame that's on the device — no countdown
+                    print("  Saving paused frame...")
+                    frame_bytes_save = convert_to_rgb565(last_sent_frame)
+                    save_snapshot(last_sent_frame, frame_bytes_save, orientation, debug_output)
+                    speak("Saved")
+                else:
+                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
@@ -1325,7 +1420,6 @@ def main() -> None:
             # === MAIN CAPTURE LOOP ===
             frame = capture_frame(camera, camera_type)
             if frame is None:
-                print("WARNING: Failed to capture frame")
                 continue
 
             # Process the frame
@@ -1347,13 +1441,15 @@ def main() -> None:
                 try:
                     bytes_sent = send_frame(serial_connection, frame_bytes)
                     display_status = "ACTIVE"
+                    last_sent_frame = small_frame  # Cache for pause-mode snapshot
                 except Exception as e:
-                    display_status = f"PAUSED (error: {e})"
-                    if frame_count % 30 == 0:  # Only print error occasionally
-                        print(f"Display send failed: {e}")
+                    serial_connection = None  # Mark as disconnected so 't' can reconnect
+                    display_status = "PAUSED (disconnected)"
+                    print(f"Display disconnected: {e}")
+                    print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
-            show_preview(frame, small_frame)
+            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode)
 
             # Statistics
             frame_count += 1
@@ -1366,7 +1462,7 @@ def main() -> None:
                 print(f"  Frames: {frame_count}, FPS: {fps:.1f}, Bytes: {bytes_sent}{mode_str}{bw_str}{display_info}")
 
             # Check for quit in preview window
-            if SHOW_PREVIEW:
+            if show_preview_enabled:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
@@ -1388,7 +1484,7 @@ def main() -> None:
 
         if serial_connection and serial_connection.is_open:
             serial_connection.close()
-        if SHOW_PREVIEW:
+        if show_preview_enabled:
             cv2.destroyAllWindows()
         print("Goodbye!")
 
