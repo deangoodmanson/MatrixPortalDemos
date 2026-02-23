@@ -118,6 +118,7 @@ class TestInputCommand:
         "AVATAR",
         "TOGGLE_DISPLAY",
         "TOGGLE_DEBUG",
+        "TOGGLE_PREVIEW",
         "RESET",
         "HELP",
         "QUIT",

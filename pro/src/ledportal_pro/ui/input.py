@@ -29,6 +29,7 @@ class InputCommand(Enum):
     AVATAR = auto()  # Avatar capture mode
     TOGGLE_DISPLAY = auto()  # Toggle display output
     TOGGLE_DEBUG = auto()
+    TOGGLE_PREVIEW = auto()  # Toggle preview window
     RESET = auto()
     HELP = auto()
     QUIT = auto()
@@ -149,6 +150,7 @@ class KeyboardHandler:
             # System
             "t": InputCommand.TOGGLE_DISPLAY,
             "d": InputCommand.TOGGLE_DEBUG,
+            "w": InputCommand.TOGGLE_PREVIEW,
             "r": InputCommand.RESET,
             "h": InputCommand.HELP,
             "q": InputCommand.QUIT,
@@ -188,6 +190,8 @@ class KeyboardHandler:
             return InputResult(InputCommand.TOGGLE_DISPLAY, line)
         elif line == "d":
             return InputResult(InputCommand.TOGGLE_DEBUG, line)
+        elif line == "w":
+            return InputResult(InputCommand.TOGGLE_PREVIEW, line)
         elif line == "r":
             return InputResult(InputCommand.RESET, line)
         elif line == "h":
@@ -253,7 +257,7 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  z=zoom")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle display  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"

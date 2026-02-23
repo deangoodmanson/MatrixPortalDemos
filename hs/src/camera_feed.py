@@ -1085,7 +1085,7 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape') -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True) -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
@@ -1095,7 +1095,7 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
 
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
-    if not SHOW_PREVIEW:
+    if not enabled:
         return
 
     # Enlarge the tiny matrix view (10x bigger)
@@ -1131,7 +1131,7 @@ def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle display  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle display  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     debug_str = "ON" if debug else "OFF"
@@ -1156,6 +1156,7 @@ def main() -> None:
     or your terminal will be broken! That's why we use try/finally.
     """
     global orientation, processing_mode, black_and_white_mode, debug_output
+    show_preview_enabled = SHOW_PREVIEW  # Local toggle; SHOW_PREVIEW sets the startup default
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="LED Matrix Camera Feed")
@@ -1245,6 +1246,8 @@ def main() -> None:
     print("=" * 50)
     print("")
     print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+    if show_preview_enabled:
+        print("Preview window: ENABLED (press 'w' to toggle)")
     print("Press Ctrl+C to force quit")
     print("")
 
@@ -1334,6 +1337,16 @@ def main() -> None:
                 print(f"\n=== DEBUG: {status} ===\n")
                 continue
 
+            if key == 'w':
+                show_preview_enabled = not show_preview_enabled
+                if show_preview_enabled:
+                    print("\n=== PREVIEW WINDOW: ENABLED ===\n")
+                else:
+                    cv2.destroyAllWindows()
+                    cv2.waitKey(1)
+                    print("\n=== PREVIEW WINDOW: DISABLED ===\n")
+                continue
+
             if key == 'h':
                 print_help(orientation, processing_mode, black_and_white_mode, debug_output)
                 continue
@@ -1394,7 +1407,7 @@ def main() -> None:
                         print(f"Display send failed: {e}")
 
             # Show preview
-            show_preview(frame, small_frame, orientation)
+            show_preview(frame, small_frame, orientation, show_preview_enabled)
 
             # Statistics
             frame_count += 1
@@ -1407,7 +1420,7 @@ def main() -> None:
                 print(f"  Frames: {frame_count}, FPS: {fps:.1f}, Bytes: {bytes_sent}{mode_str}{bw_str}{display_info}")
 
             # Check for quit in preview window
-            if SHOW_PREVIEW:
+            if show_preview_enabled:
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
@@ -1429,7 +1442,7 @@ def main() -> None:
 
         if serial_connection and serial_connection.is_open:
             serial_connection.close()
-        if SHOW_PREVIEW:
+        if show_preview_enabled:
             cv2.destroyAllWindows()
         print("Goodbye!")
 

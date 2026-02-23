@@ -379,6 +379,8 @@ def main() -> int:
             f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
         )
         print()
+        if config.ui.show_preview:
+            print("Preview window: ENABLED (press 'w' to toggle)")
         print("Attempting first frame capture...")
 
         # Main loop with keyboard handler context manager
@@ -462,6 +464,17 @@ def main() -> int:
                     debug_mode = not debug_mode
                     mode_str = "ON" if debug_mode else "OFF"
                     print(f"\n=== DEBUG MODE: {mode_str} ===\n")
+                    continue
+                elif cmd == InputCommand.TOGGLE_PREVIEW:
+                    config.ui.show_preview = not config.ui.show_preview
+                    if config.ui.show_preview:
+                        print("\n=== PREVIEW WINDOW: ENABLED ===\n")
+                    else:
+                        import cv2 as _cv2
+
+                        _cv2.destroyAllWindows()
+                        _cv2.waitKey(1)
+                        print("\n=== PREVIEW WINDOW: DISABLED ===\n")
                     continue
                 elif cmd == InputCommand.RESET:
                     orientation = "landscape"
