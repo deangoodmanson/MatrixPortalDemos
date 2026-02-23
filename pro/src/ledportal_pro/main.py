@@ -321,7 +321,9 @@ def main() -> int:
             print(f"  Model: {cam_info['model']}")
         print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
         if "fps" in cam_info:
-            print(f"  FPS (driver-reported): {cam_info['fps']} — actual rate shown at runtime")
+            print(
+                f"  FPS (driver-reported): {cam_info['fps']} — may not reflect actual capture speed"
+            )
         if "format" in cam_info and cam_info["format"] != "unknown":
             print(f"  Format: {cam_info['format']}")
         if "requested_resolution" in cam_info:
