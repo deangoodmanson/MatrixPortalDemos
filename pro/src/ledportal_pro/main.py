@@ -560,12 +560,13 @@ def main() -> int:
 
                 # Capture frame
                 try:
-                    frame = camera.capture()
+                    original_frame = camera.capture()  # Full resolution, pre-zoom
                 except CameraCaptureFailed:
                     time.sleep(0.1)
                     continue
 
-                # Apply zoom
+                # Apply zoom (frame is the working copy; original_frame stays full-res for preview)
+                frame = original_frame
                 if zoom_level < 1.0:
                     frame = apply_zoom_crop(frame, zoom_level)
 
@@ -629,7 +630,14 @@ def main() -> int:
 
                 # Preview window
                 if config.ui.show_preview:
-                    show_preview(frame, small_frame, config.matrix, orientation, processing_mode)
+                    show_preview(
+                        original_frame,
+                        small_frame,
+                        config.matrix,
+                        orientation,
+                        processing_mode,
+                        zoom_level,
+                    )
 
                 # Frame rate limiting
                 if config.ui.enable_frame_limiting:
