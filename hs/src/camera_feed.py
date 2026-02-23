@@ -46,6 +46,7 @@ REQUIREMENTS:
 # Think of these like importing LEGO sets before building.
 # Each "import" gives us new abilities.
 
+import argparse                      # For command-line arguments
 import time                         # For timing and delays
 import numpy as np                  # For fast math on images (np = "numpy")
 import cv2                          # OpenCV - for camera and images
@@ -1155,6 +1156,17 @@ def main() -> None:
     or your terminal will be broken! That's why we use try/finally.
     """
     global orientation, processing_mode, black_and_white_mode, debug_output
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="LED Matrix Camera Feed")
+    parser.add_argument(
+        "--no-debug",
+        action="store_true",
+        help="Disable debug/stats output (toggle with 'd' key)",
+    )
+    args = parser.parse_args()
+    if args.no_debug:
+        debug_output = False
 
     # ===========================================
     # ADVANCED: Save and modify terminal settings

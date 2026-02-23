@@ -86,6 +86,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Processing mode (overrides config)",
     )
+    parser.add_argument(
+        "--no-debug",
+        action="store_true",
+        help="Disable debug/stats output (toggle with 'd' key)",
+    )
 
     return parser.parse_args()
 
@@ -296,7 +301,7 @@ def main() -> int:
     black_and_white = args.bw
     orientation = config.processing.orientation
     processing_mode = config.processing.processing_mode
-    debug_mode = config.ui.debug_mode
+    debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
@@ -321,9 +326,7 @@ def main() -> int:
             print(f"  Model: {cam_info['model']}")
         print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
         if "fps" in cam_info:
-            print(
-                f"  FPS (driver-reported): {cam_info['fps']} — camera driver reported speed."
-            )
+            print(f"  FPS (driver-reported): {cam_info['fps']} — camera driver reported speed.")
         if "format" in cam_info and cam_info["format"] != "unknown":
             print(f"  Format: {cam_info['format']}")
         if "requested_resolution" in cam_info:
