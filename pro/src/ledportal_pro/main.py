@@ -21,10 +21,13 @@ from .processing import (
 )
 from .transport import create_transport
 from .ui import (
+    _ALGORITHM_LABELS,
+    LED_SIZE_DEFAULT,
+    LED_SIZE_STEPS,
     AvatarCaptureManager,
     InputCommand,
     KeyboardHandler,
-    PreviewMode,
+    PreviewAlgorithm,
     SnapshotManager,
     draw_border,
     draw_countdown_overlay,
@@ -109,7 +112,8 @@ def run_snapshot_sequence(
     zoom_level: float,
     debug_mode: bool = False,
     mirror: bool = False,
-    preview_render_mode: PreviewMode = PreviewMode.SQUARES,
+    render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
+    led_size_pct: int = LED_SIZE_DEFAULT,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -125,6 +129,8 @@ def run_snapshot_sequence(
         zoom_level: Current zoom level (0.25-1.0).
         debug_mode: Whether to save debug files alongside snapshot.
         mirror: Whether to apply horizontal mirror flip.
+        render_algorithm: Current LED preview render algorithm.
+        led_size_pct: Current LED size percentage.
 
     Returns:
         True if snapshot completed, False if aborted.
@@ -201,7 +207,8 @@ def run_snapshot_sequence(
                     orientation,
                     processing_mode,
                     zoom_level,
-                    preview_render_mode,
+                    render_algorithm,
+                    led_size_pct,
                 )
 
             time.sleep(0.01)
@@ -323,7 +330,8 @@ def main() -> int:
     debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
     mirror_mode = False  # Horizontal flip (mirror effect)
-    preview_render_mode = PreviewMode.SQUARES  # LED preview render mode (cycles with 'o')
+    render_algorithm = PreviewAlgorithm.SQUARES  # LED preview render algorithm (cycles with 'o')
+    led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
@@ -454,11 +462,32 @@ def main() -> int:
                     mode_str = "ON" if mirror_mode else "OFF"
                     print(f"\n=== MIRROR: {mode_str} ===\n")
                     continue
-                elif cmd == InputCommand.CYCLE_PREVIEW_MODE:
-                    next_val = (preview_render_mode.value + 1) % len(PreviewMode)
-                    preview_render_mode = PreviewMode(next_val)
-                    label = preview_render_mode.name.lower().replace("_", " ")
-                    print(f"\n=== LED RENDER MODE: {label} ===\n")
+                elif cmd == InputCommand.CYCLE_RENDER_ALGORITHM:
+                    next_val = (render_algorithm.value + 1) % len(PreviewAlgorithm)
+                    render_algorithm = PreviewAlgorithm(next_val)
+                    print(f"\n=== RENDER ALGORITHM: {_ALGORITHM_LABELS[render_algorithm]} ===\n")
+                    continue
+                elif cmd == InputCommand.LED_SIZE_INCREASE:
+                    if render_algorithm == PreviewAlgorithm.CIRCLES:
+                        idx = (
+                            LED_SIZE_STEPS.index(led_size_pct)
+                            if led_size_pct in LED_SIZE_STEPS
+                            else -1
+                        )
+                        if idx < len(LED_SIZE_STEPS) - 1:
+                            led_size_pct = LED_SIZE_STEPS[idx + 1]
+                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                    continue
+                elif cmd == InputCommand.LED_SIZE_DECREASE:
+                    if render_algorithm == PreviewAlgorithm.CIRCLES:
+                        idx = (
+                            LED_SIZE_STEPS.index(led_size_pct)
+                            if led_size_pct in LED_SIZE_STEPS
+                            else -1
+                        )
+                        if idx > 0:
+                            led_size_pct = LED_SIZE_STEPS[idx - 1]
+                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
                     continue
                 elif cmd == InputCommand.ZOOM_TOGGLE:
                     # Cycle: 1.0 → 0.75 → 0.5 → 0.25 → 1.0
@@ -530,13 +559,15 @@ def main() -> int:
                     processing_mode = "center"
                     black_and_white = False
                     mirror_mode = False
-                    preview_render_mode = PreviewMode.SQUARES
+                    render_algorithm = PreviewAlgorithm.SQUARES
+                    led_size_pct = LED_SIZE_DEFAULT
                     debug_mode = True
                     zoom_level = 1.0
                     display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
                     print(
-                        "Orientation=landscape, Processing=center, Color, Mirror=OFF, Render=squares, Debug=ON, Zoom=100%, Display=ON\n"
+                        "Orientation=landscape, Processing=center, Color, Mirror=OFF, "
+                        "Algorithm=squares, Size=100%, Debug=ON, Zoom=100%, Display=ON\n"
                     )
                     continue
                 elif cmd == InputCommand.HELP:
@@ -548,7 +579,8 @@ def main() -> int:
                         zoom_level,
                         config.ui.show_preview,
                         mirror_mode,
-                        preview_render_mode.name.lower().replace("_", " "),
+                        _ALGORITHM_LABELS[render_algorithm],
+                        led_size_pct,
                     )
                     continue
                 elif cmd == InputCommand.QUIT:
@@ -576,7 +608,8 @@ def main() -> int:
                             zoom_level,
                             debug_mode,
                             mirror_mode,
-                            preview_render_mode,
+                            render_algorithm,
+                            led_size_pct,
                         )
                     keyboard.clear_buffer()
                     continue
@@ -677,7 +710,8 @@ def main() -> int:
                         orientation,
                         processing_mode,
                         zoom_level,
-                        preview_render_mode,
+                        render_algorithm,
+                        led_size_pct,
                     )
 
                 # Frame rate limiting

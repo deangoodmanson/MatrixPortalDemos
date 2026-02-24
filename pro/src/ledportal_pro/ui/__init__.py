@@ -3,7 +3,10 @@
 from .avatar import AVATAR_POSES, AvatarCaptureManager, AvatarSession, CapturedPose
 from .input import InputCommand, KeyboardHandler, print_help
 from .overlay import (
-    PreviewMode,
+    _ALGORITHM_LABELS,
+    LED_SIZE_DEFAULT,
+    LED_SIZE_STEPS,
+    PreviewAlgorithm,
     draw_border,
     draw_countdown_overlay,
     render_led_preview,
@@ -28,7 +31,10 @@ __all__ = [
     "draw_border",
     "show_preview",
     "render_led_preview",
-    "PreviewMode",
+    "PreviewAlgorithm",
+    "LED_SIZE_STEPS",
+    "LED_SIZE_DEFAULT",
+    "_ALGORITHM_LABELS",
     # Text-to-speech
     "speak",
     "speak_async",

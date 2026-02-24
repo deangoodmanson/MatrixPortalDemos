@@ -2,7 +2,13 @@
 
 import numpy as np
 
-from ledportal_pro.ui.overlay import draw_countdown_overlay, draw_mode_indicator, draw_text_overlay
+from ledportal_pro.ui.overlay import (
+    PreviewAlgorithm,
+    draw_countdown_overlay,
+    draw_mode_indicator,
+    draw_text_overlay,
+    render_led_preview,
+)
 
 
 class TestDrawCountdownOverlay:
@@ -83,3 +89,62 @@ class TestDrawModeIndicator:
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
         result = draw_mode_indicator(frame, "LB", matrix_config)
         assert result.shape == (32, 64, 3)
+
+
+class TestRenderLedPreview:
+    """Tests for render_led_preview with the new algorithm/size API."""
+
+    @staticmethod
+    def _test_frame() -> np.ndarray:
+        """Small 4x2 test frame with a known gradient pattern."""
+        frame = np.zeros((2, 4, 3), dtype=np.uint8)
+        for r in range(2):
+            for c in range(4):
+                frame[r, c] = [(r * 40 + c * 30) % 256, (r * 60 + c * 20) % 256, (r * 80 + c * 10) % 256]
+        return frame
+
+    def test_squares_ignores_size(self):
+        """SQUARES output is identical regardless of led_size_pct."""
+        frame = self._test_frame()
+        out_25 = render_led_preview(frame, PreviewAlgorithm.SQUARES, led_size_pct=25, scale=10)
+        out_150 = render_led_preview(frame, PreviewAlgorithm.SQUARES, led_size_pct=150, scale=10)
+        assert np.array_equal(out_25, out_150)
+
+    def test_circles_output_shape(self):
+        """CIRCLES output has the correct (H*scale, W*scale, 3) shape."""
+        frame = self._test_frame()
+        scale = 10
+        result = render_led_preview(frame, PreviewAlgorithm.CIRCLES, led_size_pct=100, scale=scale)
+        assert result.shape == (2 * scale, 4 * scale, 3)
+
+    def test_circles_100_black_at_corner(self):
+        """Pixel (0,0) should be black for CIRCLES + size=100.
+
+        Radius = 5 at scale=10, but corner (0,0) is distance sqrt(5^2+5^2) ~ 7.07 > 5.
+        """
+        frame = np.full((2, 4, 3), 128, dtype=np.uint8)
+        result = render_led_preview(frame, PreviewAlgorithm.CIRCLES, led_size_pct=100, scale=10)
+        assert np.array_equal(result[0, 0], [0, 0, 0])
+
+    def test_circles_25_more_black_than_100(self):
+        """25% circles should have more black pixels than 100% circles."""
+        frame = np.full((2, 4, 3), 128, dtype=np.uint8)
+        out_25 = render_led_preview(frame, PreviewAlgorithm.CIRCLES, led_size_pct=25, scale=10)
+        out_100 = render_led_preview(frame, PreviewAlgorithm.CIRCLES, led_size_pct=100, scale=10)
+        black_25 = np.sum(np.all(out_25 == 0, axis=2))
+        black_100 = np.sum(np.all(out_100 == 0, axis=2))
+        assert black_25 > black_100
+
+    def test_gaussian_raw_noop_for_size(self):
+        """GAUSSIAN_RAW output is identical regardless of led_size_pct."""
+        frame = self._test_frame()
+        out_25 = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=25, scale=10)
+        out_150 = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=150, scale=10)
+        assert np.array_equal(out_25, out_150)
+
+    def test_gaussian_raw_differs_from_diffused(self):
+        """GAUSSIAN_RAW and GAUSSIAN_DIFFUSED produce different results."""
+        frame = self._test_frame()
+        out_raw = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=100, scale=10)
+        out_diff = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_DIFFUSED, led_size_pct=100, scale=10)
+        assert not np.array_equal(out_raw, out_diff)

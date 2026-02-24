@@ -10,36 +10,27 @@ from numpy.typing import NDArray
 from ..config import MatrixConfig
 
 
-class PreviewMode(Enum):
-    """LED preview render modes, cycled with the 'o' key.
-
-    Circle sizes are expressed as a percentage of the LED cell diameter.
-    Modes ≤ 100% use a fast vectorised mask; modes > 100% use painter's
-    algorithm so that overlapping circles from adjacent LEDs are drawn correctly.
+class PreviewAlgorithm(Enum):
+    """LED preview render algorithms, cycled with the 'o' key.
 
     Controls how each LED pixel is drawn in the right-hand preview pane.
     """
 
-    SQUARES = 0  # Plain nearest-neighbour upscale (current default)
-    CIRCLES_50 = 1  # 50%  — wide gaps between circles
-    CIRCLES_75 = 2  # 75%  — clear gaps between circles
-    CIRCLES_100 = 3  # 100% — circle exactly fills the cell (edge-to-edge)
-    CIRCLES_125 = 4  # 125% — circles overlap neighbouring cells slightly
-    CIRCLES_CORNER = 5  # ~141% — corner-touch; painter's algorithm (last drawn wins)
-    CIRCLES_CORNER_BLEND = 6  # ~141% — corner-touch; weighted-average colour blending
-    GAUSSIAN = 7  # Gaussian diffuser simulation — σ ≈ 27% of cell (matches real panel)
+    SQUARES = 0
+    CIRCLES = 1
+    GAUSSIAN_RAW = 2
+    GAUSSIAN_DIFFUSED = 3
 
 
-# Mode descriptions shown in console output
-_MODE_LABELS: dict[PreviewMode, str] = {
-    PreviewMode.SQUARES: "squares",
-    PreviewMode.CIRCLES_50: "circles 50% (wide gaps)",
-    PreviewMode.CIRCLES_75: "circles 75% (gapped)",
-    PreviewMode.CIRCLES_100: "circles 100% (edge-to-edge)",
-    PreviewMode.CIRCLES_125: "circles 125% (slight overlap)",
-    PreviewMode.CIRCLES_CORNER: "circles ~141% corner-touch (painter's)",
-    PreviewMode.CIRCLES_CORNER_BLEND: "circles ~141% corner-touch (blended)",
-    PreviewMode.GAUSSIAN: "gaussian blur (diffuser simulation, σ≈27% cell)",
+LED_SIZE_STEPS: list[int] = [25, 50, 75, 100, 125, 150]
+LED_SIZE_DEFAULT: int = 100
+
+# Algorithm descriptions shown in console output
+_ALGORITHM_LABELS: dict[PreviewAlgorithm, str] = {
+    PreviewAlgorithm.SQUARES: "squares",
+    PreviewAlgorithm.CIRCLES: "circles (hard edge)",
+    PreviewAlgorithm.GAUSSIAN_RAW: "gaussian raw (σ≈18% cell, no diffuser)",
+    PreviewAlgorithm.GAUSSIAN_DIFFUSED: "gaussian diffused (σ≈27% cell, with diffuser)",
 }
 
 # Cache for vectorized distance grids keyed by (out_h, out_w, scale)
@@ -115,81 +106,6 @@ def _render_painter(
     return output
 
 
-def _render_blend(
-    small_frame: NDArray[np.uint8],
-    out_h: int,
-    out_w: int,
-    scale: int,
-    radius: float,
-    bg_color: tuple[int, int, int],
-) -> NDArray[np.uint8]:
-    """Render overlapping LED circles with weighted-average colour blending.
-
-    Instead of last-drawn-wins, every pixel receives the weighted average of
-    all LED circles that cover it. This produces smooth colour gradients in the
-    lens-shaped overlap zones between adjacent LEDs rather than a hard boundary
-    determined by draw order.
-
-    Algorithm:
-    1. Pre-build a boolean circle mask of shape (2r+1, 2r+1) shared by all LEDs.
-    2. For each LED, add its colour * mask to a float accumulator and increment
-       a coverage counter for each covered pixel (bounding-box slice, O(r²) work).
-    3. Divide accumulator by counter where coverage > 0; fill with bg_color elsewhere.
-
-    Args:
-        small_frame: Matrix-sized BGR source frame.
-        out_h: Output image height in pixels.
-        out_w: Output image width in pixels.
-        scale: Pixels per LED cell.
-        radius: Geometric circle radius in pixels (may be non-integer).
-        bg_color: BGR background colour.
-
-    Returns:
-        Upscaled BGR image with blended circles.
-    """
-    h, w = small_frame.shape[:2]
-    r_int = math.ceil(radius)
-
-    # Pre-build a shared circle mask — same geometry for every LED
-    mask_size = 2 * r_int + 1
-    local_ys = np.arange(mask_size, dtype=np.float32) - r_int
-    local_xs = np.arange(mask_size, dtype=np.float32) - r_int
-    ldx, ldy = np.meshgrid(local_xs, local_ys)
-    circle_mask = (np.sqrt(ldx**2 + ldy**2) <= radius).astype(np.float32)
-
-    accumulator = np.zeros((out_h, out_w, 3), dtype=np.float32)
-    count = np.zeros((out_h, out_w), dtype=np.float32)
-
-    for row in range(h):
-        for col in range(w):
-            cx = col * scale + scale // 2
-            cy = row * scale + scale // 2
-
-            # Bounding box in output image coords, clipped to image bounds
-            ox1, oy1 = cx - r_int, cy - r_int
-            x1 = max(0, ox1)
-            y1 = max(0, oy1)
-            x2 = min(out_w, cx + r_int + 1)
-            y2 = min(out_h, cy + r_int + 1)
-
-            # Corresponding slice of the pre-built mask
-            mx1, my1 = x1 - ox1, y1 - oy1
-            local_mask = circle_mask[my1 : my1 + (y2 - y1), mx1 : mx1 + (x2 - x1)]
-
-            color = small_frame[row, col].astype(np.float32)
-            accumulator[y1:y2, x1:x2] += local_mask[:, :, np.newaxis] * color
-            count[y1:y2, x1:x2] += local_mask
-
-    # Weighted average where covered; background colour elsewhere
-    bg = np.array(bg_color, dtype=np.float32)
-    result = np.where(
-        count[:, :, np.newaxis] > 0,
-        accumulator / np.maximum(count[:, :, np.newaxis], 1.0),
-        bg,
-    )
-    return np.clip(result, 0, 255).astype(np.uint8)
-
-
 def _render_gaussian(
     small_frame: NDArray[np.uint8],
     out_h: int,
@@ -245,24 +161,27 @@ def _render_gaussian(
 
 def render_led_preview(
     small_frame: NDArray[np.uint8],
-    mode: PreviewMode = PreviewMode.SQUARES,
+    algorithm: PreviewAlgorithm,
+    led_size_pct: int,
     scale: int = 10,
     bg_color: tuple[int, int, int] = (0, 0, 0),
 ) -> NDArray[np.uint8]:
     """Render a matrix-sized LED frame as an upscaled preview image.
 
-    Each LED pixel is drawn as a square or circle depending on *mode*.
-    The output is always ``frame.height * scale`` × ``frame.width * scale``
-    pixels in BGR format.
+    Each LED pixel is drawn as a square, circle, or Gaussian blob depending
+    on *algorithm*.  The output is always ``frame.height * scale`` ×
+    ``frame.width * scale`` pixels in BGR format.
 
-    Modes ≤ 100% (circles fit within their cell) use a fast vectorised NumPy
-    mask.  Modes > 100% (circles extend into adjacent cells) are dispatched to
-    either ``_render_painter`` (last-drawn-wins) or ``_render_blend``
-    (weighted-average colour blending in overlap zones).
+    For CIRCLES, *led_size_pct* controls the circle diameter as a percentage
+    of the cell size.  Sizes ≤ 100% use a fast vectorised mask; sizes > 100%
+    use painter's algorithm so overlapping circles render correctly.
+
+    For SQUARES and Gaussian algorithms *led_size_pct* is ignored.
 
     Args:
         small_frame: Processed matrix-sized BGR frame (e.g. 64×32).
-        mode: How to render each LED cell.
+        algorithm: How to render each LED cell.
+        led_size_pct: Circle diameter as percentage of cell (only for CIRCLES).
         scale: Pixels per LED cell. Default 10 → 64×32 becomes 640×320.
         bg_color: BGR background colour for non-LED pixels (circle modes only).
 
@@ -272,35 +191,26 @@ def render_led_preview(
     h, w = small_frame.shape[:2]
     out_h, out_w = h * scale, w * scale
 
-    if mode == PreviewMode.SQUARES:
+    if algorithm == PreviewAlgorithm.SQUARES:
         return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
 
-    if mode == PreviewMode.GAUSSIAN:
-        sigma = scale * 0.27  # σ ≈ 2.7 px @ scale=10 → FWHM ≈ 63% of cell
+    if algorithm == PreviewAlgorithm.GAUSSIAN_RAW:
+        sigma = scale * 0.18  # σ ≈ 18% of cell — calibrated to raw hardware, no diffuser
         return _render_gaussian(small_frame, out_h, out_w, scale, sigma)
 
-    # Radius as a fraction of cell size (diameter = scale × pct / 100)
+    if algorithm == PreviewAlgorithm.GAUSSIAN_DIFFUSED:
+        sigma = scale * 0.27  # σ ≈ 27% of cell — calibrated with diffuser panel
+        return _render_gaussian(small_frame, out_h, out_w, scale, sigma)
+
+    # CIRCLES — compute radius from led_size_pct
     half = scale / 2.0
-    if mode == PreviewMode.CIRCLES_50:
-        radius = scale * 0.25  # 2.5px — 50% diameter, wide gaps
-    elif mode == PreviewMode.CIRCLES_75:
-        radius = scale * 0.375  # 3.75px — 75% diameter, clear gaps
-    elif mode == PreviewMode.CIRCLES_100:
-        radius = half  # 5.0px — 100% diameter, tangent to edges
-    elif mode == PreviewMode.CIRCLES_125:
-        radius = scale * 0.625  # 6.25px — 125% diameter, slight overlap
-    else:  # CIRCLES_CORNER and CIRCLES_CORNER_BLEND — same geometry
-        radius = half * (2**0.5)  # 5√2 ≈ 7.07px — ~141%, passes through corners
+    radius = scale * (led_size_pct / 200.0)
 
     if radius > half:
-        if mode == PreviewMode.CIRCLES_CORNER_BLEND:
-            return _render_blend(small_frame, out_h, out_w, scale, radius, bg_color)
+        # Overlapping circles — painter's algorithm (last-drawn-wins)
         return _render_painter(small_frame, out_h, out_w, scale, radius, bg_color)
 
-    # Vectorised mask for non-overlapping modes (radius ≤ half-cell).
-    # 1. Upscale with nearest-neighbour so each pixel carries its LED colour.
-    # 2. Build a boolean mask: True where pixel is within radius of cell centre.
-    # 3. Replace masked-out pixels with bg_color.
+    # Vectorised mask for non-overlapping circles (radius ≤ half-cell).
     colored = cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
     dist = _get_dist_grid(out_h, out_w, scale)
     mask = dist <= radius
@@ -459,7 +369,8 @@ def show_preview(
     orientation: str = "landscape",
     processing_mode: str = "center",
     zoom_level: float = 1.0,
-    render_mode: PreviewMode = PreviewMode.SQUARES,
+    algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
+    led_size_pct: int = LED_SIZE_DEFAULT,
 ) -> None:
     """Display a side-by-side preview window: camera feed on the left, enlarged
     matrix view on the right.
@@ -479,12 +390,13 @@ def show_preview(
         orientation: Current display orientation ("landscape" or "portrait").
         processing_mode: Current processing mode ("center", "stretch", or "fit").
         zoom_level: Current zoom level (1.0 = full frame, 0.5 = centre 50%).
-        render_mode: How to render each LED cell in the matrix pane.
+        algorithm: How to render each LED cell in the matrix pane.
+        led_size_pct: Circle diameter as percentage of cell (only for CIRCLES).
     """
     scale = 10
 
-    # Enlarge the matrix view using the selected LED render mode
-    enlarged = render_led_preview(small_frame, render_mode, scale)
+    # Enlarge the matrix view using the selected LED render algorithm
+    enlarged = render_led_preview(small_frame, algorithm, led_size_pct, scale, bg_color=(0, 0, 0))
 
     # In portrait mode rotate to match the physical display
     if orientation == "portrait":
