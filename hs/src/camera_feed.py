@@ -996,8 +996,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
         send_frame(serial_connection, convert_to_rgb565(small_frame))
 
         # Pause to admire
-        print("  Pausing for 5 seconds (press space to skip)...")
-        for i in range(5, 0, -1):
+        print("  Pausing for 3 seconds (press space to skip)...")
+        for i in range(3, 0, -1):
             key = check_keyboard()
             if key == ' ':
                 print("  Resuming!")
@@ -1460,8 +1460,11 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
     # Show both views side by side in a single window
+    # cv2.waitKey(1) is required to actually render the frame — without it imshow
+    # queues the image but the window never updates (critical during countdown).
     combined = np.hstack([cam_resized, enlarged])
     cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.waitKey(1)
 
 
 # ===========================================

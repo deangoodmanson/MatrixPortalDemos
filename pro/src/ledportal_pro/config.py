@@ -58,7 +58,7 @@ class UIConfig:
     """UI/interaction configuration."""
 
     countdown_duration: float = 0.5
-    snapshot_pause_duration: float = 5.0
+    snapshot_pause_duration: float = 3.0
     enable_frame_limiting: bool = False
     debug_mode: bool = True
     single_keypress: bool = True  # Use single-keypress input (Mac/Linux only)
