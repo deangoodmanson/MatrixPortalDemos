@@ -1412,10 +1412,10 @@ def print_help(orient: str, proc_mode: str, bw: bool, mirror: bool, algorithm: R
     print("KEYBOARD COMMANDS:")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  f=fit")
-    print("  Effects:     b=B&W toggle  m=mirror toggle  o=render algorithm")
-    print("  LED size:    +/= increase  -/_ decrease (Circles only)")
+    print("  Effects:     b=B&W toggle  m=mirror toggle")
+    print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
     mirror_str = "Mirrored" if mirror else "Normal"

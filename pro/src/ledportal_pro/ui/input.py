@@ -281,10 +281,10 @@ def print_help(
     print("Commands (single keypress):")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  f=fit")
-    print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom  o=render algorithm")
-    print("  LED size:    +/= increase  -/_ decrease (Circles only)")
+    print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom")
+    print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
