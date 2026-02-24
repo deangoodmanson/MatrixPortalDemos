@@ -182,6 +182,32 @@ render_algorithm = RenderAlgorithm.SQUARES
 led_size_pct = 100
 
 # ===========================================
+# GAMMA CORRECTION FOR LED PREVIEW
+# ===========================================
+# WHY DOES THE PREVIEW LOOK DARKER THAN THE REAL MATRIX?
+#
+# A computer monitor applies a curve called "gamma" (≈2.2) to make images
+# look good on screen — dark values are compressed, brighter ones expanded.
+# But the LED matrix drives each LED with raw current that's nearly linear:
+# a value of 128 really is about half as bright as 255.
+#
+# The result: the same pixel value looks darker on your monitor than on the
+# physical LED panel.  To fix the *preview only* we apply the inverse of
+# that gamma curve — making 128 look brighter on screen so it matches the
+# panel's perceived brightness.
+#
+# HOW DOES A LUT WORK?
+# A Look-Up Table (LUT) is just an array of 256 entries.  Instead of
+# computing (value/255)^(1/2.2)*255 for every pixel in every frame, we
+# pre-compute it once here and then cv2.LUT() replaces each pixel value
+# with the pre-computed result in a single fast operation.
+_GAMMA: float = 2.2
+_GAMMA_LUT: np.ndarray = np.array(
+    [round(255 * (i / 255) ** (1.0 / _GAMMA)) if i > 0 else 0 for i in range(256)],
+    dtype=np.uint8,
+)
+
+# ===========================================
 # AVATAR CAPTURE POSES
 # ===========================================
 # These are the poses we'll guide the user through when creating an avatar.
@@ -999,7 +1025,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
             frame_bytes = convert_to_rgb565(overlay)
             send_frame(serial_connection, frame_bytes)
 
-            show_preview(frame, overlay, orient, show_preview_enabled, proc_mode, algorithm, led_size_pct)
+            show_preview(frame, overlay, orient, show_preview_enabled, proc_mode, algorithm, led_size_pct, MAX_BRIGHTNESS)
 
             time.sleep(0.01)
 
@@ -1340,7 +1366,7 @@ def render_led_preview(
 # ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center', algorithm: RenderAlgorithm = RenderAlgorithm.SQUARES, led_size_pct: int = 100) -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center', algorithm: RenderAlgorithm = RenderAlgorithm.SQUARES, led_size_pct: int = 100, max_brightness: int = 255) -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
@@ -1352,13 +1378,30 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     In portrait mode the matrix view is rotated 90° CCW to match the physical
     display orientation.
 
+    The LED pane is gamma-corrected to match the physical panel's perceived
+    brightness (see _GAMMA_LUT above).  If max_brightness is below 255 the
+    LED pane is also dimmed to match the matrix's current brightness cap.
+
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
     if not enabled:
         return
 
-    # Enlarge the matrix view using the selected LED render algorithm
+    # Enlarge the matrix view using the selected LED render algorithm.
+    # small_frame should be passed *before* brightness limiting so we can
+    # apply it here to the LED pane only (not the camera pane).
     enlarged = render_led_preview(small_frame, algorithm, led_size_pct, scale=10, bg_color=(0, 0, 0))
+
+    # Scale down if the LED matrix is running below full brightness.
+    # This makes the preview match how dim the physical panel actually is.
+    if max_brightness < 255:
+        enlarged = np.clip(
+            enlarged.astype(np.float32) * (max_brightness / 255), 0, 255
+        ).astype(np.uint8)
+
+    # Apply gamma expansion so the preview matches physical LED matrix brightness.
+    # LEDs emit light nearly linearly; a monitor applies sRGB gamma — this corrects for that.
+    enlarged = cv2.LUT(enlarged, _GAMMA_LUT)
 
     # In portrait mode, rotate the matrix view to match the physical display
     if orient == 'portrait':
@@ -1723,6 +1766,11 @@ def main() -> None:
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
 
+            # Save the pre-brightness frame for the preview.
+            # show_preview() applies brightness scaling + gamma to the LED pane
+            # internally, so we must pass the un-limited frame to avoid double-dimming.
+            preview_frame = small_frame
+
             # Apply brightness limit (set MAX_BRIGHTNESS in config.py)
             if MAX_BRIGHTNESS < 255:
                 small_frame = np.minimum(small_frame, MAX_BRIGHTNESS).astype(np.uint8)
@@ -1748,7 +1796,7 @@ def main() -> None:
                     print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
-            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode, render_algorithm, led_size_pct)
+            show_preview(frame, preview_frame, orientation, show_preview_enabled, processing_mode, render_algorithm, led_size_pct, MAX_BRIGHTNESS)
 
             # Statistics
             frame_count += 1
