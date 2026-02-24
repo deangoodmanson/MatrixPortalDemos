@@ -154,15 +154,23 @@ class RenderAlgorithm(Enum):
     """How each LED is drawn in the preview window.
 
     SQUARES:           Plain nearest-neighbour upscale — fast, blocky (default)
-    CIRCLES:           Hard-edged circles; size controlled by led_size_pct
-    GAUSSIAN_RAW:      Gaussian point-source blur (σ≈18% cell, no diffuser)
-    GAUSSIAN_DIFFUSED: Gaussian point-source blur (σ≈27% cell, with diffuser panel)
+    CIRCLES:           Hard-edged circles; size controlled by led_size_pct (+/- keys)
+    GAUSSIAN_RAW:      Raw panel emulation — gaussian blur, sigma≈18% cell (no diffuser)
+    GAUSSIAN_DIFFUSED: Diffused panel emulation — gaussian blur, sigma≈27% cell (with diffuser)
     """
     SQUARES = 0
     CIRCLES = 1
     GAUSSIAN_RAW = 2
     GAUSSIAN_DIFFUSED = 3
 
+
+# Human-readable labels shown when cycling algorithms with 'o'
+ALGORITHM_LABELS = {
+    RenderAlgorithm.SQUARES:           "squares",
+    RenderAlgorithm.CIRCLES:           "circles (hard edge, size adjustable with +/-)",
+    RenderAlgorithm.GAUSSIAN_RAW:      "raw panel emulation (gaussian, sigma≈18% cell)",
+    RenderAlgorithm.GAUSSIAN_DIFFUSED: "diffused panel emulation (gaussian, sigma≈27% cell)",
+}
 
 # LED size steps (percentage of cell diameter) — only applies to CIRCLES
 LED_SIZE_STEPS = [25, 50, 75, 100, 125, 150]
@@ -1590,8 +1598,7 @@ def main() -> None:
             if key == 'o':
                 next_val = (render_algorithm.value + 1) % len(RenderAlgorithm)
                 render_algorithm = RenderAlgorithm(next_val)
-                label = render_algorithm.name.lower().replace('_', ' ')
-                print(f"\n=== RENDER ALGORITHM: {label} ===\n")
+                print(f"\n=== RENDER ALGORITHM: {ALGORITHM_LABELS[render_algorithm]} ===\n")
                 continue
 
             if key in ('+', '='):
@@ -1600,6 +1607,8 @@ def main() -> None:
                     if idx < len(LED_SIZE_STEPS) - 1:
                         led_size_pct = LED_SIZE_STEPS[idx + 1]
                     print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                else:
+                    print(f"\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                 continue
 
             if key in ('-', '_'):
@@ -1608,6 +1617,8 @@ def main() -> None:
                     if idx > 0:
                         led_size_pct = LED_SIZE_STEPS[idx - 1]
                     print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                else:
+                    print(f"\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                 continue
 
             # === SYSTEM KEYS ===

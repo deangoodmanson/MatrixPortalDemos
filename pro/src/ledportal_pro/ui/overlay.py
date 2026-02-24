@@ -28,9 +28,9 @@ LED_SIZE_DEFAULT: int = 100
 # Algorithm descriptions shown in console output
 _ALGORITHM_LABELS: dict[PreviewAlgorithm, str] = {
     PreviewAlgorithm.SQUARES: "squares",
-    PreviewAlgorithm.CIRCLES: "circles (hard edge)",
-    PreviewAlgorithm.GAUSSIAN_RAW: "gaussian raw (σ≈18% cell, no diffuser)",
-    PreviewAlgorithm.GAUSSIAN_DIFFUSED: "gaussian diffused (σ≈27% cell, with diffuser)",
+    PreviewAlgorithm.CIRCLES: "circles (hard edge, size adjustable with +/-)",
+    PreviewAlgorithm.GAUSSIAN_RAW: "raw panel emulation (gaussian, sigma≈18% cell)",
+    PreviewAlgorithm.GAUSSIAN_DIFFUSED: "diffused panel emulation (gaussian, sigma≈27% cell)",
 }
 
 # Cache for vectorized distance grids keyed by (out_h, out_w, scale)

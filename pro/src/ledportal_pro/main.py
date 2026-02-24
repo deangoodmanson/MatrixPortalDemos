@@ -477,6 +477,8 @@ def main() -> int:
                         if idx < len(LED_SIZE_STEPS) - 1:
                             led_size_pct = LED_SIZE_STEPS[idx + 1]
                         print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                    else:
+                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                     continue
                 elif cmd == InputCommand.LED_SIZE_DECREASE:
                     if render_algorithm == PreviewAlgorithm.CIRCLES:
@@ -488,6 +490,8 @@ def main() -> int:
                         if idx > 0:
                             led_size_pct = LED_SIZE_STEPS[idx - 1]
                         print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                    else:
+                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                     continue
                 elif cmd == InputCommand.ZOOM_TOGGLE:
                     # Cycle: 1.0 → 0.75 → 0.5 → 0.25 → 1.0
