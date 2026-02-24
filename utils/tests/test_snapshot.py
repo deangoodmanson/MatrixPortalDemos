@@ -244,6 +244,7 @@ class TestLedMode:
         "CIRCLES_125",
         "CIRCLES_CORNER",
         "CIRCLES_CORNER_BLEND",
+        "GAUSSIAN",
     }
 
     def test_all_required_modes_exist(self) -> None:
@@ -251,7 +252,7 @@ class TestLedMode:
         assert names == self.REQUIRED_MODES
 
     def test_mode_count(self) -> None:
-        assert len(LedMode) == 7
+        assert len(LedMode) == 8
 
 
 class TestExportLedPreview:

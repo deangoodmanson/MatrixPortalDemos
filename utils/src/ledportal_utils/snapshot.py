@@ -30,6 +30,7 @@ class LedMode(Enum):
     CIRCLES_125 = 4  # 125% — circles overlap neighbouring cells slightly
     CIRCLES_CORNER = 5  # ~141% — corner-touch; painter's algorithm (last drawn wins)
     CIRCLES_CORNER_BLEND = 6  # ~141% — corner-touch; weighted-average colour blending
+    GAUSSIAN = 7  # Gaussian diffuser simulation — σ ≈ 27% of cell (matches real panel)
 
 
 def _render_painter_pil(
@@ -148,6 +149,64 @@ def _render_blend_pil(
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
+def _render_gaussian_pil(
+    pixels: np.ndarray,
+    out_h: int,
+    out_w: int,
+    scale: int,
+    sigma: float,
+) -> np.ndarray:
+    """Gaussian diffuser simulation using a Gaussian-weighted accumulator (PIL/NumPy).
+
+    Equivalent to _render_blend_pil but with Gaussian weights instead of a
+    uniform circle mask: each LED contributes its colour to surrounding pixels
+    with a Gaussian falloff from its cell centre.  The peak weight is 1.0 so
+    the LED centre pixel retains the original brightness; contributions from
+    adjacent LEDs are negligible at the default sigma (< 0.1% at 1 cell away).
+
+    Args:
+        pixels: Input RGB image as numpy array of shape (H, W, 3).
+        out_h: Output image height in pixels.
+        out_w: Output image width in pixels.
+        scale: Pixels per LED cell.
+        sigma: Gaussian standard deviation in output pixels.
+
+    Returns:
+        Upscaled RGB image as numpy array with Gaussian-blurred LED blobs.
+    """
+    h, w = pixels.shape[:2]
+    r = math.ceil(3 * sigma)  # cut off at 3σ — beyond this the weight is < 0.01%
+
+    # Pre-build the Gaussian kernel (peak = 1.0, falls off as Gaussian)
+    local_ys = np.arange(2 * r + 1, dtype=np.float32) - r
+    local_xs = np.arange(2 * r + 1, dtype=np.float32) - r
+    ldx, ldy = np.meshgrid(local_xs, local_ys)
+    gauss_kernel = np.exp(-(ldx**2 + ldy**2) / (2 * sigma**2)).astype(np.float32)
+
+    accumulator = np.zeros((out_h, out_w, 3), dtype=np.float32)
+
+    for row in range(h):
+        for col in range(w):
+            cx = col * scale + scale // 2
+            cy = row * scale + scale // 2
+
+            # Bounding box in output image coords, clipped to image bounds
+            ox1, oy1 = cx - r, cy - r
+            x1 = max(0, ox1)
+            y1 = max(0, oy1)
+            x2 = min(out_w, cx + r + 1)
+            y2 = min(out_h, cy + r + 1)
+
+            # Corresponding slice of the pre-built kernel
+            mx1, my1 = x1 - ox1, y1 - oy1
+            local_weights = gauss_kernel[my1 : my1 + (y2 - y1), mx1 : mx1 + (x2 - x1)]
+
+            color = pixels[row, col].astype(np.float32)
+            accumulator[y1:y2, x1:x2] += local_weights[:, :, np.newaxis] * color
+
+    return np.clip(accumulator, 0, 255).astype(np.uint8)
+
+
 def _render_led_array(
     pixels: np.ndarray,
     mode: LedMode,
@@ -177,6 +236,10 @@ def _render_led_array(
     if mode == LedMode.SQUARES:
         img = Image.fromarray(pixels.astype(np.uint8), "RGB")
         return np.array(img.resize((out_w, out_h), Image.Resampling.NEAREST))
+
+    if mode == LedMode.GAUSSIAN:
+        sigma = scale * 0.27  # σ ≈ 2.7 px @ scale=10 → FWHM ≈ 63% of cell
+        return _render_gaussian_pil(pixels, out_h, out_w, scale, sigma)
 
     # Radius as a fraction of cell size (diameter = scale × pct / 100)
     if mode == LedMode.CIRCLES_50:
@@ -381,6 +444,7 @@ def export_led_preview(
     | CIRCLES_125           | 125% circles — slight overlap between neighbours |
     | CIRCLES_CORNER        | ~141% circles — corner-touch, painter's algorithm|
     | CIRCLES_CORNER_BLEND  | ~141% circles — corner-touch, colour blending    |
+    | GAUSSIAN              | Gaussian diffuser simulation (σ ≈ 27% of cell)  |
 
     Args:
         input_path: Path to input image file (BMP or PNG).

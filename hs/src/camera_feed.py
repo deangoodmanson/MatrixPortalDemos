@@ -158,6 +158,7 @@ class PreviewRenderMode(Enum):
     CIRCLES_125 = 4          # 125% — circles overlap neighbouring cells slightly
     CIRCLES_CORNER = 5       # ~141% — corner-touch; painter's algorithm (last drawn wins)
     CIRCLES_CORNER_BLEND = 6 # ~141% — corner-touch; weighted-average colour blending
+    GAUSSIAN = 7             # Gaussian diffuser simulation — soft halos, no hard edges
 
 
 # Current preview render mode (changed with 'o' key)
@@ -1274,6 +1275,59 @@ def _render_led_blend(
 _preview_dist_cache: dict = {}
 
 
+def _render_led_gaussian(
+    small_frame: np.ndarray,
+    out_h: int,
+    out_w: int,
+    scale: int,
+    sigma: float,
+) -> np.ndarray:
+    """
+    Gaussian diffuser simulation.
+
+    HOW IT WORKS:
+    ==============
+    A real LED matrix with a diffuser panel in front looks like soft glowing
+    dots, not hard circles. This mode simulates that appearance by treating
+    each LED as a POINT SOURCE of light and then blurring it with a Gaussian
+    kernel — just like a physical diffuser spreads light from a point source.
+
+    STEPS:
+    1. Create a black image the same size as the output
+    2. Place each LED's colour as a single bright pixel at its cell centre
+    3. Apply Gaussian blur — each pixel spreads into a soft glow
+    4. Normalise brightness back to the original level (the blur dims the peaks)
+
+    WHY THIS SIGMA VALUE?
+    Using a photo of a real LED matrix with diffuser panel, we measured:
+    - Gap-to-peak brightness ratio:  ~37%
+    - FWHM (full-width at half-max):  ~63% of cell pitch
+    With sigma = scale × 0.27, our simulation predicts gap/peak ≈ 36% — a
+    near-perfect match to the measured hardware.
+
+    PARAMETERS:
+    - sigma: controls how far the light spreads (larger = softer, more blurred)
+    - peak_factor: restores the peak brightness (maths: 2π × σ² for a 2D Gaussian)
+    """
+    h, w = small_frame.shape[:2]
+
+    # Step 1: create black canvas, place one bright pixel per LED at its centre
+    dots = np.zeros((out_h, out_w, 3), dtype=np.float32)
+    for row in range(h):
+        for col in range(w):
+            cy = row * scale + scale // 2   # Y coordinate of this LED's centre
+            cx = col * scale + scale // 2   # X coordinate of this LED's centre
+            dots[cy, cx] = small_frame[row, col].astype(np.float32)
+
+    # Step 2: spread each point source with Gaussian blur
+    # cv2.GaussianBlur with ksize=(0,0) auto-sizes the kernel from sigma
+    blurred = cv2.GaussianBlur(dots, (0, 0), sigma)
+
+    # Step 3: normalise — restore peak brightness (2π σ² is the 2D Gaussian area)
+    peak_factor = 2.0 * math.pi * sigma * sigma
+    return np.clip(blurred * peak_factor, 0, 255).astype(np.uint8)
+
+
 def render_led_preview(
     small_frame: np.ndarray,
     mode: PreviewRenderMode = PreviewRenderMode.SQUARES,
@@ -1325,6 +1379,12 @@ def render_led_preview(
     if mode == PreviewRenderMode.SQUARES:
         # INTER_NEAREST = "copy nearest pixel" = crisp square blocks
         return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    # ===== GAUSSIAN MODE — point-source diffuser simulation =====
+    if mode == PreviewRenderMode.GAUSSIAN:
+        # sigma = 27% of cell → FWHM ≈ 63% of cell, matching measured diffuser panels
+        sigma = scale * 0.27
+        return _render_led_gaussian(small_frame, out_h, out_w, scale, sigma)
 
     # ===== CIRCLE MODES — compute radius first =====
     # half = distance from LED center to edge of its cell

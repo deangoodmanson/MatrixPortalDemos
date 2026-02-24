@@ -27,6 +27,7 @@ class PreviewMode(Enum):
     CIRCLES_125 = 4  # 125% — circles overlap neighbouring cells slightly
     CIRCLES_CORNER = 5  # ~141% — corner-touch; painter's algorithm (last drawn wins)
     CIRCLES_CORNER_BLEND = 6  # ~141% — corner-touch; weighted-average colour blending
+    GAUSSIAN = 7  # Gaussian diffuser simulation — σ ≈ 27% of cell (matches real panel)
 
 
 # Mode descriptions shown in console output
@@ -38,6 +39,7 @@ _MODE_LABELS: dict[PreviewMode, str] = {
     PreviewMode.CIRCLES_125: "circles 125% (slight overlap)",
     PreviewMode.CIRCLES_CORNER: "circles ~141% corner-touch (painter's)",
     PreviewMode.CIRCLES_CORNER_BLEND: "circles ~141% corner-touch (blended)",
+    PreviewMode.GAUSSIAN: "gaussian blur (diffuser simulation, σ≈27% cell)",
 }
 
 # Cache for vectorized distance grids keyed by (out_h, out_w, scale)
@@ -188,6 +190,59 @@ def _render_blend(
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
+def _render_gaussian(
+    small_frame: NDArray[np.uint8],
+    out_h: int,
+    out_w: int,
+    scale: int,
+    sigma: float,
+) -> NDArray[np.uint8]:
+    """Render LED matrix as Gaussian point-source blobs (diffuser simulation).
+
+    Each LED is modelled as a single bright pixel at its cell centre.  A
+    Gaussian blur spreads that point source across the panel, simulating the
+    soft-focus effect of a physical diffuser panel placed in front of the LEDs.
+
+    Contributions from adjacent LEDs blend additively, naturally producing the
+    dark gaps between blobs and the soft halos around each LED — matching the
+    appearance measured from a real diffused LED panel.
+
+    Measured diffuser properties that drive the default sigma choice:
+    - Cell pitch ≈ 139 px, gap-to-peak brightness ratio ≈ 37%
+    - FWHM ≈ 63% of cell → σ = FWHM / 2.355 ≈ 0.27 × scale
+
+    The output is normalised so that each blob's peak equals the original LED
+    colour (peak_factor = 2π σ², the continuous 2-D Gaussian normalisation).
+
+    Args:
+        small_frame: Matrix-sized BGR source frame.
+        out_h: Output image height in pixels.
+        out_w: Output image width in pixels.
+        scale: Pixels per LED cell.
+        sigma: Gaussian standard deviation in output pixels.
+
+    Returns:
+        Upscaled BGR image with Gaussian-blurred LED blobs.
+    """
+    h, w = small_frame.shape[:2]
+
+    # Place each LED as a single bright pixel at its cell centre
+    dots = np.zeros((out_h, out_w, 3), dtype=np.float32)
+    for row in range(h):
+        for col in range(w):
+            cy = row * scale + scale // 2
+            cx = col * scale + scale // 2
+            dots[cy, cx] = small_frame[row, col].astype(np.float32)
+
+    # Spread each point source with Gaussian blur (simulates the diffuser)
+    blurred = cv2.GaussianBlur(dots, (0, 0), sigma)
+
+    # Normalise: a 2-D Gaussian integrates to 1/(2π σ²) at the peak for a
+    # unit-energy point source — multiply back to restore original brightness.
+    peak_factor = 2.0 * math.pi * sigma * sigma
+    return np.clip(blurred * peak_factor, 0, 255).astype(np.uint8)
+
+
 def render_led_preview(
     small_frame: NDArray[np.uint8],
     mode: PreviewMode = PreviewMode.SQUARES,
@@ -219,6 +274,10 @@ def render_led_preview(
 
     if mode == PreviewMode.SQUARES:
         return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    if mode == PreviewMode.GAUSSIAN:
+        sigma = scale * 0.27  # σ ≈ 2.7 px @ scale=10 → FWHM ≈ 63% of cell
+        return _render_gaussian(small_frame, out_h, out_w, scale, sigma)
 
     # Radius as a fraction of cell size (diameter = scale × pct / 100)
     half = scale / 2.0

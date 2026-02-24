@@ -226,10 +226,14 @@ diameter (cell = 10×10 px at 10× scale).
 | Circles 100% | 10 px | 5 px | none (tangent) | vectorised mask |
 | Circles 125% | 12.5 px | 6.25 px | overlap ~2.5 px | painter's algorithm |
 | Circles ~141% (corner) | ≈14.1 px | ≈7.07 px (int: 8) | overlap at corners | painter's algorithm |
+| Gaussian blur | σ ≈ 2.7 px | — | soft glow | point-source + GaussianBlur |
 
 > Modes ≤ 100% are rendered with a fast vectorised NumPy mask.
 > Modes > 100% use painter's algorithm (2 048 `cv2.circle` calls) so that
 > overlapping regions between adjacent LEDs are drawn correctly.
+> Gaussian blur uses a point-source model with σ ≈ 27% of cell width,
+> calibrated to match the measured diffuser panel (FWHM ≈ 63% of cell,
+> gap/peak ratio ≈ 37%).
 
 ## Configuration
 
