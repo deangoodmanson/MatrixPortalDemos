@@ -295,3 +295,38 @@ result = np.clip(accumulator, 0, 255).astype(np.uint8)
 ```
 
 The accumulator peak weight is 1.0 (kernel centre = `exp(0) = 1`), so no separate normalisation step is needed.
+
+---
+
+## Preview Brightness vs. Physical LED Brightness
+
+### Observation
+
+The software preview renders LED colours using the raw RGB values from the camera, but the physical LED matrix appears dramatically brighter than the preview at the same RGB values.
+
+![Side-by-side: camera feed (left) vs. software LED preview at 10x scale (right)](brightnessPreviewDiff.png)
+
+The preview (right panel above) shows a tonally rich, moderately bright image. The physical matrix (below) at the same pixel values is much brighter, with highlights approaching white and reduced apparent contrast.
+
+![Physical LED matrix vs. software preview visible simultaneously](sampleForBrightnessCompare.jpg)
+
+### Why this happens
+
+A monitor and an RGB LED matrix both receive the same 8-bit RGB values, but they differ fundamentally in how those values map to emitted light:
+
+- **Monitor**: sRGB-encoded values are gamma-expanded and displayed at typical peak luminance of ~100–500 cd/m². The panel's backlight or OLED emitters are calibrated to a standardised colour space.
+- **LED matrix**: Each LED's forward current is set proportionally to the 8-bit value with no gamma correction. The physical luminance of the LEDs at full drive (255) is significantly higher than a monitor's white point, and the relationship between value and perceived brightness is closer to linear than the gamma-corrected sRGB curve.
+
+The result: an RGB value of (128, 128, 128) — perceptually mid-grey on a monitor — drives each LED to 50% current, which on a high-brightness panel reads as visibly bright rather than mid-grey.
+
+### Implications for the preview
+
+The current preview is **spatially accurate** (Gaussian diffusion model matches hardware) but **tonally too dark** relative to what a viewer sees when looking at the physical panel. The preview gives a correct representation of which LEDs are lit and their relative colours, but understates the perceived luminance of the panel.
+
+Potential approaches to close the gap:
+
+| Approach | Description |
+|----------|-------------|
+| Gamma correction | Apply inverse sRGB gamma (γ ≈ 2.2) to preview pixels before display — brightens midtones to approximate linear LED output |
+| Brightness scale | Multiply preview RGB values by a fixed factor (e.g. 1.5–2×), clipping at 255 — simple but clips highlights |
+| Tonemapping | Compress the dynamic range of the preview to simulate the panel's high-luminance output on a lower-luminance screen |
