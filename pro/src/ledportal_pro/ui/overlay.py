@@ -33,6 +33,16 @@ _ALGORITHM_LABELS: dict[PreviewAlgorithm, str] = {
     PreviewAlgorithm.GAUSSIAN_DIFFUSED: "diffused panel emulation (gaussian, sigma≈27% cell)",
 }
 
+# Gamma LUT: expand sRGB-encoded values to approximate LED matrix perceptual brightness.
+# The LED matrix drives each LED with near-linear current, while a monitor applies
+# sRGB gamma (≈2.2). Applying the inverse gamma to the preview makes it match the
+# physical panel's perceived brightness. Built once at import time.
+_GAMMA: float = 2.2
+_GAMMA_LUT: NDArray[np.uint8] = np.array(
+    [round(255 * (i / 255) ** (1.0 / _GAMMA)) if i > 0 else 0 for i in range(256)],
+    dtype=np.uint8,
+)
+
 # Cache for vectorized distance grids keyed by (out_h, out_w, scale)
 _dist_cache: dict[tuple[int, int, int], NDArray[np.float32]] = {}
 
@@ -371,6 +381,7 @@ def show_preview(
     zoom_level: float = 1.0,
     algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
     led_size_pct: int = LED_SIZE_DEFAULT,
+    max_brightness: int = 255,
 ) -> None:
     """Display a side-by-side preview window: camera feed on the left, enlarged
     matrix view on the right.
@@ -383,20 +394,36 @@ def show_preview(
     In portrait mode the matrix view is rotated 90° CCW to match the physical
     display orientation.
 
+    The LED pane is gamma-corrected to approximate the physical panel's perceived
+    brightness: the matrix drives LEDs with near-linear current while a monitor
+    applies sRGB gamma, making the preview appear darker than the real panel.
+    If *max_brightness* is below 255 the LED pane is also scaled down accordingly.
+
     Args:
         original_frame: Full-resolution camera frame (pre-zoom).
-        small_frame: Processed matrix-sized frame.
+        small_frame: Processed matrix-sized frame (before brightness limiting).
         matrix_config: Matrix configuration (used for scale factor).
         orientation: Current display orientation ("landscape" or "portrait").
         processing_mode: Current processing mode ("center", "stretch", or "fit").
         zoom_level: Current zoom level (1.0 = full frame, 0.5 = centre 50%).
         algorithm: How to render each LED cell in the matrix pane.
         led_size_pct: Circle diameter as percentage of cell (only for CIRCLES).
+        max_brightness: LED matrix brightness cap (0-255); scales the LED pane.
     """
     scale = 10
 
     # Enlarge the matrix view using the selected LED render algorithm
     enlarged = render_led_preview(small_frame, algorithm, led_size_pct, scale, bg_color=(0, 0, 0))
+
+    # Scale down if the LED matrix is running below full brightness
+    if max_brightness < 255:
+        enlarged = np.clip(enlarged.astype(np.float32) * (max_brightness / 255), 0, 255).astype(
+            np.uint8
+        )
+
+    # Apply gamma expansion so the preview matches physical LED matrix brightness.
+    # LEDs emit near-linearly; a monitor applies sRGB gamma — this corrects for that.
+    enlarged = cv2.LUT(enlarged, _GAMMA_LUT)
 
     # In portrait mode rotate to match the physical display
     if orientation == "portrait":

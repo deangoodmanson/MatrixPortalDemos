@@ -209,6 +209,7 @@ def run_snapshot_sequence(
                     zoom_level,
                     render_algorithm,
                     led_size_pct,
+                    config.processing.max_brightness,
                 )
 
             time.sleep(0.01)
@@ -656,6 +657,9 @@ def main() -> int:
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
 
+                # Save frame before brightness limiting — show_preview applies it internally
+                preview_frame = small_frame
+
                 # Apply brightness limiting for USB power safety
                 if config.processing.max_brightness < 255:
                     small_frame = apply_brightness_limit(
@@ -711,13 +715,14 @@ def main() -> int:
                 if config.ui.show_preview:
                     show_preview(
                         original_frame,
-                        small_frame,
+                        preview_frame,
                         config.matrix,
                         orientation,
                         processing_mode,
                         zoom_level,
                         render_algorithm,
                         led_size_pct,
+                        config.processing.max_brightness,
                     )
 
                 # Frame rate limiting

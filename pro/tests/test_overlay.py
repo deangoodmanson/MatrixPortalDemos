@@ -3,6 +3,7 @@
 import numpy as np
 
 from ledportal_pro.ui.overlay import (
+    _GAMMA_LUT,
     PreviewAlgorithm,
     draw_countdown_overlay,
     draw_mode_indicator,
@@ -100,7 +101,11 @@ class TestRenderLedPreview:
         frame = np.zeros((2, 4, 3), dtype=np.uint8)
         for r in range(2):
             for c in range(4):
-                frame[r, c] = [(r * 40 + c * 30) % 256, (r * 60 + c * 20) % 256, (r * 80 + c * 10) % 256]
+                frame[r, c] = [
+                    (r * 40 + c * 30) % 256,
+                    (r * 60 + c * 20) % 256,
+                    (r * 80 + c * 10) % 256,
+                ]
         return frame
 
     def test_squares_ignores_size(self):
@@ -139,12 +144,43 @@ class TestRenderLedPreview:
         """GAUSSIAN_RAW output is identical regardless of led_size_pct."""
         frame = self._test_frame()
         out_25 = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=25, scale=10)
-        out_150 = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=150, scale=10)
+        out_150 = render_led_preview(
+            frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=150, scale=10
+        )
         assert np.array_equal(out_25, out_150)
 
     def test_gaussian_raw_differs_from_diffused(self):
         """GAUSSIAN_RAW and GAUSSIAN_DIFFUSED produce different results."""
         frame = self._test_frame()
-        out_raw = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=100, scale=10)
-        out_diff = render_led_preview(frame, PreviewAlgorithm.GAUSSIAN_DIFFUSED, led_size_pct=100, scale=10)
+        out_raw = render_led_preview(
+            frame, PreviewAlgorithm.GAUSSIAN_RAW, led_size_pct=100, scale=10
+        )
+        out_diff = render_led_preview(
+            frame, PreviewAlgorithm.GAUSSIAN_DIFFUSED, led_size_pct=100, scale=10
+        )
         assert not np.array_equal(out_raw, out_diff)
+
+
+class TestGammaLUT:
+    """Tests for the module-level gamma LUT used by show_preview."""
+
+    def test_lut_length(self):
+        """LUT must have exactly 256 entries."""
+        assert len(_GAMMA_LUT) == 256
+
+    def test_lut_zero_maps_to_zero(self):
+        """Black stays black after gamma expansion."""
+        assert int(_GAMMA_LUT[0]) == 0
+
+    def test_lut_255_maps_to_255(self):
+        """Full white stays full white after gamma expansion."""
+        assert int(_GAMMA_LUT[255]) == 255
+
+    def test_lut_monotonically_increasing(self):
+        """Gamma LUT must be non-decreasing (brighter input → brighter output)."""
+        for i in range(1, 256):
+            assert _GAMMA_LUT[i] >= _GAMMA_LUT[i - 1]
+
+    def test_lut_brightens_midtones(self):
+        """Mid-grey (128) should map to a value significantly above 128."""
+        assert int(_GAMMA_LUT[128]) > 150  # γ=2.2 gives ≈186
