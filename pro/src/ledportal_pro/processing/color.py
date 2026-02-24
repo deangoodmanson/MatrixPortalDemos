@@ -50,6 +50,21 @@ def apply_grayscale(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR).astype(np.uint8)
 
 
+def apply_mirror(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    """Flip frame horizontally (left-to-right mirror effect).
+
+    Useful when the subject is watching themselves on the display and
+    expects mirror-like behavior (e.g., a performer facing the matrix).
+
+    Args:
+        frame: BGR image as numpy array.
+
+    Returns:
+        Horizontally flipped BGR image.
+    """
+    return cv2.flip(frame, 1).astype(np.uint8)
+
+
 def apply_brightness_limit(
     frame: NDArray[np.uint8], max_brightness: int = 255
 ) -> NDArray[np.uint8]:

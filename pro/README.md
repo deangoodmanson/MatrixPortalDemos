@@ -196,7 +196,9 @@ Single keypress (no Enter needed, Mac/Linux only):
 | Key | Action |
 |-----|--------|
 | `b` | Toggle black & white / color |
+| `m` | Toggle mirror (horizontal flip) |
 | `z` | Cycle zoom (100% → 75% → 50% → 25%) |
+| `o` | Cycle preview render mode (see table below) |
 
 **Actions:**
 
@@ -209,6 +211,25 @@ Single keypress (no Enter needed, Mac/Linux only):
 | `r` | Reset to defaults |
 | `h` | Show help |
 | `q` | Quit |
+
+**Preview render modes** (`o` key cycles through):
+
+Each mode controls how the 64×32 LED frame is drawn in the right-hand pane of
+the preview window. Circle sizes are expressed as a percentage of the LED cell
+diameter (cell = 10×10 px at 10× scale).
+
+| Mode | Diameter | Radius | Gaps | Rendering |
+|------|----------|--------|------|-----------|
+| Squares | — | — | none (filled) | nearest-neighbour resize |
+| Circles 50% | 5 px | 2.5 px | wide | vectorised mask |
+| Circles 75% | 7.5 px | 3.75 px | clear | vectorised mask |
+| Circles 100% | 10 px | 5 px | none (tangent) | vectorised mask |
+| Circles 125% | 12.5 px | 6.25 px | overlap ~2.5 px | painter's algorithm |
+| Circles ~141% (corner) | ≈14.1 px | ≈7.07 px (int: 8) | overlap at corners | painter's algorithm |
+
+> Modes ≤ 100% are rendered with a fast vectorised NumPy mask.
+> Modes > 100% use painter's algorithm (2 048 `cv2.circle` calls) so that
+> overlapping regions between adjacent LEDs are drawn correctly.
 
 ## Configuration
 

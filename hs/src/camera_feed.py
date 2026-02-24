@@ -47,6 +47,8 @@ REQUIREMENTS:
 # Each "import" gives us new abilities.
 
 import argparse                      # For command-line arguments
+import math                         # For math functions like ceil()
+from enum import Enum               # For creating named constants (enumerations)
 import time                         # For timing and delays
 import numpy as np                  # For fast math on images (np = "numpy")
 import cv2                          # OpenCV - for camera and images
@@ -128,7 +130,37 @@ PROCESSING_MODES = ['center', 'stretch', 'fit']
 orientation = 'landscape'         # Display orientation (wide or tall)
 processing_mode = 'center'        # How to fit the image (crop, stretch, or fit)
 black_and_white_mode = False      # Color or grayscale?
+mirror_mode = False               # Flip the image left-to-right (like a mirror)?
 debug_output = True               # Show frame rate info?
+
+# ===========================================
+# LED PREVIEW RENDER MODES
+# ===========================================
+# These control how each LED is drawn in the preview window.
+# Toggle with the 'o' key.
+#
+# A real LED matrix has small round lights (LEDs) arranged in a grid.
+# The default view shows plain squares, but we can make it look more
+# realistic with circles and gaps between each LED.
+#
+# WHAT IS AN ENUM?
+# An Enum (enumeration) is a set of named constants.
+# Instead of using plain numbers (0, 1, 2, 3) — which are hard to read —
+# we give each value a meaningful name like SQUARES or CIRCLES_EDGE.
+# Python's 'Enum' class is imported at the top of this file.
+
+class PreviewRenderMode(Enum):
+    SQUARES = 0              # Plain squares — fast nearest-neighbour upscale (default)
+    CIRCLES_50 = 1           # 50%  — wide gaps between circles
+    CIRCLES_75 = 2           # 75%  — clear gaps between circles
+    CIRCLES_100 = 3          # 100% — circle exactly fills the cell (edge-to-edge)
+    CIRCLES_125 = 4          # 125% — circles overlap neighbouring cells slightly
+    CIRCLES_CORNER = 5       # ~141% — corner-touch; painter's algorithm (last drawn wins)
+    CIRCLES_CORNER_BLEND = 6 # ~141% — corner-touch; weighted-average colour blending
+
+
+# Current preview render mode (changed with 'o' key)
+preview_render_mode = PreviewRenderMode.SQUARES
 
 # ===========================================
 # AVATAR CAPTURE POSES
@@ -453,6 +485,32 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
         processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
 
     return processed
+
+
+# ===========================================
+# FUNCTION: Mirror the image
+# ===========================================
+def apply_mirror(frame: np.ndarray) -> np.ndarray:
+    """
+    Flip the image horizontally (left-to-right), like a mirror.
+
+    WHY YOU'D USE THIS:
+    - When someone stands in front of the display watching themselves,
+      they expect their right hand to appear on the right side of the
+      screen — just like a bathroom mirror. Without mirroring, their
+      hand movements appear backwards.
+    - Front-facing cameras (like a laptop webcam) usually default to
+      mirror mode. Rear-facing cameras (like a phone back camera) do not.
+
+    HOW IT WORKS:
+    - cv2.flip(frame, 1) flips around the vertical axis (flipCode=1)
+    - flipCode=0 would flip vertically (upside down)
+    - flipCode=-1 would flip both axes
+
+    RETURNS:
+    - The horizontally flipped image
+    """
+    return cv2.flip(frame, 1)
 
 
 # ===========================================
@@ -831,7 +889,7 @@ def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode
 # ===========================================
 # FUNCTION: Run snapshot countdown
 # ===========================================
-def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool) -> bool:
+def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool, is_mirror: bool = False) -> bool:
     """
     Take a snapshot with a 3-2-1 countdown.
 
@@ -871,6 +929,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
                 continue
 
             small_frame = resize_frame(frame, orient, proc_mode)
+            if is_mirror:
+                small_frame = apply_mirror(small_frame)
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
 
@@ -1083,9 +1143,267 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 
 
 # ===========================================
+# FUNCTION: Render LED preview frame
+# ===========================================
+
+# ===========================================
+# HELPER: Painter's-algorithm circle renderer
+# ===========================================
+def _render_led_painter(
+    small_frame: np.ndarray,
+    out_h: int, out_w: int,
+    scale: int, radius: float,
+    bg_color: Tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Draw overlapping LED circles using the PAINTER'S ALGORITHM.
+
+    WHAT IS THE PAINTER'S ALGORITHM?
+    Imagine painting a canvas: each brush stroke covers whatever came before.
+    We draw each LED circle one at a time, left-to-right, top-to-bottom.
+    Where two adjacent circles overlap, the LATER one wins — it paints over
+    the earlier one. Simple and fast, but the result depends on draw order.
+
+    WHY math.ceil FOR THE RADIUS?
+    The geometric radius for corner-touch circles is 5√2 ≈ 7.071, which is
+    not a whole number. cv2.circle needs an integer. If we use round() we get 7,
+    which is just short of 7.071 — leaving tiny black dots at the corner
+    intersections. math.ceil gives 8, which always covers those pixels.
+    """
+    h, w = small_frame.shape[:2]
+    output = np.empty((out_h, out_w, 3), dtype=np.uint8)
+    output[...] = bg_color
+    r_int = math.ceil(radius)
+    for row in range(h):
+        for col in range(w):
+            cx = col * scale + scale // 2
+            cy = row * scale + scale // 2
+            color = tuple(int(v) for v in small_frame[row, col])
+            cv2.circle(output, (cx, cy), r_int, color, thickness=-1)
+    return output
+
+
+# ===========================================
+# HELPER: Blended circle renderer
+# ===========================================
+def _render_led_blend(
+    small_frame: np.ndarray,
+    out_h: int, out_w: int,
+    scale: int, radius: float,
+    bg_color: Tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Draw overlapping LED circles with WEIGHTED-AVERAGE COLOR BLENDING.
+
+    WHAT'S DIFFERENT FROM PAINTER'S?
+    Instead of one circle overwriting another, pixels covered by MULTIPLE
+    circles get a BLEND of all those circles' colors. If a red LED (255,0,0)
+    and a blue LED (0,0,255) overlap, the overlap zone shows purple (128,0,128).
+
+    This is more like how real light works: two colored lights mixing together
+    create a blend of both colors in the area where they overlap.
+
+    HOW IT WORKS:
+    1. Pre-build a circle mask (a 2D array of True/False) — same for every LED.
+    2. For each LED, add its color to an "accumulator" canvas wherever the
+       mask is True. Also count how many circles covered each pixel.
+    3. Divide accumulator by count to get the average color per pixel.
+    4. Where no circle covered a pixel, use the background color.
+
+    WHY USE A BOUNDING BOX?
+    Each circle only affects a small region of the full canvas (2r+1 × 2r+1).
+    We work on just that region using NumPy slices (very fast) rather than
+    checking every pixel in the full 640×320 output.
+    """
+    h, w = small_frame.shape[:2]
+    r_int = math.ceil(radius)
+
+    # Step 1: Pre-build the shared circle mask
+    # The mask is a square grid of size (2r+1) × (2r+1).
+    # Each cell is True if it's within 'radius' pixels of the center.
+    mask_size = 2 * r_int + 1
+    local_ys = np.arange(mask_size, dtype=np.float32) - r_int  # -r to +r
+    local_xs = np.arange(mask_size, dtype=np.float32) - r_int
+    ldx, ldy = np.meshgrid(local_xs, local_ys)
+    circle_mask = (np.sqrt(ldx ** 2 + ldy ** 2) <= radius).astype(np.float32)
+
+    # Step 2: Accumulate colors and coverage counts
+    accumulator = np.zeros((out_h, out_w, 3), dtype=np.float32)
+    count = np.zeros((out_h, out_w), dtype=np.float32)
+
+    for row in range(h):
+        for col in range(w):
+            cx = col * scale + scale // 2
+            cy = row * scale + scale // 2
+
+            # Bounding box in output coords, clipped to stay inside the image
+            ox1, oy1 = cx - r_int, cy - r_int
+            x1 = max(0, ox1)
+            y1 = max(0, oy1)
+            x2 = min(out_w, cx + r_int + 1)
+            y2 = min(out_h, cy + r_int + 1)
+
+            # Which part of the pre-built mask lines up with this bounding box?
+            mx1, my1 = x1 - ox1, y1 - oy1
+            local_mask = circle_mask[my1: my1 + (y2 - y1), mx1: mx1 + (x2 - x1)]
+
+            # Add this LED's color (weighted by mask) to the accumulator
+            color = small_frame[row, col].astype(np.float32)
+            accumulator[y1:y2, x1:x2] += local_mask[:, :, np.newaxis] * color
+            count[y1:y2, x1:x2] += local_mask
+
+    # Step 3: Divide by count to get the blended average
+    # np.maximum(..., 1.0) prevents division by zero
+    bg = np.array(bg_color, dtype=np.float32)
+    result = np.where(
+        count[:, :, np.newaxis] > 0,
+        accumulator / np.maximum(count[:, :, np.newaxis], 1.0),
+        bg,
+    )
+    return np.clip(result, 0, 255).astype(np.uint8)
+
+
+# Cache for the distance grid used by circle modes.
+# The grid only depends on the output size and scale, not the frame content,
+# so we compute it once and reuse it every frame (much faster!).
+_preview_dist_cache: dict = {}
+
+
+def render_led_preview(
+    small_frame: np.ndarray,
+    mode: PreviewRenderMode = PreviewRenderMode.SQUARES,
+    scale: int = 10,
+    bg_color: Tuple[int, int, int] = (0, 0, 0),
+) -> np.ndarray:
+    """
+    Render the 64x32 LED frame as a larger image simulating the LED matrix.
+
+    WHAT'S HAPPENING:
+    ==================
+    The LED matrix has 64x32 tiny LEDs arranged in a grid.
+    This function upscales that tiny image so we can see it on screen.
+
+    There are 4 render modes showing how each LED could look:
+    - SQUARES:        Plain 10x10 squares — simple, fast
+    - CIRCLES_EDGE:   Each LED is a circle fitting exactly inside its square
+    - CIRCLES_CORNER: Larger circle extending to the square's corners
+    - CIRCLES_75:     Small circle (75% size) with visible gaps between LEDs
+
+    HOW THE SCALE WORKS:
+    Each LED pixel becomes a scale×scale block in the output.
+    With scale=10: 64×32 becomes 640×320 pixels.
+
+    HOW CIRCLES ARE DRAWN:
+    For SQUARES: just use cv2.resize() with INTER_NEAREST (nearest-neighbor).
+    INTER_NEAREST means "copy the nearest pixel" — no blending — giving
+    crisp, blocky squares. Fast and simple!
+
+    For non-overlapping circles (EDGE and 75%):
+    1. Upscale with INTER_NEAREST (each output pixel gets its LED's color)
+    2. For each output pixel, compute distance to its LED cell's center
+    3. If distance > radius, replace that pixel with the background color
+    This is done with NumPy math on the whole image at once (very fast!)
+
+    For overlapping circles (CORNER mode):
+    Radius is larger than the cell, so circles from adjacent LEDs overlap.
+    We use the "painter's algorithm": draw each LED circle on the canvas
+    one at a time. Later circles paint over earlier ones in overlap areas.
+    (Like painting with a brush — the last stroke wins.)
+
+    RETURNS:
+    - A larger image (scale × bigger) ready for the preview window
+    """
+    h, w = small_frame.shape[:2]
+    out_h, out_w = h * scale, w * scale
+
+    # ===== SQUARES MODE (simple) =====
+    if mode == PreviewRenderMode.SQUARES:
+        # INTER_NEAREST = "copy nearest pixel" = crisp square blocks
+        return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    # ===== CIRCLE MODES — compute radius first =====
+    # half = distance from LED center to edge of its cell
+    half = scale / 2.0
+
+    # Circle sizes are expressed as a percentage of the cell diameter.
+    # Modes ≤ 100% fit within their cell; modes > 100% overlap adjacent cells.
+    if mode == PreviewRenderMode.CIRCLES_50:
+        radius = scale * 0.25           # 2.5 pixels — 50% diameter, wide gaps
+
+    elif mode == PreviewRenderMode.CIRCLES_75:
+        radius = scale * 0.375          # 3.75 pixels — 75% diameter, clear gaps
+
+    elif mode == PreviewRenderMode.CIRCLES_100:
+        # Circle exactly fills the cell — tangent to all 4 edges
+        radius = half                   # 5.0 pixels — 100% diameter
+
+    elif mode == PreviewRenderMode.CIRCLES_125:
+        # Circle slightly larger than the cell — bleeds 1.25px into each neighbor
+        radius = scale * 0.625          # 6.25 pixels — 125% diameter
+
+    else:  # CIRCLES_CORNER
+        # Circle whose edge passes through all 4 corners of the cell.
+        # Distance from center to corner = half × √2 ≈ 7.07 (~141% diameter).
+        radius = half * (2 ** 0.5)      # ≈ 7.07 pixels
+
+    # ===== Overlapping modes (radius > half-cell) — painter's algorithm =====
+    #
+    # For any circle larger than 100%, the radius extends beyond the cell edge.
+    # The vectorized mask trick (using % scale) only knows about each pixel's
+    # OWN cell — it can't paint a circle into a neighboring cell's pixels.
+    # Painter's algorithm fixes this: draw each LED circle one at a time,
+    # allowing them to overwrite each other in the overlap regions.
+    #
+    # math.ceil() ensures the integer radius always covers the target geometry
+    # (round() falls one pixel short for irrational values like 5√2 ≈ 7.07,
+    # which leaves tiny black dots at the four-cell corner intersections).
+    if radius > half:
+        # Overlapping modes: dispatch to the appropriate renderer
+        if mode == PreviewRenderMode.CIRCLES_CORNER_BLEND:
+            return _render_led_blend(small_frame, out_h, out_w, scale, radius, bg_color)
+        return _render_led_painter(small_frame, out_h, out_w, scale, radius, bg_color)
+
+    # ===== Non-overlapping modes (radius ≤ half-cell) — vectorized NumPy mask =====
+    #
+    # STEP 1: Upscale so every output pixel knows its LED's color
+    colored = cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    # STEP 2: Get (or build) the distance grid.
+    # Each cell is scale×scale pixels. The center of a cell is at
+    # (scale//2, scale//2) within the cell. We compute how far each
+    # output pixel is from the center of its own cell.
+    #
+    # Key insight: using "% scale" gives the pixel's position WITHIN
+    # its cell (values 0 to scale-1), independent of which cell it's in.
+    # Subtract scale//2 to center around 0, then compute sqrt(dx²+dy²).
+    cache_key = (out_h, out_w, scale)
+    if cache_key not in _preview_dist_cache:
+        # xs shape: (out_w,) — offset within cell for each column
+        xs = (np.arange(out_w) % scale - scale // 2).astype(np.float32)
+        # ys shape: (out_h,) — offset within cell for each row
+        ys = (np.arange(out_h) % scale - scale // 2).astype(np.float32)
+        # meshgrid makes 2D arrays so we can compute distance for every pixel
+        dx, dy = np.meshgrid(xs, ys)
+        _preview_dist_cache[cache_key] = np.sqrt(dx ** 2 + dy ** 2)
+
+    dist = _preview_dist_cache[cache_key]  # shape: (out_h, out_w)
+
+    # STEP 3: Boolean mask — True where pixel is inside the circle
+    mask = dist <= radius  # shape: (out_h, out_w)
+
+    # STEP 4: Build background canvas
+    bg = np.empty((out_h, out_w, 3), dtype=np.uint8)
+    bg[...] = bg_color
+
+    # STEP 5: Combine — keep LED color inside circle, show background outside
+    # mask[:, :, np.newaxis] adds a third dimension so it applies to all 3 colors
+    return np.where(mask[:, :, np.newaxis], colored, bg).astype(np.uint8)
+
+
+# ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center') -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center', render_mode: PreviewRenderMode = PreviewRenderMode.SQUARES) -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
@@ -1102,12 +1420,8 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     if not enabled:
         return
 
-    # Enlarge the tiny matrix view (10x bigger)
-    enlarged = cv2.resize(
-        small_frame,
-        (MATRIX_WIDTH * 10, MATRIX_HEIGHT * 10),
-        interpolation=cv2.INTER_NEAREST  # Blocky pixels
-    )
+    # Enlarge the matrix view using the selected LED render mode
+    enlarged = render_led_preview(small_frame, render_mode, scale=10)
 
     # In portrait mode, rotate the matrix view to match the physical display
     if orient == 'portrait':
@@ -1151,20 +1465,22 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
 # ===========================================
 # FUNCTION: Print help
 # ===========================================
-def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
+def print_help(orient: str, proc_mode: str, bw: bool, mirror: bool, render_mode: PreviewRenderMode, debug: bool) -> None:
     """Print the help message with current settings."""
     print("")
     print("=" * 60)
     print("KEYBOARD COMMANDS:")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  f=fit")
-    print("  Effects:     b=B&W toggle")
+    print("  Effects:     b=B&W toggle  m=mirror toggle  o=LED render mode")
     print("  Actions:     SPACE=snapshot  v=avatar")
     print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
+    mirror_str = "Mirrored" if mirror else "Normal"
+    render_str = render_mode.name.lower().replace('_', ' ')
     debug_str = "ON" if debug else "OFF"
-    print(f"  Current: {orient.title()} + {proc_mode.title()}, {bw_str}, Debug={debug_str}")
+    print(f"  Current: {orient.title()} + {proc_mode.title()}, {bw_str}, Mirror={mirror_str}, Render={render_str}, Debug={debug_str}")
     print("=" * 60)
     print("")
 
@@ -1184,7 +1500,7 @@ def main() -> None:
     IMPORTANT: We MUST restore the terminal settings when we exit,
     or your terminal will be broken! That's why we use try/finally.
     """
-    global orientation, processing_mode, black_and_white_mode, debug_output
+    global orientation, processing_mode, black_and_white_mode, mirror_mode, preview_render_mode, debug_output
     show_preview_enabled = SHOW_PREVIEW  # Local toggle; SHOW_PREVIEW sets the startup default
 
     # Parse command-line arguments
@@ -1274,7 +1590,7 @@ def main() -> None:
     print("STEP 3: Starting the camera feed!")
     print("=" * 50)
     print("")
-    print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+    print_help(orientation, processing_mode, black_and_white_mode, mirror_mode, preview_render_mode, debug_output)
     if show_preview_enabled:
         print("Preview window: ENABLED (press 'w' to toggle)")
     print("Press Ctrl+C to force quit")
@@ -1332,6 +1648,19 @@ def main() -> None:
                 print(f"\n=== {mode_str} MODE ===\n")
                 continue
 
+            if key == 'm':
+                mirror_mode = not mirror_mode
+                mode_str = "ON" if mirror_mode else "OFF"
+                print(f"\n=== MIRROR: {mode_str} ===\n")
+                continue
+
+            if key == 'o':
+                next_val = (preview_render_mode.value + 1) % len(PreviewRenderMode)
+                preview_render_mode = PreviewRenderMode(next_val)
+                label = preview_render_mode.name.lower().replace('_', ' ')
+                print(f"\n=== LED RENDER MODE: {label} ===\n")
+                continue
+
             # === SYSTEM KEYS ===
             if key == 't':
                 if display_enabled and serial_connection is None:
@@ -1366,10 +1695,12 @@ def main() -> None:
                 orientation = 'landscape'
                 processing_mode = 'center'
                 black_and_white_mode = False
+                mirror_mode = False
+                preview_render_mode = PreviewRenderMode.SQUARES
                 debug_output = True
                 display_enabled = True
                 print("\n=== RESET TO DEFAULTS ===")
-                print("Orientation=landscape, Processing=center, Color, Debug=ON, Display=ON\n")
+                print("Orientation=landscape, Processing=center, Color, Mirror=OFF, Render=squares, Debug=ON, Display=ON\n")
                 continue
 
             # === ACTION KEYS ===
@@ -1390,7 +1721,7 @@ def main() -> None:
                 continue
 
             if key == 'h':
-                print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+                print_help(orientation, processing_mode, black_and_white_mode, mirror_mode, preview_render_mode, debug_output)
                 continue
 
             if key == 'q':
@@ -1405,7 +1736,7 @@ def main() -> None:
                     save_snapshot(last_sent_frame, frame_bytes_save, orientation, debug_output)
                     speak("Saved")
                 else:
-                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
+                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode, mirror_mode)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
@@ -1424,6 +1755,9 @@ def main() -> None:
 
             # Process the frame
             small_frame = resize_frame(frame, orientation, processing_mode)
+
+            if mirror_mode:
+                small_frame = apply_mirror(small_frame)
 
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
@@ -1449,7 +1783,7 @@ def main() -> None:
                     print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
-            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode)
+            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode, preview_render_mode)
 
             # Statistics
             frame_count += 1

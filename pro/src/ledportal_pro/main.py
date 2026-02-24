@@ -13,6 +13,7 @@ from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
     apply_brightness_limit,
     apply_grayscale,
+    apply_mirror,
     apply_zoom_crop,
     convert_to_rgb565,
     create_test_pattern,
@@ -23,6 +24,7 @@ from .ui import (
     AvatarCaptureManager,
     InputCommand,
     KeyboardHandler,
+    PreviewMode,
     SnapshotManager,
     draw_border,
     draw_countdown_overlay,
@@ -106,6 +108,7 @@ def run_snapshot_sequence(
     processing_mode: str,
     zoom_level: float,
     debug_mode: bool = False,
+    mirror: bool = False,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -120,6 +123,7 @@ def run_snapshot_sequence(
         processing_mode: Current processing mode (center/stretch/fit).
         zoom_level: Current zoom level (0.25-1.0).
         debug_mode: Whether to save debug files alongside snapshot.
+        mirror: Whether to apply horizontal mirror flip.
 
     Returns:
         True if snapshot completed, False if aborted.
@@ -162,6 +166,8 @@ def run_snapshot_sequence(
             small_frame = resize_frame(
                 frame, config.matrix, config.processing, orientation, processing_mode
             )
+            if mirror:
+                small_frame = apply_mirror(small_frame)
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
@@ -303,6 +309,8 @@ def main() -> int:
     processing_mode = config.processing.processing_mode
     debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
+    mirror_mode = False  # Horizontal flip (mirror effect)
+    preview_render_mode = PreviewMode.SQUARES  # LED preview render mode (cycles with 'o')
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
@@ -428,6 +436,17 @@ def main() -> int:
                     mode_str = "BLACK & WHITE" if black_and_white else "COLOR"
                     print(f"\n=== {mode_str} MODE ===\n")
                     continue
+                elif cmd == InputCommand.TOGGLE_MIRROR:
+                    mirror_mode = not mirror_mode
+                    mode_str = "ON" if mirror_mode else "OFF"
+                    print(f"\n=== MIRROR: {mode_str} ===\n")
+                    continue
+                elif cmd == InputCommand.CYCLE_PREVIEW_MODE:
+                    next_val = (preview_render_mode.value + 1) % len(PreviewMode)
+                    preview_render_mode = PreviewMode(next_val)
+                    label = preview_render_mode.name.lower().replace("_", " ")
+                    print(f"\n=== LED RENDER MODE: {label} ===\n")
+                    continue
                 elif cmd == InputCommand.ZOOM_TOGGLE:
                     # Cycle: 1.0 → 0.75 → 0.5 → 0.25 → 1.0
                     if zoom_level == 1.0:
@@ -497,12 +516,14 @@ def main() -> int:
                     orientation = "landscape"
                     processing_mode = "center"
                     black_and_white = False
+                    mirror_mode = False
+                    preview_render_mode = PreviewMode.SQUARES
                     debug_mode = True
                     zoom_level = 1.0
                     display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
                     print(
-                        "Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%, Display=ON\n"
+                        "Orientation=landscape, Processing=center, Color, Mirror=OFF, Render=squares, Debug=ON, Zoom=100%, Display=ON\n"
                     )
                     continue
                 elif cmd == InputCommand.HELP:
@@ -513,6 +534,8 @@ def main() -> int:
                         debug_mode,
                         zoom_level,
                         config.ui.show_preview,
+                        mirror_mode,
+                        preview_render_mode.name.lower().replace("_", " "),
                     )
                     continue
                 elif cmd == InputCommand.QUIT:
@@ -539,6 +562,7 @@ def main() -> int:
                             processing_mode,
                             zoom_level,
                             debug_mode,
+                            mirror_mode,
                         )
                     keyboard.clear_buffer()
                     continue
@@ -574,6 +598,8 @@ def main() -> int:
                 small_frame = resize_frame(
                     frame, config.matrix, config.processing, orientation, processing_mode
                 )
+                if mirror_mode:
+                    small_frame = apply_mirror(small_frame)
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
 
@@ -637,6 +663,7 @@ def main() -> int:
                         orientation,
                         processing_mode,
                         zoom_level,
+                        preview_render_mode,
                     )
 
                 # Frame rate limiting
