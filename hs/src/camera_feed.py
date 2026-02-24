@@ -889,7 +889,7 @@ def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode
 # ===========================================
 # FUNCTION: Run snapshot countdown
 # ===========================================
-def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool, is_mirror: bool = False) -> bool:
+def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool, is_mirror: bool = False, show_preview_enabled: bool = False, render_mode: PreviewRenderMode = PreviewRenderMode.SQUARES) -> bool:
     """
     Take a snapshot with a 3-2-1 countdown.
 
@@ -977,6 +977,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
 
             frame_bytes = convert_to_rgb565(overlay)
             send_frame(serial_connection, frame_bytes)
+
+            show_preview(frame, overlay, orient, show_preview_enabled, proc_mode, render_mode)
 
             time.sleep(0.01)
 
@@ -1736,7 +1738,7 @@ def main() -> None:
                     save_snapshot(last_sent_frame, frame_bytes_save, orientation, debug_output)
                     speak("Saved")
                 else:
-                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode, mirror_mode)
+                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode, mirror_mode, show_preview_enabled, preview_render_mode)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)

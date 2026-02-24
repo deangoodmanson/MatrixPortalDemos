@@ -109,6 +109,7 @@ def run_snapshot_sequence(
     zoom_level: float,
     debug_mode: bool = False,
     mirror: bool = False,
+    preview_render_mode: PreviewMode = PreviewMode.SQUARES,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -155,11 +156,12 @@ def run_snapshot_sequence(
                 return False
 
             try:
-                frame = camera_typed.capture()
+                original_frame = camera_typed.capture()
             except CameraCaptureFailed:
                 continue
 
-            # Apply zoom
+            # Apply zoom (keep original_frame pre-zoom for the preview left pane)
+            frame = original_frame
             if zoom_level < 1.0:
                 frame = apply_zoom_crop(frame, zoom_level)
 
@@ -190,6 +192,17 @@ def run_snapshot_sequence(
                         transport.send_frame(frame_bytes)
                     except Exception:
                         pass
+
+            if config.ui.show_preview:
+                show_preview(
+                    original_frame,
+                    overlay_frame,
+                    config.matrix,
+                    orientation,
+                    processing_mode,
+                    zoom_level,
+                    preview_render_mode,
+                )
 
             time.sleep(0.01)
 
@@ -563,6 +576,7 @@ def main() -> int:
                             zoom_level,
                             debug_mode,
                             mirror_mode,
+                            preview_render_mode,
                         )
                     keyboard.clear_buffer()
                     continue
