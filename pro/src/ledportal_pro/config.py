@@ -60,7 +60,7 @@ class UIConfig:
     countdown_duration: float = 0.5
     snapshot_pause_duration: float = 3.0
     enable_frame_limiting: bool = False
-    debug_mode: bool = True
+    debug_mode: bool = False
     single_keypress: bool = True  # Use single-keypress input (Mac/Linux only)
     show_preview: bool = False  # Show side-by-side camera/matrix preview window
 

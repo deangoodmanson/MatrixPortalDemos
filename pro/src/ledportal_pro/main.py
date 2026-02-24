@@ -330,7 +330,9 @@ def main() -> int:
     debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
     mirror_mode = False  # Horizontal flip (mirror effect)
-    render_algorithm = PreviewAlgorithm.SQUARES  # LED preview render algorithm (cycles with 'o')
+    render_algorithm = (
+        PreviewAlgorithm.GAUSSIAN_DIFFUSED
+    )  # LED preview render algorithm (cycles with 'o')
     led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
@@ -563,15 +565,15 @@ def main() -> int:
                     processing_mode = "center"
                     black_and_white = False
                     mirror_mode = False
-                    render_algorithm = PreviewAlgorithm.SQUARES
+                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
                     led_size_pct = LED_SIZE_DEFAULT
-                    debug_mode = True
+                    debug_mode = False
                     zoom_level = 1.0
                     display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
                     print(
                         "Orientation=landscape, Processing=center, Color, Mirror=OFF, "
-                        "Algorithm=squares, Size=100%, Debug=ON, Zoom=100%, Display=ON\n"
+                        "Algorithm=diffused panel emulation, Size=100%, Debug=OFF, Zoom=100%, Display=ON\n"
                     )
                     continue
                 elif cmd == InputCommand.HELP:
