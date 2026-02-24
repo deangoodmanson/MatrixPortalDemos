@@ -91,7 +91,8 @@ from config import (                # Our settings file
     MATRIX_WIDTH,
     MATRIX_HEIGHT,
     CAMERA_WIDTH,
-    CAMERA_HEIGHT
+    CAMERA_HEIGHT,
+    MAX_BRIGHTNESS,
 )
 
 # ===========================================
@@ -933,6 +934,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
                 small_frame = apply_mirror(small_frame)
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
+            if MAX_BRIGHTNESS < 255:
+                small_frame = np.minimum(small_frame, MAX_BRIGHTNESS).astype(np.uint8)
 
             # Save the last frame from countdown "1" for the snapshot
             if countdown == 1:
@@ -1766,6 +1769,10 @@ def main() -> None:
 
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
+
+            # Apply brightness limit (set MAX_BRIGHTNESS in config.py)
+            if MAX_BRIGHTNESS < 255:
+                small_frame = np.minimum(small_frame, MAX_BRIGHTNESS).astype(np.uint8)
 
             # Convert and send
             frame_bytes = convert_to_rgb565(small_frame)

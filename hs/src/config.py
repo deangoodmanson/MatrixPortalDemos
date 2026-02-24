@@ -47,6 +47,19 @@ CAMERA_WIDTH = 0   # 0 = use camera's native resolution
 CAMERA_HEIGHT = 0  # 0 = use camera's native resolution
 
 # ===========================================
+# BRIGHTNESS SETTINGS
+# ===========================================
+# MAX_BRIGHTNESS controls the maximum pixel value sent to the LED matrix (0-255).
+# 255 = full brightness (all LEDs at maximum power)
+# 128 = 50% brightness (safer when powered from USB alone — prevents brown-outs)
+# 64  = 25% brightness (very dim, extremely safe for USB power)
+#
+# NOTE: All 64x32 = 2,048 LEDs at full white draws ~3A at 5V. Most USB ports only
+# supply 0.5-0.9A. If you notice random resets or dim flickers, try 128.
+
+MAX_BRIGHTNESS = 255  # Full brightness — reduce if powering from USB alone
+
+# ===========================================
 # SPEED SETTINGS
 # ===========================================
 # FPS = Frames Per Second

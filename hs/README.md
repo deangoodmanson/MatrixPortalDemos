@@ -286,6 +286,11 @@ What color does the image become?
 - Make sure you see "Connected successfully!"
 - Check that frames are being sent (watch the byte count)
 
+### LEDs are dim or colours look wrong
+- Check `MAX_BRIGHTNESS` in `config.py` — it should be `255` for full brightness
+- If the Pi randomly resets or flickers when many LEDs are white, lower it to `128`
+  (all 2,048 LEDs at full white can draw ~3A; most USB ports only supply 0.5–0.9A)
+
 ## Keyboard Controls
 
 Once the program is running, you can use these single-key commands:
@@ -301,6 +306,8 @@ Once the program is running, you can use these single-key commands:
 
 **Effects:**
 - `b` = Toggle Black & White / Color
+- `m` = Toggle mirror (horizontal flip)
+- `o` = Cycle LED render mode (squares → circles 50%/75%/100%/125%/corner)
 
 **Actions:**
 - `Space` = Snapshot (3-2-1 countdown, saves BMP file)

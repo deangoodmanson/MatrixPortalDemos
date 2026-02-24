@@ -248,6 +248,10 @@ camera:
   index: 0
   prefer_picamera: true  # Use Pi Camera on Raspberry Pi
 
+processing:
+  max_brightness: 255   # 0-255; full brightness. Reduce to 128 if USB-powered Pi
+                        # browns out (all LEDs white at 64×32 can draw ~3A)
+
 target_fps: 30
 ```
 
