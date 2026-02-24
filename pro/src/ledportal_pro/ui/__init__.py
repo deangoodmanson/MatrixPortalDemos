@@ -2,7 +2,13 @@
 
 from .avatar import AVATAR_POSES, AvatarCaptureManager, AvatarSession, CapturedPose
 from .input import InputCommand, KeyboardHandler, print_help
-from .overlay import PreviewMode, draw_border, draw_countdown_overlay, render_led_preview, show_preview
+from .overlay import (
+    PreviewMode,
+    draw_border,
+    draw_countdown_overlay,
+    render_led_preview,
+    show_preview,
+)
 from .snapshot import SnapshotManager
 from .tts import speak, speak_async
 

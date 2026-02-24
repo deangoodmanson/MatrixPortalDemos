@@ -1,9 +1,10 @@
 """Overlay drawing functionality."""
 
 import math
+from enum import Enum
+
 import cv2
 import numpy as np
-from enum import Enum
 from numpy.typing import NDArray
 
 from ..config import MatrixConfig
@@ -19,13 +20,13 @@ class PreviewMode(Enum):
     Controls how each LED pixel is drawn in the right-hand preview pane.
     """
 
-    SQUARES = 0              # Plain nearest-neighbour upscale (current default)
-    CIRCLES_50 = 1           # 50%  — wide gaps between circles
-    CIRCLES_75 = 2           # 75%  — clear gaps between circles
-    CIRCLES_100 = 3          # 100% — circle exactly fills the cell (edge-to-edge)
-    CIRCLES_125 = 4          # 125% — circles overlap neighbouring cells slightly
-    CIRCLES_CORNER = 5       # ~141% — corner-touch; painter's algorithm (last drawn wins)
-    CIRCLES_CORNER_BLEND = 6 # ~141% — corner-touch; weighted-average colour blending
+    SQUARES = 0  # Plain nearest-neighbour upscale (current default)
+    CIRCLES_50 = 1  # 50%  — wide gaps between circles
+    CIRCLES_75 = 2  # 75%  — clear gaps between circles
+    CIRCLES_100 = 3  # 100% — circle exactly fills the cell (edge-to-edge)
+    CIRCLES_125 = 4  # 125% — circles overlap neighbouring cells slightly
+    CIRCLES_CORNER = 5  # ~141% — corner-touch; painter's algorithm (last drawn wins)
+    CIRCLES_CORNER_BLEND = 6  # ~141% — corner-touch; weighted-average colour blending
 
 
 # Mode descriptions shown in console output
@@ -66,7 +67,7 @@ def _get_dist_grid(out_h: int, out_w: int, scale: int) -> NDArray[np.float32]:
         xs = (np.arange(out_w) % scale - scale // 2).astype(np.float32)
         ys = (np.arange(out_h) % scale - scale // 2).astype(np.float32)
         dx, dy = np.meshgrid(xs, ys)
-        _dist_cache[key] = np.sqrt(dx ** 2 + dy ** 2)
+        _dist_cache[key] = np.sqrt(dx**2 + dy**2)
     return _dist_cache[key]
 
 
@@ -152,7 +153,7 @@ def _render_blend(
     local_ys = np.arange(mask_size, dtype=np.float32) - r_int
     local_xs = np.arange(mask_size, dtype=np.float32) - r_int
     ldx, ldy = np.meshgrid(local_xs, local_ys)
-    circle_mask = (np.sqrt(ldx ** 2 + ldy ** 2) <= radius).astype(np.float32)
+    circle_mask = (np.sqrt(ldx**2 + ldy**2) <= radius).astype(np.float32)
 
     accumulator = np.zeros((out_h, out_w, 3), dtype=np.float32)
     count = np.zeros((out_h, out_w), dtype=np.float32)
@@ -171,7 +172,7 @@ def _render_blend(
 
             # Corresponding slice of the pre-built mask
             mx1, my1 = x1 - ox1, y1 - oy1
-            local_mask = circle_mask[my1: my1 + (y2 - y1), mx1: mx1 + (x2 - x1)]
+            local_mask = circle_mask[my1 : my1 + (y2 - y1), mx1 : mx1 + (x2 - x1)]
 
             color = small_frame[row, col].astype(np.float32)
             accumulator[y1:y2, x1:x2] += local_mask[:, :, np.newaxis] * color
@@ -222,15 +223,15 @@ def render_led_preview(
     # Radius as a fraction of cell size (diameter = scale × pct / 100)
     half = scale / 2.0
     if mode == PreviewMode.CIRCLES_50:
-        radius = scale * 0.25       # 2.5px — 50% diameter, wide gaps
+        radius = scale * 0.25  # 2.5px — 50% diameter, wide gaps
     elif mode == PreviewMode.CIRCLES_75:
-        radius = scale * 0.375      # 3.75px — 75% diameter, clear gaps
+        radius = scale * 0.375  # 3.75px — 75% diameter, clear gaps
     elif mode == PreviewMode.CIRCLES_100:
-        radius = half               # 5.0px — 100% diameter, tangent to edges
+        radius = half  # 5.0px — 100% diameter, tangent to edges
     elif mode == PreviewMode.CIRCLES_125:
-        radius = scale * 0.625      # 6.25px — 125% diameter, slight overlap
+        radius = scale * 0.625  # 6.25px — 125% diameter, slight overlap
     else:  # CIRCLES_CORNER and CIRCLES_CORNER_BLEND — same geometry
-        radius = half * (2 ** 0.5)  # 5√2 ≈ 7.07px — ~141%, passes through corners
+        radius = half * (2**0.5)  # 5√2 ≈ 7.07px — ~141%, passes through corners
 
     if radius > half:
         if mode == PreviewMode.CIRCLES_CORNER_BLEND:
