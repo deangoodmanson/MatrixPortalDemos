@@ -1651,7 +1651,7 @@ def main() -> None:
                         led_size_pct = LED_SIZE_STEPS[idx + 1]
                     print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
                 else:
-                    print(f"\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                    print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                 continue
 
             if key in ('-', '_'):
@@ -1661,7 +1661,7 @@ def main() -> None:
                         led_size_pct = LED_SIZE_STEPS[idx - 1]
                     print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
                 else:
-                    print(f"\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                    print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
                 continue
 
             # === SYSTEM KEYS ===
