@@ -50,19 +50,24 @@ def apply_grayscale(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR).astype(np.uint8)
 
 
-def apply_mirror(frame: NDArray[np.uint8]) -> NDArray[np.uint8]:
-    """Flip frame horizontally (left-to-right mirror effect).
+def apply_mirror(frame: NDArray[np.uint8], orient: str = "landscape") -> NDArray[np.uint8]:
+    """Flip frame left-to-right (mirror effect), respecting orientation.
 
-    Useful when the subject is watching themselves on the display and
-    expects mirror-like behavior (e.g., a performer facing the matrix).
+    In portrait mode the frame buffer has been rotated 90° CW by resize_frame(),
+    so the buffer's X-axis maps to the display's Y-axis. A horizontal flip
+    (flipCode=1) in the buffer would appear as a vertical flip on the physical
+    display. Using flipCode=0 (vertical in the buffer) produces the correct
+    left-right mirror as seen by the viewer.
 
     Args:
         frame: BGR image as numpy array.
+        orient: Current orientation — "landscape" or "portrait".
 
     Returns:
-        Horizontally flipped BGR image.
+        Mirrored BGR image (left-right flipped as seen by the viewer).
     """
-    return cv2.flip(frame, 1).astype(np.uint8)
+    flip_code = 0 if orient == "portrait" else 1
+    return cv2.flip(frame, flip_code).astype(np.uint8)
 
 
 def apply_brightness_limit(

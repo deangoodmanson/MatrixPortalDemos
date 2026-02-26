@@ -5,6 +5,7 @@ import numpy as np
 from ledportal_pro.processing.color import (
     apply_gamma_correction,
     apply_grayscale,
+    apply_mirror,
     convert_to_rgb565,
     rgb565_to_bgr,
 )
@@ -131,3 +132,52 @@ class TestApplyGammaCorrection:
         result = apply_gamma_correction(frame, gamma=2.2)
         # inv_gamma = 1/2.2 ≈ 0.45; (128/255)^0.45 * 255 ≈ 186
         assert result[0, 0, 0] > 128
+
+
+class TestApplyMirror:
+    """Mirror flips left-to-right as seen by the viewer in both orientations."""
+
+    def _asymmetric_frame(self) -> np.ndarray:
+        """2×1 frame: left pixel red, right pixel blue (clearly asymmetric)."""
+        frame = np.zeros((1, 2, 3), dtype=np.uint8)
+        frame[0, 0] = [0, 0, 255]   # BGR red on the left
+        frame[0, 1] = [255, 0, 0]   # BGR blue on the right
+        return frame
+
+    def test_landscape_flips_columns(self):
+        """Landscape mirror swaps left and right columns."""
+        frame = self._asymmetric_frame()
+        result = apply_mirror(frame, "landscape")
+        # After horizontal flip: left=blue, right=red
+        assert np.array_equal(result[0, 0], [255, 0, 0])   # blue on left
+        assert np.array_equal(result[0, 1], [0, 0, 255])   # red on right
+
+    def test_portrait_flips_rows(self):
+        """Portrait mirror uses flipCode=0 (flip rows in buffer = left-right on display).
+
+        In portrait mode the buffer has been rotated 90° CW, so the buffer's
+        row axis maps to the display's column (left-right) axis.
+        """
+        # Build a 2-row × 1-col frame: top pixel red, bottom pixel blue.
+        frame = np.zeros((2, 1, 3), dtype=np.uint8)
+        frame[0, 0] = [0, 0, 255]   # BGR red on top
+        frame[1, 0] = [255, 0, 0]   # BGR blue on bottom
+        result = apply_mirror(frame, "portrait")
+        # After vertical flip in buffer: top=blue, bottom=red
+        assert np.array_equal(result[0, 0], [255, 0, 0])   # blue on top
+        assert np.array_equal(result[1, 0], [0, 0, 255])   # red on bottom
+
+    def test_landscape_default(self):
+        """Default orient is landscape — columns are swapped."""
+        frame = self._asymmetric_frame()
+        assert np.array_equal(apply_mirror(frame), apply_mirror(frame, "landscape"))
+
+    def test_output_shape_preserved(self, solid_red_frame):
+        assert apply_mirror(solid_red_frame, "landscape").shape == solid_red_frame.shape
+        assert apply_mirror(solid_red_frame, "portrait").shape == solid_red_frame.shape
+
+    def test_double_mirror_is_identity(self, solid_red_frame):
+        """Applying mirror twice returns the original frame."""
+        for orient in ("landscape", "portrait"):
+            result = apply_mirror(apply_mirror(solid_red_frame, orient), orient)
+            assert np.array_equal(result, solid_red_frame)

@@ -175,7 +175,7 @@ def run_snapshot_sequence(
                 frame, config.matrix, config.processing, orientation, processing_mode
             )
             if mirror:
-                small_frame = apply_mirror(small_frame)
+                small_frame = apply_mirror(small_frame, orientation)
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
@@ -653,7 +653,7 @@ def main() -> int:
                     frame, config.matrix, config.processing, orientation, processing_mode
                 )
                 if mirror_mode:
-                    small_frame = apply_mirror(small_frame)
+                    small_frame = apply_mirror(small_frame, orientation)
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
 

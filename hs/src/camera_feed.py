@@ -535,9 +535,9 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
 # ===========================================
 # FUNCTION: Mirror the image
 # ===========================================
-def apply_mirror(frame: np.ndarray) -> np.ndarray:
+def apply_mirror(frame: np.ndarray, orient: str = 'landscape') -> np.ndarray:
     """
-    Flip the image horizontally (left-to-right), like a mirror.
+    Flip the image left-to-right (like a mirror), respecting orientation.
 
     WHY YOU'D USE THIS:
     - When someone stands in front of the display watching themselves,
@@ -547,14 +547,28 @@ def apply_mirror(frame: np.ndarray) -> np.ndarray:
     - Front-facing cameras (like a laptop webcam) usually default to
       mirror mode. Rear-facing cameras (like a phone back camera) do not.
 
+    WHY ORIENTATION MATTERS:
+    - In portrait mode, resize_frame() rotates the buffer 90° CW before
+      we get here. That rotation swaps the buffer's X and Y axes relative
+      to what the physical display shows.
+    - flipCode=1 flips left-right IN THE BUFFER, but in portrait mode the
+      buffer's left-right axis is the display's top-bottom axis — so it
+      would appear as a top-to-bottom flip to the viewer. Wrong!
+    - flipCode=0 flips top-bottom IN THE BUFFER, which maps to the
+      display's left-right axis in portrait mode. That's what we want.
+
     HOW IT WORKS:
-    - cv2.flip(frame, 1) flips around the vertical axis (flipCode=1)
-    - flipCode=0 would flip vertically (upside down)
-    - flipCode=-1 would flip both axes
+    - Landscape: cv2.flip(frame, 1) — flip around vertical axis (left-right)
+    - Portrait:  cv2.flip(frame, 0) — flip around horizontal axis (top-bottom
+                 in the buffer = left-right on the physical portrait display)
 
     RETURNS:
-    - The horizontally flipped image
+    - The mirrored image (appears left-right flipped to the viewer)
     """
+    if orient == 'portrait':
+        # Buffer axes are swapped after 90° CW rotation: flip top-bottom in
+        # the buffer to achieve left-right mirror on the physical display.
+        return cv2.flip(frame, 0)
     return cv2.flip(frame, 1)
 
 
@@ -975,7 +989,7 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
 
             small_frame = resize_frame(frame, orient, proc_mode)
             if is_mirror:
-                small_frame = apply_mirror(small_frame)
+                small_frame = apply_mirror(small_frame, orient)
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
             if MAX_BRIGHTNESS < 255:
@@ -1761,7 +1775,7 @@ def main() -> None:
             small_frame = resize_frame(frame, orientation, processing_mode)
 
             if mirror_mode:
-                small_frame = apply_mirror(small_frame)
+                small_frame = apply_mirror(small_frame, orientation)
 
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
