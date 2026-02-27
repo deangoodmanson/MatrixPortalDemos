@@ -23,7 +23,7 @@ processing:
 
 ui:
   countdown_duration: 0.5
-  snapshot_pause_duration: 5.0
+  snapshot_pause_duration: 3.0
   enable_frame_limiting: false
   show_preview: true
 

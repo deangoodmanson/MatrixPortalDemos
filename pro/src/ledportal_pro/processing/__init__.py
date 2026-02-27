@@ -4,6 +4,7 @@ from .color import (
     apply_brightness_limit,
     apply_gamma_correction,
     apply_grayscale,
+    apply_mirror,
     convert_to_rgb565,
 )
 from .patterns import create_color_bars, create_test_pattern
@@ -18,6 +19,7 @@ __all__ = [
     "convert_to_rgb565",
     "apply_brightness_limit",
     "apply_grayscale",
+    "apply_mirror",
     "apply_gamma_correction",
     "create_test_pattern",
     "create_color_bars",

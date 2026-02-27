@@ -23,7 +23,11 @@ class InputCommand(Enum):
     PROCESSING_FIT = auto()
     # Effects
     TOGGLE_BW = auto()
+    TOGGLE_MIRROR = auto()
     ZOOM_TOGGLE = auto()
+    CYCLE_RENDER_ALGORITHM = auto()
+    LED_SIZE_INCREASE = auto()
+    LED_SIZE_DECREASE = auto()
     # Actions
     SNAPSHOT = auto()
     AVATAR = auto()  # Avatar capture mode
@@ -143,7 +147,13 @@ class KeyboardHandler:
             "f": InputCommand.PROCESSING_FIT,
             # Effects
             "b": InputCommand.TOGGLE_BW,
+            "m": InputCommand.TOGGLE_MIRROR,
             "z": InputCommand.ZOOM_TOGGLE,
+            "o": InputCommand.CYCLE_RENDER_ALGORITHM,
+            "+": InputCommand.LED_SIZE_INCREASE,
+            "=": InputCommand.LED_SIZE_INCREASE,
+            "-": InputCommand.LED_SIZE_DECREASE,
+            "_": InputCommand.LED_SIZE_DECREASE,
             # Actions
             " ": InputCommand.SNAPSHOT,
             "v": InputCommand.AVATAR,
@@ -182,8 +192,16 @@ class KeyboardHandler:
             return InputResult(InputCommand.PROCESSING_FIT, line)
         elif line == "b":
             return InputResult(InputCommand.TOGGLE_BW, line)
+        elif line == "m":
+            return InputResult(InputCommand.TOGGLE_MIRROR, line)
         elif line == "z":
             return InputResult(InputCommand.ZOOM_TOGGLE, line)
+        elif line == "o":
+            return InputResult(InputCommand.CYCLE_RENDER_ALGORITHM, line)
+        elif line in ("+", "="):
+            return InputResult(InputCommand.LED_SIZE_INCREASE, line)
+        elif line in ("-", "_"):
+            return InputResult(InputCommand.LED_SIZE_DECREASE, line)
         elif line == "v":
             return InputResult(InputCommand.AVATAR, line)
         elif line == "t":
@@ -241,6 +259,9 @@ def print_help(
     debug_mode: bool,
     zoom_level: float = 1.0,
     show_preview: bool = False,
+    mirror: bool = False,
+    render_algorithm_name: str = "squares",
+    led_size_pct: int = 100,
 ) -> None:
     """Print help message with current settings.
 
@@ -251,22 +272,29 @@ def print_help(
         debug_mode: Whether debug mode is active.
         zoom_level: Current zoom level (0.25-1.0).
         show_preview: Whether preview window is enabled.
+        mirror: Whether mirror mode is active.
+        render_algorithm_name: Display name of current LED preview render algorithm.
+        led_size_pct: Current LED size percentage (only applies to Circles).
     """
     print("")
     print("=" * 60)
     print("Commands (single keypress):")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  f=fit")
-    print("  Effects:     b=B&W toggle  z=zoom")
+    print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom")
+    print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
     zoom_pct = int(zoom_level * 100)
     preview_str = "ON" if show_preview else "OFF"
+    mirror_str = "ON" if mirror else "OFF"
     print(
-        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%, Preview={preview_str}"
+        f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Mirror={mirror_str}, "
+        f"Debug={debug_str}, Zoom={zoom_pct}%, Preview={preview_str}, "
+        f"Algorithm={render_algorithm_name}, Size={led_size_pct}%"
     )
     print("=" * 60)
     print("")

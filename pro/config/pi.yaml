@@ -20,7 +20,7 @@ processing:
   interpolation: "linear"
   enable_gamma_correction: false
   gamma: 2.2
-  max_brightness: 128  # Limit to 50% brightness for USB power safety (prevents brown-outs)
+  max_brightness: 255  # Full brightness (0-255; reduce to e.g. 128 for USB power safety)
 
 ui:
   countdown_duration: 0.5

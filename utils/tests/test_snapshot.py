@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from ledportal_utils import export_blocks, export_circles, export_png
+from ledportal_utils import LedMode, export_blocks, export_circles, export_led_preview, export_png
 
 
 class TestExportPng:
@@ -231,6 +231,166 @@ class TestExportCircles:
 
         # Should match original color (within circle)
         assert np.array_equal(center_pixel, original_color)
+
+
+class TestLedMode:
+    """LedMode enum covers all expected render modes."""
+
+    REQUIRED_MODES = {
+        "SQUARES",
+        "CIRCLES_50",
+        "CIRCLES_75",
+        "CIRCLES_100",
+        "CIRCLES_125",
+        "CIRCLES_CORNER",
+        "CIRCLES_CORNER_BLEND",
+        "GAUSSIAN",
+    }
+
+    def test_all_required_modes_exist(self) -> None:
+        names = {mode.name for mode in LedMode}
+        assert names == self.REQUIRED_MODES
+
+    def test_mode_count(self) -> None:
+        assert len(LedMode) == 8
+
+
+class TestExportLedPreview:
+    """Test export_led_preview with all render modes."""
+
+    @pytest.mark.parametrize("mode", list(LedMode))
+    def test_creates_output_file(self, small_bmp: Path, mode: LedMode) -> None:
+        """All modes should create a valid output PNG file."""
+        output = export_led_preview(small_bmp, mode=mode, scale_factor=4)
+        assert output.exists()
+        assert output.suffix == ".png"
+
+    @pytest.mark.parametrize("mode", list(LedMode))
+    def test_output_dimensions(self, small_bmp: Path, mode: LedMode) -> None:
+        """All modes should upscale by scale_factor."""
+        scale = 4
+        output = export_led_preview(small_bmp, mode=mode, scale_factor=scale)
+        original = Image.open(small_bmp)
+        result = Image.open(output)
+        assert result.width == original.width * scale
+        assert result.height == original.height * scale
+
+    def test_default_mode_is_squares(self, sample_bmp: Path, temp_dir: Path) -> None:
+        """Default mode should produce same result as export_blocks."""
+        blocks_out = export_blocks(sample_bmp, scale_factor=10)
+        led_out = export_led_preview(
+            sample_bmp, output_path=temp_dir / "led_default.png", scale_factor=10
+        )
+        blocks_arr = np.array(Image.open(blocks_out))
+        led_arr = np.array(Image.open(led_out))
+        assert np.array_equal(blocks_arr, led_arr)
+
+    def test_squares_mode_matches_blocks(self, sample_bmp: Path, temp_dir: Path) -> None:
+        """SQUARES mode should produce identical output to export_blocks."""
+        blocks_out = export_blocks(sample_bmp, scale_factor=10)
+        led_out = export_led_preview(
+            sample_bmp,
+            output_path=temp_dir / "led_squares.png",
+            mode=LedMode.SQUARES,
+            scale_factor=10,
+        )
+        blocks_arr = np.array(Image.open(blocks_out))
+        led_arr = np.array(Image.open(led_out))
+        assert np.array_equal(blocks_arr, led_arr)
+
+    @pytest.mark.parametrize("mode", [LedMode.CIRCLES_50, LedMode.CIRCLES_75, LedMode.CIRCLES_100])
+    def test_non_overlapping_modes_have_background_at_corner(
+        self, small_bmp: Path, mode: LedMode
+    ) -> None:
+        """Non-overlapping circle modes should have background at cell corners.
+
+        The top-left corner of each cell is at distance 5√2 ≈ 7.07 from its centre.
+        All ≤100% modes have radius < 7.07, so that corner pixel must be background.
+        """
+        bg = (0, 0, 0)
+        output = export_led_preview(small_bmp, mode=mode, scale_factor=10, background_color=bg)
+        img_array = np.array(Image.open(output))
+        corner_pixel = img_array[0, 0]
+        assert np.array_equal(corner_pixel, bg)
+
+    @pytest.mark.parametrize("mode", list(LedMode))
+    def test_led_color_at_cell_center(self, small_bmp: Path, mode: LedMode) -> None:
+        """Centre of the first LED cell should have the original LED's colour.
+
+        With scale=10 the cell centre is at output pixel (5, 5). Every mode
+        draws the LED's own colour there (SQUARES via nearest-neighbour;
+        circle modes because only the LED's own circle covers its exact centre).
+        """
+        scale = 10
+        output = export_led_preview(small_bmp, mode=mode, scale_factor=scale)
+        img_array = np.array(Image.open(output))
+        original = np.array(Image.open(small_bmp).convert("RGB"))
+        center_y, center_x = scale // 2, scale // 2
+        assert np.array_equal(img_array[center_y, center_x], original[0, 0])
+
+    def test_custom_background_color(self, small_bmp: Path) -> None:
+        """Custom background colour should appear in gap areas."""
+        custom_bg = (50, 100, 150)
+        output = export_led_preview(
+            small_bmp,
+            mode=LedMode.CIRCLES_50,
+            scale_factor=10,
+            background_color=custom_bg,
+        )
+        img_array = np.array(Image.open(output))
+        # Corner of first cell is in background territory for 50% circles
+        assert np.array_equal(img_array[0, 0], custom_bg)
+
+    def test_custom_output_path(self, sample_bmp: Path, temp_dir: Path) -> None:
+        """Should respect custom output path."""
+        custom_path = temp_dir / "custom_led.png"
+        output = export_led_preview(sample_bmp, output_path=custom_path)
+        assert output == custom_path
+        assert output.exists()
+
+    def test_default_output_name_contains_mode(self, small_bmp: Path) -> None:
+        """Default output filename should embed the mode name."""
+        output = export_led_preview(small_bmp, mode=LedMode.CIRCLES_75)
+        assert "circles_75" in output.stem
+
+    def test_blend_differs_from_painter_for_adjacent_colors(self, temp_dir: Path) -> None:
+        """CIRCLES_CORNER_BLEND should differ from CIRCLES_CORNER when adjacent LEDs
+        have different colours (overlap zones show blended vs last-drawn colours)."""
+        # Create a 4×2 image with alternating red/green columns
+        img_array = np.zeros((2, 4, 3), dtype=np.uint8)
+        img_array[:, 0] = [255, 0, 0]  # Red
+        img_array[:, 1] = [0, 255, 0]  # Green
+        img_array[:, 2] = [255, 0, 0]  # Red
+        img_array[:, 3] = [0, 255, 0]  # Green
+        varied_path = temp_dir / "varied.bmp"
+        Image.fromarray(img_array, mode="RGB").save(varied_path, "BMP")
+
+        painter_out = export_led_preview(
+            varied_path,
+            output_path=temp_dir / "painter.png",
+            mode=LedMode.CIRCLES_CORNER,
+            scale_factor=10,
+        )
+        blend_out = export_led_preview(
+            varied_path,
+            output_path=temp_dir / "blend.png",
+            mode=LedMode.CIRCLES_CORNER_BLEND,
+            scale_factor=10,
+        )
+        painter_arr = np.array(Image.open(painter_out))
+        blend_arr = np.array(Image.open(blend_out))
+        # Adjacent circles of different colours must differ in their overlap zone
+        assert not np.array_equal(painter_arr, blend_arr)
+
+    def test_returns_path_object(self, small_bmp: Path) -> None:
+        """Should return a Path object."""
+        output = export_led_preview(small_bmp, mode=LedMode.CIRCLES_100)
+        assert isinstance(output, Path)
+
+    def test_accepts_string_input(self, small_bmp: Path) -> None:
+        """Should accept string path as input."""
+        output = export_led_preview(str(small_bmp), mode=LedMode.SQUARES)
+        assert output.exists()
 
 
 class TestEdgeCases:

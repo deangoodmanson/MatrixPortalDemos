@@ -96,6 +96,34 @@ We achieved a ~500% performance increase (5 FPS → 24 FPS) by:
 2.  **Transport**: Increased USB Serial baud rate to **4,000,000**.
 3.  **Pipeline**: Optimized frame resizing and RGB565 conversion in Python.
 
+## Diagnostics
+
+### RGB565 color artifact comparison
+
+If the physical LED matrix shows color artifacts (wrong-colored pixels) that
+do not appear in the software BMP snapshot, use the comparison script to
+investigate:
+
+```bash
+cd MatrixPortalDemos
+uv run --project pro python docs/compare_rgb565.py [pro/snapshot_*.bmp]
+```
+
+This produces a side-by-side 10× PNG (saved next to the BMP):
+
+| Panel | Content |
+|-------|---------|
+| Left  | Original BMP — what the software saved / preview shows |
+| Centre | After RGB565 roundtrip — what the matrix actually receives |
+| Right | \|difference\| × 4 — artifact map |
+
+The script also prints per-pixel and per-channel shift statistics.  A max
+shift of ≤7 counts rules out RGB565 quantization as the cause.
+
+See `docs/compare_rgb565.py` for the full methodology, RGB565 bit-layout
+reference, and a guide to distinguishing rolling-shutter artifacts, camera
+bloom, hardware LED variation, and serial bit flips.
+
 ## Troubleshooting
 
 **"Matrix Portal not found"**

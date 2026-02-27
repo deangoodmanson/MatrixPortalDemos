@@ -47,6 +47,8 @@ REQUIREMENTS:
 # Each "import" gives us new abilities.
 
 import argparse                      # For command-line arguments
+import math                         # For math functions like ceil()
+from enum import Enum               # For creating named constants (enumerations)
 import time                         # For timing and delays
 import numpy as np                  # For fast math on images (np = "numpy")
 import cv2                          # OpenCV - for camera and images
@@ -89,7 +91,8 @@ from config import (                # Our settings file
     MATRIX_WIDTH,
     MATRIX_HEIGHT,
     CAMERA_WIDTH,
-    CAMERA_HEIGHT
+    CAMERA_HEIGHT,
+    MAX_BRIGHTNESS,
 )
 
 # ===========================================
@@ -128,7 +131,81 @@ PROCESSING_MODES = ['center', 'stretch', 'fit']
 orientation = 'landscape'         # Display orientation (wide or tall)
 processing_mode = 'center'        # How to fit the image (crop, stretch, or fit)
 black_and_white_mode = False      # Color or grayscale?
+mirror_mode = False               # Flip the image left-to-right (like a mirror)?
 debug_output = True               # Show frame rate info?
+
+# ===========================================
+# LED PREVIEW RENDER MODES
+# ===========================================
+# These control how each LED is drawn in the preview window.
+# Toggle with the 'o' key.
+#
+# A real LED matrix has small round lights (LEDs) arranged in a grid.
+# The default view shows plain squares, but we can make it look more
+# realistic with circles and gaps between each LED.
+#
+# WHAT IS AN ENUM?
+# An Enum (enumeration) is a set of named constants.
+# Instead of using plain numbers (0, 1, 2, 3) — which are hard to read —
+# we give each value a meaningful name like SQUARES or CIRCLES_EDGE.
+# Python's 'Enum' class is imported at the top of this file.
+
+class RenderAlgorithm(Enum):
+    """How each LED is drawn in the preview window.
+
+    SQUARES:           Plain nearest-neighbour upscale — fast, blocky (default)
+    CIRCLES:           Hard-edged circles; size controlled by led_size_pct (+/- keys)
+    GAUSSIAN_RAW:      Raw panel emulation — gaussian blur, sigma≈18% cell (no diffuser)
+    GAUSSIAN_DIFFUSED: Diffused panel emulation — gaussian blur, sigma≈27% cell (with diffuser)
+    """
+    SQUARES = 0
+    CIRCLES = 1
+    GAUSSIAN_RAW = 2
+    GAUSSIAN_DIFFUSED = 3
+
+
+# Human-readable labels shown when cycling algorithms with 'o'
+ALGORITHM_LABELS = {
+    RenderAlgorithm.SQUARES:           "squares",
+    RenderAlgorithm.CIRCLES:           "circles (hard edge, size adjustable with +/-)",
+    RenderAlgorithm.GAUSSIAN_RAW:      "raw panel emulation (gaussian, sigma≈18% cell)",
+    RenderAlgorithm.GAUSSIAN_DIFFUSED: "diffused panel emulation (gaussian, sigma≈27% cell)",
+}
+
+# LED size steps (percentage of cell diameter) — only applies to CIRCLES
+LED_SIZE_STEPS = [25, 50, 75, 100, 125, 150]
+
+# Current render algorithm (changed with 'o' key)
+render_algorithm = RenderAlgorithm.SQUARES
+
+# Current LED size percentage (changed with +/- keys, only for CIRCLES)
+led_size_pct = 100
+
+# ===========================================
+# GAMMA CORRECTION FOR LED PREVIEW
+# ===========================================
+# WHY DOES THE PREVIEW LOOK DARKER THAN THE REAL MATRIX?
+#
+# A computer monitor applies a curve called "gamma" (≈2.2) to make images
+# look good on screen — dark values are compressed, brighter ones expanded.
+# But the LED matrix drives each LED with raw current that's nearly linear:
+# a value of 128 really is about half as bright as 255.
+#
+# The result: the same pixel value looks darker on your monitor than on the
+# physical LED panel.  To fix the *preview only* we apply the inverse of
+# that gamma curve — making 128 look brighter on screen so it matches the
+# panel's perceived brightness.
+#
+# HOW DOES A LUT WORK?
+# A Look-Up Table (LUT) is just an array of 256 entries.  Instead of
+# computing (value/255)^(1/2.2)*255 for every pixel in every frame, we
+# pre-compute it once here and then cv2.LUT() replaces each pixel value
+# with the pre-computed result in a single fast operation.
+_GAMMA: float = 2.2
+_GAMMA_LUT: np.ndarray = np.array(
+    [round(255 * (i / 255) ** (1.0 / _GAMMA)) if i > 0 else 0 for i in range(256)],
+    dtype=np.uint8,
+)
 
 # ===========================================
 # AVATAR CAPTURE POSES
@@ -453,6 +530,46 @@ def resize_frame(frame: np.ndarray, orient: str = 'landscape', proc_mode: str = 
         processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
 
     return processed
+
+
+# ===========================================
+# FUNCTION: Mirror the image
+# ===========================================
+def apply_mirror(frame: np.ndarray, orient: str = 'landscape') -> np.ndarray:
+    """
+    Flip the image left-to-right (like a mirror), respecting orientation.
+
+    WHY YOU'D USE THIS:
+    - When someone stands in front of the display watching themselves,
+      they expect their right hand to appear on the right side of the
+      screen — just like a bathroom mirror. Without mirroring, their
+      hand movements appear backwards.
+    - Front-facing cameras (like a laptop webcam) usually default to
+      mirror mode. Rear-facing cameras (like a phone back camera) do not.
+
+    WHY ORIENTATION MATTERS:
+    - In portrait mode, resize_frame() rotates the buffer 90° CW before
+      we get here. That rotation swaps the buffer's X and Y axes relative
+      to what the physical display shows.
+    - flipCode=1 flips left-right IN THE BUFFER, but in portrait mode the
+      buffer's left-right axis is the display's top-bottom axis — so it
+      would appear as a top-to-bottom flip to the viewer. Wrong!
+    - flipCode=0 flips top-bottom IN THE BUFFER, which maps to the
+      display's left-right axis in portrait mode. That's what we want.
+
+    HOW IT WORKS:
+    - Landscape: cv2.flip(frame, 1) — flip around vertical axis (left-right)
+    - Portrait:  cv2.flip(frame, 0) — flip around horizontal axis (top-bottom
+                 in the buffer = left-right on the physical portrait display)
+
+    RETURNS:
+    - The mirrored image (appears left-right flipped to the viewer)
+    """
+    if orient == 'portrait':
+        # Buffer axes are swapped after 90° CW rotation: flip top-bottom in
+        # the buffer to achieve left-right mirror on the physical display.
+        return cv2.flip(frame, 0)
+    return cv2.flip(frame, 1)
 
 
 # ===========================================
@@ -831,7 +948,7 @@ def save_snapshot(frame: np.ndarray, frame_bytes: bytes, orient: str, debug_mode
 # ===========================================
 # FUNCTION: Run snapshot countdown
 # ===========================================
-def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool) -> bool:
+def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[serial.Serial], orient: str, proc_mode: str, is_bw: bool, is_mirror: bool = False, show_preview_enabled: bool = False, algorithm: RenderAlgorithm = RenderAlgorithm.SQUARES, led_size_pct: int = 100) -> bool:
     """
     Take a snapshot with a 3-2-1 countdown.
 
@@ -871,8 +988,12 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
                 continue
 
             small_frame = resize_frame(frame, orient, proc_mode)
+            if is_mirror:
+                small_frame = apply_mirror(small_frame, orient)
             if is_bw:
                 small_frame = apply_black_and_white(small_frame)
+            if MAX_BRIGHTNESS < 255:
+                small_frame = np.minimum(small_frame, MAX_BRIGHTNESS).astype(np.uint8)
 
             # Save the last frame from countdown "1" for the snapshot
             if countdown == 1:
@@ -918,6 +1039,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
             frame_bytes = convert_to_rgb565(overlay)
             send_frame(serial_connection, frame_bytes)
 
+            show_preview(frame, overlay, orient, show_preview_enabled, proc_mode, algorithm, led_size_pct, MAX_BRIGHTNESS)
+
             time.sleep(0.01)
 
     # Use the last frame from countdown "1" as the snapshot
@@ -934,8 +1057,8 @@ def run_snapshot(camera: Any, camera_type: str, serial_connection: Optional[seri
         send_frame(serial_connection, convert_to_rgb565(small_frame))
 
         # Pause to admire
-        print("  Pausing for 5 seconds (press space to skip)...")
-        for i in range(5, 0, -1):
+        print("  Pausing for 3 seconds (press space to skip)...")
+        for i in range(3, 0, -1):
             key = check_keyboard()
             if key == ' ':
                 print("  Resuming!")
@@ -1083,9 +1206,181 @@ def _save_manifest(avatar_dir: str, captured: list, skipped: list, session_time:
 
 
 # ===========================================
+# FUNCTION: Render LED preview frame
+# ===========================================
+
+# ===========================================
+# HELPER: Painter's-algorithm circle renderer
+# ===========================================
+def _render_led_painter(
+    small_frame: np.ndarray,
+    out_h: int, out_w: int,
+    scale: int, radius: float,
+    bg_color: Tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Draw overlapping LED circles using the PAINTER'S ALGORITHM.
+
+    WHAT IS THE PAINTER'S ALGORITHM?
+    Imagine painting a canvas: each brush stroke covers whatever came before.
+    We draw each LED circle one at a time, left-to-right, top-to-bottom.
+    Where two adjacent circles overlap, the LATER one wins — it paints over
+    the earlier one. Simple and fast, but the result depends on draw order.
+
+    WHY math.ceil FOR THE RADIUS?
+    The geometric radius for corner-touch circles is 5√2 ≈ 7.071, which is
+    not a whole number. cv2.circle needs an integer. If we use round() we get 7,
+    which is just short of 7.071 — leaving tiny black dots at the corner
+    intersections. math.ceil gives 8, which always covers those pixels.
+    """
+    h, w = small_frame.shape[:2]
+    output = np.empty((out_h, out_w, 3), dtype=np.uint8)
+    output[...] = bg_color
+    r_int = math.ceil(radius)
+    for row in range(h):
+        for col in range(w):
+            cx = col * scale + scale // 2
+            cy = row * scale + scale // 2
+            color = tuple(int(v) for v in small_frame[row, col])
+            cv2.circle(output, (cx, cy), r_int, color, thickness=-1)
+    return output
+
+
+# Cache for the distance grid used by circle modes.
+# The grid only depends on the output size and scale, not the frame content,
+# so we compute it once and reuse it every frame (much faster!).
+_preview_dist_cache: dict = {}
+
+
+def _render_led_gaussian(
+    small_frame: np.ndarray,
+    out_h: int,
+    out_w: int,
+    scale: int,
+    sigma: float,
+) -> np.ndarray:
+    """
+    Gaussian diffuser simulation.
+
+    HOW IT WORKS:
+    ==============
+    A real LED matrix with a diffuser panel in front looks like soft glowing
+    dots, not hard circles. This mode simulates that appearance by treating
+    each LED as a POINT SOURCE of light and then blurring it with a Gaussian
+    kernel — just like a physical diffuser spreads light from a point source.
+
+    STEPS:
+    1. Create a black image the same size as the output
+    2. Place each LED's colour as a single bright pixel at its cell centre
+    3. Apply Gaussian blur — each pixel spreads into a soft glow
+    4. Normalise brightness back to the original level (the blur dims the peaks)
+
+    WHY THIS SIGMA VALUE?
+    Using a photo of a real LED matrix with diffuser panel, we measured:
+    - Gap-to-peak brightness ratio:  ~37%
+    - FWHM (full-width at half-max):  ~63% of cell pitch
+    With sigma = scale × 0.27, our simulation predicts gap/peak ≈ 36% — a
+    near-perfect match to the measured hardware.
+
+    PARAMETERS:
+    - sigma: controls how far the light spreads (larger = softer, more blurred)
+    - peak_factor: restores the peak brightness (maths: 2π × σ² for a 2D Gaussian)
+    """
+    h, w = small_frame.shape[:2]
+
+    # Step 1: create black canvas, place one bright pixel per LED at its centre
+    dots = np.zeros((out_h, out_w, 3), dtype=np.float32)
+    for row in range(h):
+        for col in range(w):
+            cy = row * scale + scale // 2   # Y coordinate of this LED's centre
+            cx = col * scale + scale // 2   # X coordinate of this LED's centre
+            dots[cy, cx] = small_frame[row, col].astype(np.float32)
+
+    # Step 2: spread each point source with Gaussian blur
+    # cv2.GaussianBlur with ksize=(0,0) auto-sizes the kernel from sigma
+    blurred = cv2.GaussianBlur(dots, (0, 0), sigma)
+
+    # Step 3: normalise — restore peak brightness (2π σ² is the 2D Gaussian area)
+    peak_factor = 2.0 * math.pi * sigma * sigma
+    return np.clip(blurred * peak_factor, 0, 255).astype(np.uint8)
+
+
+def render_led_preview(
+    small_frame: np.ndarray,
+    algorithm: RenderAlgorithm = RenderAlgorithm.SQUARES,
+    led_size_pct: int = 100,
+    scale: int = 10,
+    bg_color: Tuple[int, int, int] = (0, 0, 0),
+) -> np.ndarray:
+    """
+    Render the 64x32 LED frame as a larger image simulating the LED matrix.
+
+    WHAT'S HAPPENING:
+    ==================
+    The LED matrix has 64x32 tiny LEDs arranged in a grid.
+    This function upscales that tiny image so we can see it on screen.
+
+    RENDER ALGORITHMS:
+    - SQUARES:           Plain 10x10 squares — simple, fast
+    - CIRCLES:           Hard-edged circles; led_size_pct controls diameter
+    - GAUSSIAN_RAW:      Gaussian blur (σ≈18% cell, no diffuser)
+    - GAUSSIAN_DIFFUSED: Gaussian blur (σ≈27% cell, with diffuser panel)
+
+    HOW THE SCALE WORKS:
+    Each LED pixel becomes a scale×scale block in the output.
+    With scale=10: 64×32 becomes 640×320 pixels.
+
+    RETURNS:
+    - A larger image (scale × bigger) ready for the preview window
+    """
+    h, w = small_frame.shape[:2]
+    out_h, out_w = h * scale, w * scale
+
+    # ===== SQUARES (simple nearest-neighbour upscale) =====
+    if algorithm == RenderAlgorithm.SQUARES:
+        return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    # ===== GAUSSIAN RAW — no diffuser panel =====
+    if algorithm == RenderAlgorithm.GAUSSIAN_RAW:
+        sigma = scale * 0.18  # σ ≈ 18% of cell — calibrated to raw hardware
+        return _render_led_gaussian(small_frame, out_h, out_w, scale, sigma)
+
+    # ===== GAUSSIAN DIFFUSED — with diffuser panel =====
+    if algorithm == RenderAlgorithm.GAUSSIAN_DIFFUSED:
+        sigma = scale * 0.27  # σ ≈ 27% of cell — calibrated with diffuser
+        return _render_led_gaussian(small_frame, out_h, out_w, scale, sigma)
+
+    # ===== CIRCLES — compute radius from led_size_pct =====
+    half = scale / 2.0
+    radius = scale * (led_size_pct / 200.0)
+
+    # Overlapping circles (radius > half-cell) use painter's algorithm
+    if radius > half:
+        return _render_led_painter(small_frame, out_h, out_w, scale, radius, bg_color)
+
+    # Non-overlapping circles — fast vectorised NumPy mask
+    colored = cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+
+    cache_key = (out_h, out_w, scale)
+    if cache_key not in _preview_dist_cache:
+        xs = (np.arange(out_w) % scale - scale // 2).astype(np.float32)
+        ys = (np.arange(out_h) % scale - scale // 2).astype(np.float32)
+        dx, dy = np.meshgrid(xs, ys)
+        _preview_dist_cache[cache_key] = np.sqrt(dx ** 2 + dy ** 2)
+
+    dist = _preview_dist_cache[cache_key]
+    mask = dist <= radius
+
+    bg = np.empty((out_h, out_w, 3), dtype=np.uint8)
+    bg[...] = bg_color
+
+    return np.where(mask[:, :, np.newaxis], colored, bg).astype(np.uint8)
+
+
+# ===========================================
 # FUNCTION: Show preview windows
 # ===========================================
-def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center') -> None:
+def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: str = 'landscape', enabled: bool = True, proc_mode: str = 'center', algorithm: RenderAlgorithm = RenderAlgorithm.SQUARES, led_size_pct: int = 100, max_brightness: int = 255) -> None:
     """
     Display a side-by-side preview: camera feed on the left, enlarged matrix
     view on the right.
@@ -1097,17 +1392,30 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     In portrait mode the matrix view is rotated 90° CCW to match the physical
     display orientation.
 
+    The LED pane is gamma-corrected to match the physical panel's perceived
+    brightness (see _GAMMA_LUT above).  If max_brightness is below 255 the
+    LED pane is also dimmed to match the matrix's current brightness cap.
+
     NOTE: On a headless Raspberry Pi (no monitor), keep SHOW_PREVIEW = False!
     """
     if not enabled:
         return
 
-    # Enlarge the tiny matrix view (10x bigger)
-    enlarged = cv2.resize(
-        small_frame,
-        (MATRIX_WIDTH * 10, MATRIX_HEIGHT * 10),
-        interpolation=cv2.INTER_NEAREST  # Blocky pixels
-    )
+    # Enlarge the matrix view using the selected LED render algorithm.
+    # small_frame should be passed *before* brightness limiting so we can
+    # apply it here to the LED pane only (not the camera pane).
+    enlarged = render_led_preview(small_frame, algorithm, led_size_pct, scale=10, bg_color=(0, 0, 0))
+
+    # Scale down if the LED matrix is running below full brightness.
+    # This makes the preview match how dim the physical panel actually is.
+    if max_brightness < 255:
+        enlarged = np.clip(
+            enlarged.astype(np.float32) * (max_brightness / 255), 0, 255
+        ).astype(np.uint8)
+
+    # Apply gamma expansion so the preview matches physical LED matrix brightness.
+    # LEDs emit light nearly linearly; a monitor applies sRGB gamma — this corrects for that.
+    enlarged = cv2.LUT(enlarged, _GAMMA_LUT)
 
     # In portrait mode, rotate the matrix view to match the physical display
     if orient == 'portrait':
@@ -1144,27 +1452,33 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
     # Show both views side by side in a single window
+    # cv2.waitKey(1) is required to actually render the frame — without it imshow
+    # queues the image but the window never updates (critical during countdown).
     combined = np.hstack([cam_resized, enlarged])
     cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.waitKey(1)
 
 
 # ===========================================
 # FUNCTION: Print help
 # ===========================================
-def print_help(orient: str, proc_mode: str, bw: bool, debug: bool) -> None:
+def print_help(orient: str, proc_mode: str, bw: bool, mirror: bool, algorithm: RenderAlgorithm, led_size_pct: int, debug: bool) -> None:
     """Print the help message with current settings."""
     print("")
     print("=" * 60)
     print("KEYBOARD COMMANDS:")
     print("  Orientation: l=landscape  p=portrait")
     print("  Processing:  c=center  s=stretch  f=fit")
-    print("  Effects:     b=B&W toggle")
+    print("  Effects:     b=B&W toggle  m=mirror toggle")
+    print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
     print("  Actions:     SPACE=snapshot  v=avatar")
-    print("  System:      t=toggle transmission  w=preview  d=debug  r=reset  h=help  q=quit")
+    print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if bw else "Color"
+    mirror_str = "Mirrored" if mirror else "Normal"
+    algo_str = algorithm.name.lower().replace('_', ' ')
     debug_str = "ON" if debug else "OFF"
-    print(f"  Current: {orient.title()} + {proc_mode.title()}, {bw_str}, Debug={debug_str}")
+    print(f"  Current: {orient.title()} + {proc_mode.title()}, {bw_str}, Mirror={mirror_str}, Algorithm={algo_str}, Size={led_size_pct}%, Debug={debug_str}")
     print("=" * 60)
     print("")
 
@@ -1184,7 +1498,7 @@ def main() -> None:
     IMPORTANT: We MUST restore the terminal settings when we exit,
     or your terminal will be broken! That's why we use try/finally.
     """
-    global orientation, processing_mode, black_and_white_mode, debug_output
+    global orientation, processing_mode, black_and_white_mode, mirror_mode, render_algorithm, led_size_pct, debug_output
     show_preview_enabled = SHOW_PREVIEW  # Local toggle; SHOW_PREVIEW sets the startup default
 
     # Parse command-line arguments
@@ -1274,7 +1588,7 @@ def main() -> None:
     print("STEP 3: Starting the camera feed!")
     print("=" * 50)
     print("")
-    print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+    print_help(orientation, processing_mode, black_and_white_mode, mirror_mode, render_algorithm, led_size_pct, debug_output)
     if show_preview_enabled:
         print("Preview window: ENABLED (press 'w' to toggle)")
     print("Press Ctrl+C to force quit")
@@ -1332,6 +1646,38 @@ def main() -> None:
                 print(f"\n=== {mode_str} MODE ===\n")
                 continue
 
+            if key == 'm':
+                mirror_mode = not mirror_mode
+                mode_str = "ON" if mirror_mode else "OFF"
+                print(f"\n=== MIRROR: {mode_str} ===\n")
+                continue
+
+            if key == 'o':
+                next_val = (render_algorithm.value + 1) % len(RenderAlgorithm)
+                render_algorithm = RenderAlgorithm(next_val)
+                print(f"\n=== RENDER ALGORITHM: {ALGORITHM_LABELS[render_algorithm]} ===\n")
+                continue
+
+            if key in ('+', '='):
+                if render_algorithm == RenderAlgorithm.CIRCLES:
+                    idx = LED_SIZE_STEPS.index(led_size_pct) if led_size_pct in LED_SIZE_STEPS else -1
+                    if idx < len(LED_SIZE_STEPS) - 1:
+                        led_size_pct = LED_SIZE_STEPS[idx + 1]
+                    print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                else:
+                    print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                continue
+
+            if key in ('-', '_'):
+                if render_algorithm == RenderAlgorithm.CIRCLES:
+                    idx = LED_SIZE_STEPS.index(led_size_pct) if led_size_pct in LED_SIZE_STEPS else -1
+                    if idx > 0:
+                        led_size_pct = LED_SIZE_STEPS[idx - 1]
+                    print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                else:
+                    print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                continue
+
             # === SYSTEM KEYS ===
             if key == 't':
                 if display_enabled and serial_connection is None:
@@ -1366,10 +1712,13 @@ def main() -> None:
                 orientation = 'landscape'
                 processing_mode = 'center'
                 black_and_white_mode = False
+                mirror_mode = False
+                render_algorithm = RenderAlgorithm.SQUARES
+                led_size_pct = 100
                 debug_output = True
                 display_enabled = True
                 print("\n=== RESET TO DEFAULTS ===")
-                print("Orientation=landscape, Processing=center, Color, Debug=ON, Display=ON\n")
+                print("Orientation=landscape, Processing=center, Color, Mirror=OFF, Algorithm=squares, Size=100%, Debug=ON, Display=ON\n")
                 continue
 
             # === ACTION KEYS ===
@@ -1390,7 +1739,7 @@ def main() -> None:
                 continue
 
             if key == 'h':
-                print_help(orientation, processing_mode, black_and_white_mode, debug_output)
+                print_help(orientation, processing_mode, black_and_white_mode, mirror_mode, render_algorithm, led_size_pct, debug_output)
                 continue
 
             if key == 'q':
@@ -1405,7 +1754,7 @@ def main() -> None:
                     save_snapshot(last_sent_frame, frame_bytes_save, orientation, debug_output)
                     speak("Saved")
                 else:
-                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode)
+                    run_snapshot(camera, camera_type, serial_connection, orientation, processing_mode, black_and_white_mode, mirror_mode, show_preview_enabled, render_algorithm, led_size_pct)
                 # Clear any buffered input
                 while select.select([sys.stdin], [], [], 0)[0]:
                     sys.stdin.read(1)
@@ -1425,8 +1774,20 @@ def main() -> None:
             # Process the frame
             small_frame = resize_frame(frame, orientation, processing_mode)
 
+            if mirror_mode:
+                small_frame = apply_mirror(small_frame, orientation)
+
             if black_and_white_mode:
                 small_frame = apply_black_and_white(small_frame)
+
+            # Save the pre-brightness frame for the preview.
+            # show_preview() applies brightness scaling + gamma to the LED pane
+            # internally, so we must pass the un-limited frame to avoid double-dimming.
+            preview_frame = small_frame
+
+            # Apply brightness limit (set MAX_BRIGHTNESS in config.py)
+            if MAX_BRIGHTNESS < 255:
+                small_frame = np.minimum(small_frame, MAX_BRIGHTNESS).astype(np.uint8)
 
             # Convert and send
             frame_bytes = convert_to_rgb565(small_frame)
@@ -1449,7 +1810,7 @@ def main() -> None:
                     print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
 
             # Show preview
-            show_preview(frame, small_frame, orientation, show_preview_enabled, processing_mode)
+            show_preview(frame, preview_frame, orientation, show_preview_enabled, processing_mode, render_algorithm, led_size_pct, MAX_BRIGHTNESS)
 
             # Statistics
             frame_count += 1

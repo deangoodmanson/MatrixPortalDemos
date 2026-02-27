@@ -72,7 +72,7 @@ Camera → Python (Capture) → Process/Resize (64×32) → RGB565 → USB Seria
 ### Pro Version
 - **uv**: Package and Python version management
 - **ruff**: Linting and formatting (Astral)
-- **ty**: Type checking (Astral)
+- **ty**: Type checking and language server / LSP (Astral)
 - **pytest**: Testing framework (136 tests)
 - **Make**: Development task automation
 
@@ -83,8 +83,8 @@ Camera → Python (Capture) → Process/Resize (64×32) → RGB565 → USB Seria
 
 ### Utils Library
 - **uv**: Package management
-- **ruff**: Code quality
-- **ty**: Type safety
+- **ruff**: Code quality and formatting (Astral)
+- **ty**: Type safety and language server / LSP (Astral)
 - **pytest**: 23 unit tests
 - **Pillow**: Image processing
 

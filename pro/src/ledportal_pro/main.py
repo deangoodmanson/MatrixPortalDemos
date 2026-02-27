@@ -13,6 +13,7 @@ from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
     apply_brightness_limit,
     apply_grayscale,
+    apply_mirror,
     apply_zoom_crop,
     convert_to_rgb565,
     create_test_pattern,
@@ -20,9 +21,13 @@ from .processing import (
 )
 from .transport import create_transport
 from .ui import (
+    _ALGORITHM_LABELS,
+    LED_SIZE_DEFAULT,
+    LED_SIZE_STEPS,
     AvatarCaptureManager,
     InputCommand,
     KeyboardHandler,
+    PreviewAlgorithm,
     SnapshotManager,
     draw_border,
     draw_countdown_overlay,
@@ -106,6 +111,9 @@ def run_snapshot_sequence(
     processing_mode: str,
     zoom_level: float,
     debug_mode: bool = False,
+    mirror: bool = False,
+    render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
+    led_size_pct: int = LED_SIZE_DEFAULT,
 ) -> bool:
     """Run the snapshot countdown and capture sequence.
 
@@ -120,6 +128,9 @@ def run_snapshot_sequence(
         processing_mode: Current processing mode (center/stretch/fit).
         zoom_level: Current zoom level (0.25-1.0).
         debug_mode: Whether to save debug files alongside snapshot.
+        mirror: Whether to apply horizontal mirror flip.
+        render_algorithm: Current LED preview render algorithm.
+        led_size_pct: Current LED size percentage.
 
     Returns:
         True if snapshot completed, False if aborted.
@@ -151,17 +162,20 @@ def run_snapshot_sequence(
                 return False
 
             try:
-                frame = camera_typed.capture()
+                original_frame = camera_typed.capture()
             except CameraCaptureFailed:
                 continue
 
-            # Apply zoom
+            # Apply zoom (keep original_frame pre-zoom for the preview left pane)
+            frame = original_frame
             if zoom_level < 1.0:
                 frame = apply_zoom_crop(frame, zoom_level)
 
             small_frame = resize_frame(
                 frame, config.matrix, config.processing, orientation, processing_mode
             )
+            if mirror:
+                small_frame = apply_mirror(small_frame, orientation)
             if black_and_white:
                 small_frame = apply_grayscale(small_frame)
 
@@ -184,6 +198,19 @@ def run_snapshot_sequence(
                         transport.send_frame(frame_bytes)
                     except Exception:
                         pass
+
+            if config.ui.show_preview:
+                show_preview(
+                    original_frame,
+                    overlay_frame,
+                    config.matrix,
+                    orientation,
+                    processing_mode,
+                    zoom_level,
+                    render_algorithm,
+                    led_size_pct,
+                    config.processing.max_brightness,
+                )
 
             time.sleep(0.01)
 
@@ -303,6 +330,11 @@ def main() -> int:
     processing_mode = config.processing.processing_mode
     debug_mode = config.ui.debug_mode and not args.no_debug
     zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
+    mirror_mode = False  # Horizontal flip (mirror effect)
+    render_algorithm = (
+        PreviewAlgorithm.GAUSSIAN_DIFFUSED
+    )  # LED preview render algorithm (cycles with 'o')
+    led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
@@ -428,6 +460,42 @@ def main() -> int:
                     mode_str = "BLACK & WHITE" if black_and_white else "COLOR"
                     print(f"\n=== {mode_str} MODE ===\n")
                     continue
+                elif cmd == InputCommand.TOGGLE_MIRROR:
+                    mirror_mode = not mirror_mode
+                    mode_str = "ON" if mirror_mode else "OFF"
+                    print(f"\n=== MIRROR: {mode_str} ===\n")
+                    continue
+                elif cmd == InputCommand.CYCLE_RENDER_ALGORITHM:
+                    next_val = (render_algorithm.value + 1) % len(PreviewAlgorithm)
+                    render_algorithm = PreviewAlgorithm(next_val)
+                    print(f"\n=== RENDER ALGORITHM: {_ALGORITHM_LABELS[render_algorithm]} ===\n")
+                    continue
+                elif cmd == InputCommand.LED_SIZE_INCREASE:
+                    if render_algorithm == PreviewAlgorithm.CIRCLES:
+                        idx = (
+                            LED_SIZE_STEPS.index(led_size_pct)
+                            if led_size_pct in LED_SIZE_STEPS
+                            else -1
+                        )
+                        if idx < len(LED_SIZE_STEPS) - 1:
+                            led_size_pct = LED_SIZE_STEPS[idx + 1]
+                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                    else:
+                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                    continue
+                elif cmd == InputCommand.LED_SIZE_DECREASE:
+                    if render_algorithm == PreviewAlgorithm.CIRCLES:
+                        idx = (
+                            LED_SIZE_STEPS.index(led_size_pct)
+                            if led_size_pct in LED_SIZE_STEPS
+                            else -1
+                        )
+                        if idx > 0:
+                            led_size_pct = LED_SIZE_STEPS[idx - 1]
+                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
+                    else:
+                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
+                    continue
                 elif cmd == InputCommand.ZOOM_TOGGLE:
                     # Cycle: 1.0 → 0.75 → 0.5 → 0.25 → 1.0
                     if zoom_level == 1.0:
@@ -497,12 +565,16 @@ def main() -> int:
                     orientation = "landscape"
                     processing_mode = "center"
                     black_and_white = False
-                    debug_mode = True
+                    mirror_mode = False
+                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
+                    led_size_pct = LED_SIZE_DEFAULT
+                    debug_mode = False
                     zoom_level = 1.0
                     display_enabled = True
                     print("\n=== RESET TO DEFAULTS ===")
                     print(
-                        "Orientation=landscape, Processing=center, Color, Debug=ON, Zoom=100%, Display=ON\n"
+                        "Orientation=landscape, Processing=center, Color, Mirror=OFF, "
+                        "Algorithm=diffused panel emulation, Size=100%, Debug=OFF, Zoom=100%, Display=ON\n"
                     )
                     continue
                 elif cmd == InputCommand.HELP:
@@ -513,6 +585,9 @@ def main() -> int:
                         debug_mode,
                         zoom_level,
                         config.ui.show_preview,
+                        mirror_mode,
+                        _ALGORITHM_LABELS[render_algorithm],
+                        led_size_pct,
                     )
                     continue
                 elif cmd == InputCommand.QUIT:
@@ -539,6 +614,9 @@ def main() -> int:
                             processing_mode,
                             zoom_level,
                             debug_mode,
+                            mirror_mode,
+                            render_algorithm,
+                            led_size_pct,
                         )
                     keyboard.clear_buffer()
                     continue
@@ -574,8 +652,13 @@ def main() -> int:
                 small_frame = resize_frame(
                     frame, config.matrix, config.processing, orientation, processing_mode
                 )
+                if mirror_mode:
+                    small_frame = apply_mirror(small_frame, orientation)
                 if black_and_white:
                     small_frame = apply_grayscale(small_frame)
+
+                # Save frame before brightness limiting — show_preview applies it internally
+                preview_frame = small_frame
 
                 # Apply brightness limiting for USB power safety
                 if config.processing.max_brightness < 255:
@@ -632,11 +715,14 @@ def main() -> int:
                 if config.ui.show_preview:
                     show_preview(
                         original_frame,
-                        small_frame,
+                        preview_frame,
                         config.matrix,
                         orientation,
                         processing_mode,
                         zoom_level,
+                        render_algorithm,
+                        led_size_pct,
+                        config.processing.max_brightness,
                     )
 
                 # Frame rate limiting
