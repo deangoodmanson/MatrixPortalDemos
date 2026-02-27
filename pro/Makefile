@@ -35,16 +35,16 @@ install-dev:
 
 # Code quality
 lint:
-	uv run ruff check src/
+	uv run ruff check src/ tests/
 
 format:
-	uv run ruff format src/
+	uv run ruff format src/ tests/
 
 format-check:
-	uv run ruff format --check src/
+	uv run ruff format --check src/ tests/
 
 typecheck:
-	uv run ty check src/
+	uv run ty check
 
 check: lint format-check typecheck
 	@echo "All checks passed!"

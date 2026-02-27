@@ -140,8 +140,8 @@ class TestApplyMirror:
     def _asymmetric_frame(self) -> np.ndarray:
         """2×1 frame: left pixel red, right pixel blue (clearly asymmetric)."""
         frame = np.zeros((1, 2, 3), dtype=np.uint8)
-        frame[0, 0] = [0, 0, 255]   # BGR red on the left
-        frame[0, 1] = [255, 0, 0]   # BGR blue on the right
+        frame[0, 0] = [0, 0, 255]  # BGR red on the left
+        frame[0, 1] = [255, 0, 0]  # BGR blue on the right
         return frame
 
     def test_landscape_flips_columns(self):
@@ -149,8 +149,8 @@ class TestApplyMirror:
         frame = self._asymmetric_frame()
         result = apply_mirror(frame, "landscape")
         # After horizontal flip: left=blue, right=red
-        assert np.array_equal(result[0, 0], [255, 0, 0])   # blue on left
-        assert np.array_equal(result[0, 1], [0, 0, 255])   # red on right
+        assert np.array_equal(result[0, 0], [255, 0, 0])  # blue on left
+        assert np.array_equal(result[0, 1], [0, 0, 255])  # red on right
 
     def test_portrait_flips_rows(self):
         """Portrait mirror uses flipCode=0 (flip rows in buffer = left-right on display).
@@ -160,12 +160,12 @@ class TestApplyMirror:
         """
         # Build a 2-row × 1-col frame: top pixel red, bottom pixel blue.
         frame = np.zeros((2, 1, 3), dtype=np.uint8)
-        frame[0, 0] = [0, 0, 255]   # BGR red on top
-        frame[1, 0] = [255, 0, 0]   # BGR blue on bottom
+        frame[0, 0] = [0, 0, 255]  # BGR red on top
+        frame[1, 0] = [255, 0, 0]  # BGR blue on bottom
         result = apply_mirror(frame, "portrait")
         # After vertical flip in buffer: top=blue, bottom=red
-        assert np.array_equal(result[0, 0], [255, 0, 0])   # blue on top
-        assert np.array_equal(result[1, 0], [0, 0, 255])   # red on bottom
+        assert np.array_equal(result[0, 0], [255, 0, 0])  # blue on top
+        assert np.array_equal(result[1, 0], [0, 0, 255])  # red on bottom
 
     def test_landscape_default(self):
         """Default orient is landscape — columns are swapped."""
