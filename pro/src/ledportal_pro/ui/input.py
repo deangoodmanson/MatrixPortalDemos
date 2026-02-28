@@ -34,6 +34,7 @@ class InputCommand(Enum):
     TOGGLE_DISPLAY = auto()  # Toggle transmission to matrix
     TOGGLE_DEBUG = auto()
     TOGGLE_PREVIEW = auto()  # Toggle preview window
+    DEMO_TOGGLE = auto()  # Toggle automatic demo mode
     RESET = auto()
     HELP = auto()
     QUIT = auto()
@@ -157,6 +158,7 @@ class KeyboardHandler:
             # Actions
             " ": InputCommand.SNAPSHOT,
             "v": InputCommand.AVATAR,
+            "x": InputCommand.DEMO_TOGGLE,
             # System
             "t": InputCommand.TOGGLE_DISPLAY,
             "d": InputCommand.TOGGLE_DEBUG,
@@ -204,6 +206,8 @@ class KeyboardHandler:
             return InputResult(InputCommand.LED_SIZE_DECREASE, line)
         elif line == "v":
             return InputResult(InputCommand.AVATAR, line)
+        elif line == "x":
+            return InputResult(InputCommand.DEMO_TOGGLE, line)
         elif line == "t":
             return InputResult(InputCommand.TOGGLE_DISPLAY, line)
         elif line == "d":
@@ -283,7 +287,7 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom")
     print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
-    print("  Actions:     SPACE=snapshot  v=avatar")
+    print("  Actions:     SPACE=snapshot  v=avatar  x=demo")
     print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"

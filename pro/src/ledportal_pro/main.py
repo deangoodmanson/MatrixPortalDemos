@@ -25,12 +25,14 @@ from .ui import (
     LED_SIZE_DEFAULT,
     LED_SIZE_STEPS,
     AvatarCaptureManager,
+    DemoMode,
     InputCommand,
     KeyboardHandler,
     PreviewAlgorithm,
     SnapshotManager,
     draw_border,
     draw_countdown_overlay,
+    draw_text_overlay,
     print_help,
     show_preview,
     speak,
@@ -338,6 +340,8 @@ def main() -> int:
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
+    demo = DemoMode()  # Automatic feature cycling demo mode
+    demo_label: str = ""  # Current step label drawn on the device frame
 
     try:
         # Setup camera
@@ -401,7 +405,7 @@ def main() -> int:
         print("  Orientation: l=landscape  p=portrait")
         print("  Processing:  c=center  s=stretch  f=fit")
         print("  Effects:     b=B&W toggle  z=zoom")
-        print("  Actions:     SPACE=snapshot  v=avatar")
+        print("  Actions:     SPACE=snapshot  v=avatar  x=demo")
         print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
         print()
         bw_str = "B&W" if black_and_white else "Color"
@@ -429,6 +433,30 @@ def main() -> int:
                 # Check for keyboard input
                 input_result = keyboard.check_input()
                 cmd = input_result.command
+
+                # Demo mode: any keypress stops demo; otherwise inject next demo command
+                if demo.is_active and cmd != InputCommand.NONE:
+                    demo.stop()
+                    demo_label = ""
+                    print("\n=== DEMO MODE: STOPPED ===\n")
+                    print_help(
+                        orientation,
+                        processing_mode,
+                        black_and_white,
+                        debug_mode,
+                        zoom_level,
+                        config.ui.show_preview,
+                        mirror_mode,
+                        _ALGORITHM_LABELS[render_algorithm],
+                        led_size_pct,
+                    )
+                    # cmd falls through to normal handling below
+                elif demo.is_active:
+                    demo_cmd = demo.get_next_command(time.time())
+                    if demo_cmd is not None:
+                        print(f"\n--- Demo: {demo_cmd.description} ---")
+                        cmd = demo_cmd.command
+                        demo_label = demo_cmd.label
 
                 # Handle orientation changes
                 if cmd == InputCommand.ORIENTATION_LANDSCAPE:
@@ -561,6 +589,32 @@ def main() -> int:
                         _cv2.waitKey(1)
                         print("\n=== PREVIEW WINDOW: DISABLED ===\n")
                     continue
+                elif cmd == InputCommand.DEMO_TOGGLE:
+                    if demo.is_active:
+                        demo.stop()
+                        demo_label = ""
+                        print("\n=== DEMO MODE: OFF ===\n")
+                        print_help(
+                            orientation,
+                            processing_mode,
+                            black_and_white,
+                            debug_mode,
+                            zoom_level,
+                            config.ui.show_preview,
+                            mirror_mode,
+                            _ALGORITHM_LABELS[render_algorithm],
+                            led_size_pct,
+                        )
+                    else:
+                        # Reset to clean known state before starting
+                        orientation = "landscape"
+                        processing_mode = "center"
+                        black_and_white = False
+                        mirror_mode = False
+                        zoom_level = 1.0
+                        demo.start()
+                        print("\n=== DEMO MODE: ON (press any key to stop) ===\n")
+                    continue
                 elif cmd == InputCommand.RESET:
                     orientation = "landscape"
                     processing_mode = "center"
@@ -659,6 +713,13 @@ def main() -> int:
 
                 # Save frame before brightness limiting — show_preview applies it internally
                 preview_frame = small_frame
+
+                # In demo mode, draw current step label in red on device frame and preview
+                if demo.is_active and demo_label:
+                    small_frame = draw_text_overlay(
+                        small_frame, demo_label, (2, 30), color=(0, 0, 255), font_scale=0.225, thickness=1
+                    )
+                    preview_frame = small_frame
 
                 # Apply brightness limiting for USB power safety
                 if config.processing.max_brightness < 255:

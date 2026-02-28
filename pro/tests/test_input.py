@@ -44,9 +44,9 @@ class TestSingleKeyParsing:
 
     def test_unbound_key_returns_none(self):
         handler = KeyboardHandler(single_keypress=False)
-        result = handler._parse_single_key("x")
+        result = handler._parse_single_key("i")
         assert result.command == InputCommand.NONE
-        assert result.raw_input == "x"
+        assert result.raw_input == "i"
 
     def test_uppercase_not_mapped(self):
         """Key map uses lowercase; uppercase should be NONE (caller lowercases)."""
@@ -133,6 +133,7 @@ class TestInputCommand:
         "TOGGLE_DISPLAY",
         "TOGGLE_DEBUG",
         "TOGGLE_PREVIEW",
+        "DEMO_TOGGLE",
         "RESET",
         "HELP",
         "QUIT",
