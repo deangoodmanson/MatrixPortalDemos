@@ -24,18 +24,16 @@ class DemoCommand:
     label: str  # Short label for on-device overlay
 
 
-def _build_sequence(step_duration: float) -> list[DemoStep]:
-    """Construct the 13-step demo sequence.
+def _effects_steps(step_duration: float) -> list[DemoStep]:
+    """Return the processing and effects steps (orientation-independent).
 
     Args:
         step_duration: Seconds to display each step.
 
     Returns:
-        List of DemoStep objects in order.
+        List of DemoStep objects for one orientation pass.
     """
     return [
-        DemoStep(InputCommand.ORIENTATION_PORTRAIT, "Portrait orientation", step_duration, "Portrait"),
-        DemoStep(InputCommand.ORIENTATION_LANDSCAPE, "Landscape orientation", step_duration, "Landscape"),
         DemoStep(InputCommand.PROCESSING_STRETCH, "Stretch processing", step_duration, "Stretch"),
         DemoStep(InputCommand.PROCESSING_FIT, "Fit processing", step_duration, "Fit"),
         DemoStep(InputCommand.PROCESSING_CENTER, "Center processing (restore)", step_duration, "Center"),
@@ -47,6 +45,25 @@ def _build_sequence(step_duration: float) -> list[DemoStep]:
         DemoStep(InputCommand.ZOOM_TOGGLE, "Zoom 50%", step_duration, "Zoom 50%"),
         DemoStep(InputCommand.ZOOM_TOGGLE, "Zoom 25%", step_duration, "Zoom 25%"),
         DemoStep(InputCommand.ZOOM_TOGGLE, "Zoom 100% (restore)", step_duration, "Zoom 100%"),
+    ]
+
+
+def _build_sequence(step_duration: float) -> list[DemoStep]:
+    """Construct the full demo sequence: all effects in landscape, then portrait.
+
+    Args:
+        step_duration: Seconds to display each step.
+
+    Returns:
+        List of DemoStep objects in order.
+    """
+    return [
+        # --- Landscape pass ---
+        DemoStep(InputCommand.ORIENTATION_LANDSCAPE, "Landscape orientation", step_duration, "Landscape"),
+        *_effects_steps(step_duration),
+        # --- Portrait pass ---
+        DemoStep(InputCommand.ORIENTATION_PORTRAIT, "Portrait orientation", step_duration, "Portrait"),
+        *_effects_steps(step_duration),
     ]
 
 
