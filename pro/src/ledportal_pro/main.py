@@ -96,6 +96,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable debug/stats output (toggle with 'd' key)",
     )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Disable saving snapshots to disk (countdown still runs)",
+    )
 
     return parser.parse_args()
 
@@ -345,6 +350,7 @@ def main() -> int:
         PreviewAlgorithm.GAUSSIAN_DIFFUSED
     )  # LED preview render algorithm (cycles with 'o')
     led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
+    save_enabled = not args.no_save  # Whether to save snapshots to disk
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
@@ -604,7 +610,9 @@ def main() -> int:
                     print("\n=== QUIT REQUESTED ===\n")
                     break
                 elif cmd == InputCommand.SNAPSHOT:
-                    if not display_enabled and last_sent_frame is not None:
+                    if not save_enabled:
+                        print("  Snapshot saving disabled (--no-save)")
+                    elif not display_enabled and last_sent_frame is not None:
                         # Paused: save the frozen frame on the device — no countdown
                         print("  Saving paused frame...")
                         frame_bytes_save = convert_to_rgb565(last_sent_frame)
