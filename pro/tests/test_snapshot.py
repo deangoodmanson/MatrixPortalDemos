@@ -18,7 +18,7 @@ class TestSnapshotManager:
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
 
-        image_path, debug_path, rgb565_path = manager.save(frame)
+        image_path, debug_path, rgb565_path, pdf_path = manager.save(frame)
 
         assert image_path.exists()
         assert image_path.suffix == ".bmp"
@@ -26,13 +26,19 @@ class TestSnapshotManager:
         # No debug mode → no debug files
         assert debug_path is None
         assert rgb565_path is None
+        # PDF always generated
+        assert pdf_path is not None
+        assert pdf_path.exists()
+        assert pdf_path.suffix == ".pdf"
 
     def test_save_creates_bmp_and_bin_in_debug_mode(self, tmp_path):
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
         raw = b"\x00" * (64 * 32 * 2)
 
-        image_path, debug_path, rgb565_path = manager.save(frame, frame_bytes=raw, debug_mode=True)
+        image_path, debug_path, rgb565_path, pdf_path = manager.save(
+            frame, frame_bytes=raw, debug_mode=True
+        )
 
         assert image_path.exists()
         assert debug_path is not None
@@ -46,7 +52,7 @@ class TestSnapshotManager:
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
 
-        image_path, _, _ = manager.save(frame, prefix="avatar_front")
+        image_path, _, _, _ = manager.save(frame, prefix="avatar_front")
 
         assert image_path.name.startswith("avatar_front_")
 

@@ -274,6 +274,100 @@ def _render_led_array(
     return np.where(mask[:, :, np.newaxis], upscaled, bg).astype(np.uint8)
 
 
+def export_pdf(
+    snapshot_path: str | Path,
+    output_path: str | Path | None = None,
+    original_path: str | Path | None = None,
+    mode: LedMode = LedMode.SQUARES,
+    scale_factor: int = 10,
+    background_color: tuple[int, int, int] = (0, 0, 0),
+    matrix_print_size: tuple[float, float] = (1.0, 2.0),
+    dpi: int = 300,
+) -> Path:
+    """Export snapshot as a PDF with LED preview, original image, and matrix print.
+
+    Composes a PDF containing up to three elements stacked vertically:
+    1. LED matrix preview — the snapshot rendered with the chosen LED mode
+    2. Original camera capture (if provided) — scaled to match preview width
+    3. Matrix BMP at physical print size — blocky nearest-neighbour upscale
+
+    Args:
+        snapshot_path: Path to the LED matrix snapshot file (BMP or PNG, typically 32×64 or 64×32).
+        output_path: Path to output PDF file. If None, uses snapshot filename with .pdf extension.
+        original_path: Optional path to the original camera capture image.
+        mode: LED render mode for the preview section. Default is SQUARES.
+        scale_factor: Pixels per LED cell for the preview. Default is 10.
+        background_color: RGB background colour for non-LED areas in preview. Default black.
+        matrix_print_size: Physical size (width, height) in inches for the matrix BMP section.
+            Default is (1.0, 2.0) for a 1″×2″ print.
+        dpi: Resolution in dots per inch. Controls physical print size. Default is 300.
+
+    Returns:
+        Path to the created PDF file.
+
+    Example:
+        >>> export_pdf("snapshot_20260314_120000.bmp")
+        PosixPath('snapshot_20260314_120000.pdf')
+    """
+    snapshot_path = Path(snapshot_path)
+    output_path = snapshot_path.with_suffix(".pdf") if output_path is None else Path(output_path)
+
+    # Load snapshot and render LED preview
+    snapshot_img = Image.open(snapshot_path).convert("RGB")
+    snapshot_pixels = np.array(snapshot_img)
+    led_array = _render_led_array(snapshot_pixels, mode, scale_factor, background_color)
+    led_img = Image.fromarray(led_array, "RGB")
+
+    # Render matrix BMP at physical print size (nearest-neighbour for blocky pixels)
+    matrix_w_px = round(matrix_print_size[0] * dpi)
+    matrix_h_px = round(matrix_print_size[1] * dpi)
+    matrix_img = snapshot_img.resize((matrix_w_px, matrix_h_px), Image.Resampling.NEAREST)
+
+    # Load original camera image if provided
+    original_img = None
+    if original_path is not None:
+        original_img = Image.open(Path(original_path)).convert("RGB")
+
+    # Layout: stack elements vertically with padding on a white canvas
+    padding = round(0.25 * dpi)
+    canvas_width = max(led_img.width, matrix_img.width)
+
+    # Scale original to match canvas width
+    if original_img is not None:
+        orig_scale = canvas_width / original_img.width
+        orig_h = round(original_img.height * orig_scale)
+        original_img = original_img.resize((canvas_width, orig_h), Image.Resampling.LANCZOS)
+
+    # Calculate total canvas height
+    canvas_height = padding  # top margin
+    canvas_height += led_img.height + padding
+    if original_img is not None:
+        canvas_height += original_img.height + padding
+    canvas_height += matrix_img.height + padding  # bottom section + margin
+
+    canvas = Image.new("RGB", (canvas_width, canvas_height), (255, 255, 255))
+
+    # Paste LED preview (centred)
+    y = padding
+    x = (canvas_width - led_img.width) // 2
+    canvas.paste(led_img, (x, y))
+    y += led_img.height + padding
+
+    # Paste original image (centred)
+    if original_img is not None:
+        x = (canvas_width - original_img.width) // 2
+        canvas.paste(original_img, (x, y))
+        y += original_img.height + padding
+
+    # Paste matrix BMP (centred)
+    x = (canvas_width - matrix_img.width) // 2
+    canvas.paste(matrix_img, (x, y))
+
+    canvas.save(output_path, "PDF", resolution=dpi)
+
+    return output_path
+
+
 def export_png(input_path: str | Path, output_path: str | Path | None = None) -> Path:
     """Export snapshot as PNG format.
 

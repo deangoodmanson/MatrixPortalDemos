@@ -5,6 +5,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from ledportal_utils import export_pdf
 from numpy.typing import NDArray
 
 
@@ -32,7 +33,8 @@ class SnapshotManager:
         orientation: str = "landscape",
         prefix: str = "snapshot",
         debug_mode: bool = False,
-    ) -> tuple[Path, Path | None, Path | None]:
+        original_frame: NDArray[np.uint8] | None = None,
+    ) -> tuple[Path, Path | None, Path | None, Path | None]:
         """Save a snapshot of the current frame.
 
         Args:
@@ -41,9 +43,12 @@ class SnapshotManager:
             orientation: Display orientation ("landscape" or "portrait").
             prefix: Filename prefix.
             debug_mode: If True, save debug files (raw BMP + RGB565 binary).
+            original_frame: Optional original camera frame (full resolution, BGR).
+                When provided, it is included in the generated PDF.
 
         Returns:
-            Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None).
+            Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None,
+            pdf_path or None).
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -77,7 +82,19 @@ class SnapshotManager:
                 with open(rgb565_path, "wb") as f:
                     f.write(frame_bytes)
 
-        return snapshot_path, debug_image_path, rgb565_path
+        # Generate PDF with LED preview, original image, and matrix print
+        original_path = None
+        if original_frame is not None:
+            original_filename = f"{prefix}_{timestamp}_original.png"
+            original_path = self._output_dir / original_filename
+            cv2.imwrite(str(original_path), original_frame)
+
+        pdf_path = export_pdf(
+            snapshot_path,
+            original_path=original_path,
+        )
+
+        return snapshot_path, debug_image_path, rgb565_path, pdf_path
 
     def save_debug_frame(self, frame: NDArray[np.uint8], filename: str = "last.bmp") -> Path:
         """Save a debug frame (overwrites previous).

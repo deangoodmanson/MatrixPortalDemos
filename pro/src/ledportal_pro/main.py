@@ -148,6 +148,7 @@ def run_snapshot_sequence(
 
     # Countdown with overlay
     last_small_frame = None
+    last_original_frame = None
 
     for countdown in [3, 2, 1]:
         print(f"  Showing: {countdown}", flush=True)
@@ -182,6 +183,7 @@ def run_snapshot_sequence(
             # Save the last frame from countdown "1" for the snapshot
             if countdown == 1:
                 last_small_frame = small_frame.copy()
+                last_original_frame = original_frame.copy()
                 # Show blue border during "1" countdown to indicate capture framing
                 small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
 
@@ -228,12 +230,18 @@ def run_snapshot_sequence(
 
         # Save the clean frame (no border)
         frame_bytes = convert_to_rgb565(small_frame)
-        snapshot_path, debug_path, rgb565_path = snapshot_manager.save(
-            small_frame, frame_bytes, orientation, debug_mode=debug_mode
+        snapshot_path, debug_path, rgb565_path, pdf_path = snapshot_manager.save(
+            small_frame,
+            frame_bytes,
+            orientation,
+            debug_mode=debug_mode,
+            original_frame=last_original_frame,
         )
         print(f"\n{'=' * 60}")
         print("SNAPSHOT SAVED:")
         print(f"  Snapshot: {snapshot_path}")
+        if pdf_path:
+            print(f"  PDF: {pdf_path}")
         if debug_mode:
             if debug_path:
                 print(f"  Debug raw: {debug_path}")
