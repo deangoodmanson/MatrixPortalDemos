@@ -281,15 +281,18 @@ def export_pdf(
     mode: LedMode = LedMode.SQUARES,
     scale_factor: int = 10,
     background_color: tuple[int, int, int] = (0, 0, 0),
-    matrix_print_size: tuple[float, float] = (1.0, 2.0),
+    thumbnail_inches: float = 2.0,
     dpi: int = 300,
 ) -> Path:
-    """Export snapshot as a PDF with LED preview, original image, and matrix print.
+    """Export snapshot as a US Letter PDF with LED preview, original image, and thumbnails.
 
-    Composes a PDF containing up to three elements stacked vertically:
+    Composes a PDF on an 8.5″×11″ US Letter page containing four elements
+    stacked vertically and centred:
+
     1. LED matrix preview — the snapshot rendered with the chosen LED mode
-    2. Original camera capture (if provided) — scaled to match preview width
-    3. Matrix BMP at physical print size — blocky nearest-neighbour upscale
+    2. Original camera capture (if provided) — scaled to fit page width
+    3. Thumbnail — aspect-ratio-preserving blocky upscale (longest side = thumbnail_inches)
+    4. Pixel-to-pixel — the raw snapshot at native resolution (e.g. 32×64 or 64×32)
 
     Args:
         snapshot_path: Path to the LED matrix snapshot file (BMP or PNG, typically 32×64 or 64×32).
@@ -298,8 +301,8 @@ def export_pdf(
         mode: LED render mode for the preview section. Default is SQUARES.
         scale_factor: Pixels per LED cell for the preview. Default is 10.
         background_color: RGB background colour for non-LED areas in preview. Default black.
-        matrix_print_size: Physical size (width, height) in inches for the matrix BMP section.
-            Default is (1.0, 2.0) for a 1″×2″ print.
+        thumbnail_inches: Physical size of the thumbnail's longest side in inches.
+            The shorter side scales proportionally. Default is 2.0.
         dpi: Resolution in dots per inch. Controls physical print size. Default is 300.
 
     Returns:
@@ -312,56 +315,70 @@ def export_pdf(
     snapshot_path = Path(snapshot_path)
     output_path = snapshot_path.with_suffix(".pdf") if output_path is None else Path(output_path)
 
+    # US Letter page at target DPI
+    page_w = round(8.5 * dpi)
+    page_h = round(11.0 * dpi)
+    margin = round(0.5 * dpi)
+    padding = round(0.25 * dpi)
+    content_w = page_w - 2 * margin
+
     # Load snapshot and render LED preview
     snapshot_img = Image.open(snapshot_path).convert("RGB")
     snapshot_pixels = np.array(snapshot_img)
     led_array = _render_led_array(snapshot_pixels, mode, scale_factor, background_color)
     led_img = Image.fromarray(led_array, "RGB")
 
-    # Render matrix BMP at physical print size (nearest-neighbour for blocky pixels)
-    matrix_w_px = round(matrix_print_size[0] * dpi)
-    matrix_h_px = round(matrix_print_size[1] * dpi)
-    matrix_img = snapshot_img.resize((matrix_w_px, matrix_h_px), Image.Resampling.NEAREST)
+    # Scale LED preview to fit content width
+    if led_img.width > content_w:
+        led_scale = content_w / led_img.width
+        led_img = led_img.resize(
+            (content_w, round(led_img.height * led_scale)), Image.Resampling.NEAREST
+        )
+
+    # Thumbnail: preserve aspect ratio, longest side = thumbnail_inches
+    snap_w, snap_h = snapshot_img.size
+    longest = max(snap_w, snap_h)
+    thumb_scale = (thumbnail_inches * dpi) / longest
+    thumb_w = round(snap_w * thumb_scale)
+    thumb_h = round(snap_h * thumb_scale)
+    thumb_img = snapshot_img.resize((thumb_w, thumb_h), Image.Resampling.NEAREST)
+
+    # Pixel-to-pixel: raw snapshot at native resolution (no scaling)
+    pixel_img = snapshot_img.copy()
 
     # Load original camera image if provided
     original_img = None
     if original_path is not None:
         original_img = Image.open(Path(original_path)).convert("RGB")
-
-    # Layout: stack elements vertically with padding on a white canvas
-    padding = round(0.25 * dpi)
-    canvas_width = max(led_img.width, matrix_img.width)
-
-    # Scale original to match canvas width
-    if original_img is not None:
-        orig_scale = canvas_width / original_img.width
+        # Scale original to fit content width
+        orig_scale = content_w / original_img.width
         orig_h = round(original_img.height * orig_scale)
-        original_img = original_img.resize((canvas_width, orig_h), Image.Resampling.LANCZOS)
+        original_img = original_img.resize((content_w, orig_h), Image.Resampling.LANCZOS)
 
-    # Calculate total canvas height
-    canvas_height = padding  # top margin
-    canvas_height += led_img.height + padding
-    if original_img is not None:
-        canvas_height += original_img.height + padding
-    canvas_height += matrix_img.height + padding  # bottom section + margin
+    # Build US Letter canvas
+    canvas = Image.new("RGB", (page_w, page_h), (255, 255, 255))
 
-    canvas = Image.new("RGB", (canvas_width, canvas_height), (255, 255, 255))
+    y = margin
 
-    # Paste LED preview (centred)
-    y = padding
-    x = (canvas_width - led_img.width) // 2
+    # 1. LED preview (centred)
+    x = margin + (content_w - led_img.width) // 2
     canvas.paste(led_img, (x, y))
     y += led_img.height + padding
 
-    # Paste original image (centred)
+    # 2. Original image (centred)
     if original_img is not None:
-        x = (canvas_width - original_img.width) // 2
+        x = margin + (content_w - original_img.width) // 2
         canvas.paste(original_img, (x, y))
         y += original_img.height + padding
 
-    # Paste matrix BMP (centred)
-    x = (canvas_width - matrix_img.width) // 2
-    canvas.paste(matrix_img, (x, y))
+    # 3. Thumbnail (centred)
+    x = margin + (content_w - thumb_img.width) // 2
+    canvas.paste(thumb_img, (x, y))
+    y += thumb_img.height + padding
+
+    # 4. Pixel-to-pixel (centred)
+    x = margin + (content_w - pixel_img.width) // 2
+    canvas.paste(pixel_img, (x, y))
 
     canvas.save(output_path, "PDF", resolution=dpi)
 

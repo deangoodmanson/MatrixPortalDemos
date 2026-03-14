@@ -468,12 +468,12 @@ class TestExportPdf:
             )
             assert output.exists()
 
-    def test_custom_matrix_print_size(self, small_bmp: Path, temp_dir: Path) -> None:
-        """Should respect custom matrix print size."""
+    def test_custom_thumbnail_size(self, small_bmp: Path, temp_dir: Path) -> None:
+        """Should respect custom thumbnail size."""
         output = export_pdf(
             small_bmp,
             output_path=temp_dir / "custom_size.pdf",
-            matrix_print_size=(2.0, 4.0),
+            thumbnail_inches=4.0,
             scale_factor=4,
         )
         assert output.exists()
@@ -484,6 +484,16 @@ class TestExportPdf:
         with open(output, "rb") as f:
             header = f.read(4)
         assert header == b"%PDF"
+
+    def test_pdf_is_us_letter_size(self, sample_bmp: Path) -> None:
+        """PDF should be US Letter (8.5×11 inches = 612×792 points)."""
+        output = export_pdf(sample_bmp)
+        with open(output, "rb") as f:
+            content = f.read().decode("latin-1")
+        # Pillow writes MediaBox in PDF; US Letter at 300 DPI = 2550×3300 px
+        # At 72 PDF points/inch that's 612×792 points
+        assert "612" in content
+        assert "792" in content
 
 
 class TestEdgeCases:
