@@ -8,6 +8,7 @@ The printing feature generates a PDF after each snapshot capture, containing:
 2. **Original Camera Capture** — full-resolution image from the camera, scaled to page width
 3. **Thumbnail** — aspect-ratio-preserving blocky upscale of the matrix snapshot (longest side = 2")
 4. **Pixel-to-pixel BMPs** — both landscape (64x32) and portrait (32x64) at native resolution, side by side
+5. **Timestamp** — ISO 8601 and human-readable local time, centred at the bottom
 
 The PDF is US Letter (8.5" x 11") at 300 DPI.
 

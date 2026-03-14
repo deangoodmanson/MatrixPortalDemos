@@ -5,11 +5,12 @@ for better viewing and sharing.
 """
 
 import math
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 
 class LedMode(Enum):
@@ -387,6 +388,22 @@ def export_pdf(
     x = margin + (content_w - pair_w) // 2
     canvas.paste(pixel_landscape, (x, y + (pair_h - pixel_landscape.height) // 2))
     canvas.paste(pixel_portrait, (x + pixel_landscape.width + pair_gap, y))
+    y += pair_h + padding
+
+    # 5. Timestamp at bottom
+    now = datetime.now(timezone.utc).astimezone()
+    iso_stamp = now.isoformat(timespec="seconds")
+    readable_stamp = now.strftime("%B %d, %Y at %I:%M:%S %p %Z")
+    timestamp_text = f"{iso_stamp}  |  {readable_stamp}"
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("Helvetica", size=round(dpi * 0.1))
+    except OSError:
+        font = ImageFont.load_default(size=round(dpi * 0.1))
+    bbox = draw.textbbox((0, 0), timestamp_text, font=font)
+    text_w = bbox[2] - bbox[0]
+    x = margin + (content_w - text_w) // 2
+    draw.text((x, y), timestamp_text, fill=(0, 0, 0), font=font)
 
     canvas.save(output_path, "PDF", resolution=dpi)
 
