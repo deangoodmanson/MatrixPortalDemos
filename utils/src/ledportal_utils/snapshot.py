@@ -328,12 +328,11 @@ def export_pdf(
     led_array = _render_led_array(snapshot_pixels, mode, scale_factor, background_color)
     led_img = Image.fromarray(led_array, "RGB")
 
-    # Scale LED preview to fit content width
-    if led_img.width > content_w:
-        led_scale = content_w / led_img.width
-        led_img = led_img.resize(
-            (content_w, round(led_img.height * led_scale)), Image.Resampling.NEAREST
-        )
+    # Scale LED preview to fill content width (match camera capture proportions)
+    led_scale = content_w / led_img.width
+    led_img = led_img.resize(
+        (content_w, round(led_img.height * led_scale)), Image.Resampling.NEAREST
+    )
 
     # Thumbnail: preserve aspect ratio, longest side = thumbnail_inches
     snap_w, snap_h = snapshot_img.size
@@ -343,8 +342,13 @@ def export_pdf(
     thumb_h = round(snap_h * thumb_scale)
     thumb_img = snapshot_img.resize((thumb_w, thumb_h), Image.Resampling.NEAREST)
 
-    # Pixel-to-pixel: raw snapshot at native resolution (no scaling)
-    pixel_img = snapshot_img.copy()
+    # Pixel-to-pixel: both landscape and portrait at native resolution
+    if snap_w >= snap_h:
+        pixel_landscape = snapshot_img.copy()
+        pixel_portrait = snapshot_img.transpose(Image.Transpose.ROTATE_90)
+    else:
+        pixel_portrait = snapshot_img.copy()
+        pixel_landscape = snapshot_img.transpose(Image.Transpose.ROTATE_270)
 
     # Load original camera image if provided
     original_img = None
@@ -376,9 +380,13 @@ def export_pdf(
     canvas.paste(thumb_img, (x, y))
     y += thumb_img.height + padding
 
-    # 4. Pixel-to-pixel (centred)
-    x = margin + (content_w - pixel_img.width) // 2
-    canvas.paste(pixel_img, (x, y))
+    # 4. Pixel-to-pixel: landscape and portrait side by side (centred)
+    pair_gap = padding // 2
+    pair_w = pixel_landscape.width + pair_gap + pixel_portrait.width
+    pair_h = max(pixel_landscape.height, pixel_portrait.height)
+    x = margin + (content_w - pair_w) // 2
+    canvas.paste(pixel_landscape, (x, y + (pair_h - pixel_landscape.height) // 2))
+    canvas.paste(pixel_portrait, (x + pixel_landscape.width + pair_gap, y))
 
     canvas.save(output_path, "PDF", resolution=dpi)
 
