@@ -474,7 +474,7 @@ def show_preview(
     cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
     combined = np.hstack([cam_resized, enlarged])
-    cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.imshow("[ Camera ] | [ LED Matrix Preview ]    Note: The console must have window focus for keyboard commands.", combined)
     cv2.waitKey(1)
 
 
