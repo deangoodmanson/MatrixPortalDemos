@@ -1,7 +1,7 @@
 """UI module for LED Portal Pro."""
 
 from .avatar import AVATAR_POSES, AvatarCaptureManager, AvatarSession, CapturedPose
-from .demo import DemoMode
+from .demo import DemoMode, DemoState
 from .input import InputCommand, KeyboardHandler, print_help
 from .overlay import (
     _ALGORITHM_LABELS,
@@ -24,6 +24,7 @@ __all__ = [
     "print_help",
     # Demo mode
     "DemoMode",
+    "DemoState",
     # Avatar capture
     "AVATAR_POSES",
     "AvatarCaptureManager",

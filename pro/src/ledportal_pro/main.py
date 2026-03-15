@@ -26,6 +26,7 @@ from .ui import (
     LED_SIZE_STEPS,
     AvatarCaptureManager,
     DemoMode,
+    DemoState,
     InputCommand,
     KeyboardHandler,
     PreviewAlgorithm,
@@ -444,29 +445,81 @@ def main() -> int:
                 input_result = keyboard.check_input()
                 cmd = input_result.command
 
-                # Demo mode: any keypress stops demo; otherwise inject next demo command
-                if demo.is_active and cmd != InputCommand.NONE:
-                    demo.stop()
-                    demo_label = ""
-                    print("\n=== DEMO MODE: STOPPED ===\n")
-                    print_help(
-                        orientation,
-                        processing_mode,
-                        black_and_white,
-                        debug_mode,
-                        zoom_level,
-                        config.ui.show_preview,
-                        mirror_mode,
-                        _ALGORITHM_LABELS[render_algorithm],
-                        led_size_pct,
-                    )
-                    # cmd falls through to normal handling below
-                elif demo.is_active:
-                    demo_cmd = demo.get_next_command(time.time())
-                    if demo_cmd is not None:
-                        print(f"\n--- Demo: {demo_cmd.description} ---")
+                # Demo mode input handling
+                if demo.is_active:
+                    if cmd == InputCommand.DEMO_NEXT:
+                        demo_cmd = demo.next_step()
+                        print(
+                            f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
+                        )
                         cmd = demo_cmd.command
                         demo_label = demo_cmd.label
+                    elif cmd == InputCommand.DEMO_PREV:
+                        demo_cmd = demo.prev_step()
+                        print(
+                            f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
+                        )
+                        cmd = demo_cmd.command
+                        demo_label = demo_cmd.label
+                    elif cmd == InputCommand.SNAPSHOT and demo.state in (
+                        DemoState.AUTO,
+                        DemoState.PAUSED,
+                    ):
+                        # Space pauses/resumes auto demo instead of taking snapshot
+                        new_state = demo.toggle_pause()
+                        if new_state == DemoState.PAUSED:
+                            print(
+                                f"\n=== DEMO: PAUSED [{demo.step_position}] "
+                                f"({demo.controls_hint}) ===\n"
+                            )
+                        else:
+                            print("\n=== DEMO: RESUMED (auto-advance) ===\n")
+                        continue
+                    elif cmd == InputCommand.DEMO_TOGGLE:
+                        demo.stop()
+                        demo_label = ""
+                        print("\n=== DEMO MODE: OFF ===\n")
+                        print_help(
+                            orientation,
+                            processing_mode,
+                            black_and_white,
+                            debug_mode,
+                            zoom_level,
+                            config.ui.show_preview,
+                            mirror_mode,
+                            _ALGORITHM_LABELS[render_algorithm],
+                            led_size_pct,
+                        )
+                        continue
+                    elif cmd == InputCommand.DEMO_MANUAL:
+                        # Already active — ignore X while in demo
+                        continue
+                    elif cmd != InputCommand.NONE:
+                        # Any other keypress stops demo
+                        demo.stop()
+                        demo_label = ""
+                        print("\n=== DEMO MODE: STOPPED ===\n")
+                        print_help(
+                            orientation,
+                            processing_mode,
+                            black_and_white,
+                            debug_mode,
+                            zoom_level,
+                            config.ui.show_preview,
+                            mirror_mode,
+                            _ALGORITHM_LABELS[render_algorithm],
+                            led_size_pct,
+                        )
+                        # cmd falls through to normal handling below
+                    else:
+                        # No keypress — check auto-advance timer
+                        demo_cmd = demo.get_next_command(time.time())
+                        if demo_cmd is not None:
+                            print(
+                                f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
+                            )
+                            cmd = demo_cmd.command
+                            demo_label = demo_cmd.label
 
                 # Handle orientation changes
                 if cmd == InputCommand.ORIENTATION_LANDSCAPE:
@@ -600,31 +653,31 @@ def main() -> int:
                         print("\n=== PREVIEW WINDOW: DISABLED ===\n")
                     continue
                 elif cmd == InputCommand.DEMO_TOGGLE:
-                    if demo.is_active:
-                        demo.stop()
-                        demo_label = ""
-                        print("\n=== DEMO MODE: OFF ===\n")
-                        print_help(
-                            orientation,
-                            processing_mode,
-                            black_and_white,
-                            debug_mode,
-                            zoom_level,
-                            config.ui.show_preview,
-                            mirror_mode,
-                            _ALGORITHM_LABELS[render_algorithm],
-                            led_size_pct,
-                        )
-                    else:
-                        # Reset to clean known state before starting
-                        orientation = "landscape"
-                        processing_mode = "center"
-                        black_and_white = False
-                        mirror_mode = False
-                        zoom_level = 1.0
-                        demo.start()
-                        print("\n=== DEMO MODE: ON (press any key to stop) ===\n")
+                    # Reset to clean known state and start auto demo
+                    orientation = "landscape"
+                    processing_mode = "center"
+                    black_and_white = False
+                    mirror_mode = False
+                    zoom_level = 1.0
+                    demo.start_auto()
+                    print("\n=== DEMO MODE: AUTO (SPACE=pause, ./>=next, ,/<=prev, x=stop) ===\n")
                     continue
+                elif cmd == InputCommand.DEMO_MANUAL:
+                    # Reset to clean known state and start manual demo
+                    orientation = "landscape"
+                    processing_mode = "center"
+                    black_and_white = False
+                    mirror_mode = False
+                    zoom_level = 1.0
+                    demo.start_manual()
+                    demo_cmd = demo.next_step()
+                    demo_label = demo_cmd.label
+                    print("\n=== DEMO MODE: MANUAL (./>=next, ,/<=prev, x=stop) ===\n")
+                    print(
+                        f"--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
+                    )
+                    cmd = demo_cmd.command
+                    # Fall through to handle the first step's command
                 elif cmd == InputCommand.RESET:
                     orientation = "landscape"
                     processing_mode = "center"
