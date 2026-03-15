@@ -416,23 +416,17 @@ def main() -> int:
 
         print()
         print("Starting capture loop...")
-        print()
-        print("Commands (single keypress):")
-        print("  Orientation: l=landscape  p=portrait")
-        print("  Processing:  c=center  s=stretch  f=fit")
-        print("  Effects:     b=B&W toggle  z=zoom")
-        print("  Actions:     SPACE=snapshot  v=avatar  x=demo")
-        print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
-        print()
-        bw_str = "B&W" if black_and_white else "Color"
-        debug_str = "ON" if debug_mode else "OFF"
-        zoom_pct = int(zoom_level * 100)
-        print(
-            f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+        print_help(
+            orientation,
+            processing_mode,
+            black_and_white,
+            debug_mode,
+            zoom_level,
+            config.ui.show_preview,
+            mirror_mode,
+            _ALGORITHM_LABELS[render_algorithm],
+            led_size_pct,
         )
-        print()
-        if config.ui.show_preview:
-            print("Preview window: ENABLED (press 'w' to toggle)")
         print("Starting — capturing and sending frames to Matrix Portal...")
         if transport is None:
             print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
