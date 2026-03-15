@@ -717,7 +717,12 @@ def main() -> int:
                 # In demo mode, draw current step label in red on device frame and preview
                 if demo.is_active and demo_label:
                     small_frame = draw_text_overlay(
-                        small_frame, demo_label, (2, 30), color=(0, 0, 255), font_scale=0.225, thickness=1
+                        small_frame,
+                        demo_label,
+                        (2, 30),
+                        color=(0, 0, 255),
+                        font_scale=0.225,
+                        thickness=1,
                     )
                     preview_frame = small_frame
 

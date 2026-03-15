@@ -36,7 +36,9 @@ def _effects_steps(step_duration: float) -> list[DemoStep]:
     return [
         DemoStep(InputCommand.PROCESSING_STRETCH, "Stretch processing", step_duration, "Stretch"),
         DemoStep(InputCommand.PROCESSING_FIT, "Fit processing", step_duration, "Fit"),
-        DemoStep(InputCommand.PROCESSING_CENTER, "Center processing (restore)", step_duration, "Center"),
+        DemoStep(
+            InputCommand.PROCESSING_CENTER, "Center processing (restore)", step_duration, "Center"
+        ),
         DemoStep(InputCommand.TOGGLE_BW, "B&W on", step_duration, "B&W"),
         DemoStep(InputCommand.TOGGLE_BW, "B&W off (restore)", step_duration, "Color"),
         DemoStep(InputCommand.TOGGLE_MIRROR, "Mirror on", step_duration, "Mirror"),
@@ -59,10 +61,14 @@ def _build_sequence(step_duration: float) -> list[DemoStep]:
     """
     return [
         # --- Landscape pass ---
-        DemoStep(InputCommand.ORIENTATION_LANDSCAPE, "Landscape orientation", step_duration, "Landscape"),
+        DemoStep(
+            InputCommand.ORIENTATION_LANDSCAPE, "Landscape orientation", step_duration, "Landscape"
+        ),
         *_effects_steps(step_duration),
         # --- Portrait pass ---
-        DemoStep(InputCommand.ORIENTATION_PORTRAIT, "Portrait orientation", step_duration, "Portrait"),
+        DemoStep(
+            InputCommand.ORIENTATION_PORTRAIT, "Portrait orientation", step_duration, "Portrait"
+        ),
         *_effects_steps(step_duration),
     ]
 
