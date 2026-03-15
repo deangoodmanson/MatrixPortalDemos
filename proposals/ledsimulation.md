@@ -258,7 +258,7 @@ Cycling: `PreviewMode((current.value + 1) % len(PreviewMode))`
 3. **Corner mode rendering order**: row-major (current proposal) vs. reverse order vs. Voronoi (nearest-center wins). Visually identical for most content; differs only on sharp LED color transitions.
 4. **Naming**: `CIRCLES_CORNER` may be renamed `CIRCLES_OVERLAP` or `CIRCLES_BLEED` if that better communicates the intent after visual testing.
 5. **Cached distance grid**: the pre-computed `dx/dy` arrays are constant for a given `(H, W, scale)`. They should be computed once and reused across frames for the non-overlapping modes. The painter's-algorithm loop for `CIRCLES_CORNER` does not benefit from this cache.
-6. **Window title**: update `cv2.imshow` window title string to include current render mode, e.g., `"Camera | LED Matrix (10x) [circles-edge]"` so the mode is visible without checking the console.
+6. **Window title**: update `cv2.imshow` window title string to include current render mode, e.g., `"[ Camera ] | [ LED Matrix Preview ]    Note: The console must have window focus for keyboard commands. [circles-edge]"` so the mode is visible without checking the console.
 
 ---
 

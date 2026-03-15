@@ -1455,7 +1455,7 @@ def show_preview(original_frame: np.ndarray, small_frame: np.ndarray, orient: st
     # cv2.waitKey(1) is required to actually render the frame — without it imshow
     # queues the image but the window never updates (critical during countdown).
     combined = np.hstack([cam_resized, enlarged])
-    cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.imshow("[ Camera ] | [ LED Matrix Preview ]    Note: The console must have window focus for keyboard commands.", combined)
     cv2.waitKey(1)
 
 

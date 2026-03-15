@@ -50,6 +50,58 @@ def _effects_steps(step_duration: float) -> list[DemoStep]:
     ]
 
 
+def _preview_steps(step_duration: float) -> list[DemoStep]:
+    """Return steps that cycle through preview algorithms and circle sizes.
+
+    Starting from the default (Gaussian Diffused), cycles through all four
+    algorithms. When on Circles, also cycles through size steps to showcase
+    the range. Restores defaults (Gaussian Diffused, Size=100%) at the end.
+
+    Args:
+        step_duration: Seconds to display each step.
+
+    Returns:
+        List of DemoStep objects for the preview algorithm tour.
+    """
+    return [
+        # From default (Gaussian Diffused) → Squares
+        DemoStep(InputCommand.CYCLE_RENDER_ALGORITHM, "Squares", step_duration, "Squares"),
+        # Squares → Circles (default size=100%)
+        DemoStep(
+            InputCommand.CYCLE_RENDER_ALGORITHM,
+            "Circles Size=100%",
+            step_duration,
+            "Circle 100%",
+        ),
+        # Cycle through circle sizes: 100→125→150→25→50→75
+        DemoStep(InputCommand.LED_SIZE_INCREASE, "Circles Size=125%", step_duration, "Circle 125%"),
+        DemoStep(InputCommand.LED_SIZE_INCREASE, "Circles Size=150%", step_duration, "Circle 150%"),
+        DemoStep(InputCommand.LED_SIZE_DECREASE, "Circles Size=125%", step_duration, "Circle 125%"),
+        DemoStep(InputCommand.LED_SIZE_DECREASE, "Circles Size=100%", step_duration, "Circle 100%"),
+        DemoStep(InputCommand.LED_SIZE_DECREASE, "Circles Size=75%", step_duration, "Circle 75%"),
+        DemoStep(InputCommand.LED_SIZE_DECREASE, "Circles Size=50%", step_duration, "Circle 50%"),
+        DemoStep(InputCommand.LED_SIZE_DECREASE, "Circles Size=25%", step_duration, "Circle 25%"),
+        # Restore size to default (100%): 25→50→75→100
+        DemoStep(InputCommand.LED_SIZE_INCREASE, "Circles Size=50%", 0.0, ""),
+        DemoStep(InputCommand.LED_SIZE_INCREASE, "Circles Size=75%", 0.0, ""),
+        DemoStep(InputCommand.LED_SIZE_INCREASE, "Circles Size=100%", 0.0, ""),
+        # Circles → Gaussian Raw
+        DemoStep(
+            InputCommand.CYCLE_RENDER_ALGORITHM,
+            "Raw panel emulation",
+            step_duration,
+            "Gaussian Raw",
+        ),
+        # Gaussian Raw → Gaussian Diffused (restore default)
+        DemoStep(
+            InputCommand.CYCLE_RENDER_ALGORITHM,
+            "Diffused panel emulation (restore)",
+            step_duration,
+            "Gaussian Diff",
+        ),
+    ]
+
+
 def _build_sequence(step_duration: float) -> list[DemoStep]:
     """Construct the full demo sequence: all effects in landscape, then portrait.
 
@@ -64,6 +116,7 @@ def _build_sequence(step_duration: float) -> list[DemoStep]:
         DemoStep(
             InputCommand.ORIENTATION_LANDSCAPE, "Landscape orientation", step_duration, "Landscape"
         ),
+        *_preview_steps(step_duration),
         *_effects_steps(step_duration),
         # --- Portrait pass ---
         DemoStep(

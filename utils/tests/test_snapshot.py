@@ -6,7 +6,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from ledportal_utils import LedMode, export_blocks, export_circles, export_led_preview, export_png
+from ledportal_utils import (
+    LedMode,
+    export_blocks,
+    export_circles,
+    export_led_preview,
+    export_pdf,
+    export_png,
+)
 
 
 class TestExportPng:
@@ -391,6 +398,98 @@ class TestExportLedPreview:
         """Should accept string path as input."""
         output = export_led_preview(str(small_bmp), mode=LedMode.SQUARES)
         assert output.exists()
+
+
+class TestExportPdf:
+    """Test PDF export functionality."""
+
+    def test_creates_pdf_file(self, sample_bmp: Path) -> None:
+        """Should create a PDF file from BMP input."""
+        output = export_pdf(sample_bmp)
+
+        assert output.exists()
+        assert output.suffix == ".pdf"
+        assert output.stem == sample_bmp.stem
+
+    def test_custom_output_path(self, sample_bmp: Path, temp_dir: Path) -> None:
+        """Should respect custom output path."""
+        custom_path = temp_dir / "custom.pdf"
+        output = export_pdf(sample_bmp, output_path=custom_path)
+
+        assert output == custom_path
+        assert output.exists()
+
+    def test_accepts_string_input(self, sample_bmp: Path) -> None:
+        """Should accept string path as input."""
+        output = export_pdf(str(sample_bmp))
+        assert output.exists()
+
+    def test_returns_path_object(self, sample_bmp: Path) -> None:
+        """Should return a Path object."""
+        output = export_pdf(sample_bmp)
+        assert isinstance(output, Path)
+
+    def test_with_original_image(self, sample_bmp: Path, temp_dir: Path) -> None:
+        """Should include original camera image when provided."""
+        # Create a larger "original" camera image
+        original_array = np.zeros((480, 640, 3), dtype=np.uint8)
+        original_array[:, :] = [200, 150, 100]
+        original_img = Image.fromarray(original_array, "RGB")
+        original_path = temp_dir / "original.png"
+        original_img.save(original_path, "PNG")
+
+        output = export_pdf(sample_bmp, original_path=original_path)
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    def test_portrait_snapshot(self, temp_dir: Path) -> None:
+        """Should handle portrait orientation (32×64) snapshots."""
+        portrait_array = np.zeros((64, 32, 3), dtype=np.uint8)
+        portrait_array[:, :] = [100, 200, 50]
+        portrait_img = Image.fromarray(portrait_array, "RGB")
+        portrait_path = temp_dir / "portrait.bmp"
+        portrait_img.save(portrait_path, "BMP")
+
+        output = export_pdf(portrait_path)
+        assert output.exists()
+
+    def test_different_led_modes(self, small_bmp: Path, temp_dir: Path) -> None:
+        """Should work with different LED preview modes."""
+        for mode in [LedMode.SQUARES, LedMode.CIRCLES_100, LedMode.GAUSSIAN]:
+            output = export_pdf(
+                small_bmp,
+                output_path=temp_dir / f"test_{mode.name}.pdf",
+                mode=mode,
+                scale_factor=4,
+            )
+            assert output.exists()
+
+    def test_custom_thumbnail_size(self, small_bmp: Path, temp_dir: Path) -> None:
+        """Should respect custom thumbnail size."""
+        output = export_pdf(
+            small_bmp,
+            output_path=temp_dir / "custom_size.pdf",
+            thumbnail_inches=4.0,
+            scale_factor=4,
+        )
+        assert output.exists()
+
+    def test_pdf_file_is_valid(self, sample_bmp: Path) -> None:
+        """PDF file should start with %PDF header."""
+        output = export_pdf(sample_bmp)
+        with open(output, "rb") as f:
+            header = f.read(4)
+        assert header == b"%PDF"
+
+    def test_pdf_is_us_letter_size(self, sample_bmp: Path) -> None:
+        """PDF should be US Letter (8.5×11 inches = 612×792 points)."""
+        output = export_pdf(sample_bmp)
+        with open(output, "rb") as f:
+            content = f.read().decode("latin-1")
+        # Pillow writes MediaBox in PDF; US Letter at 300 DPI = 2550×3300 px
+        # At 72 PDF points/inch that's 612×792 points
+        assert "612" in content
+        assert "792" in content
 
 
 class TestEdgeCases:

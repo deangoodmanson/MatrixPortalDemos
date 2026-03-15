@@ -98,6 +98,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable debug/stats output (toggle with 'd' key)",
     )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Disable saving snapshots to disk (countdown still runs)",
+    )
 
     return parser.parse_args()
 
@@ -150,6 +155,7 @@ def run_snapshot_sequence(
 
     # Countdown with overlay
     last_small_frame = None
+    last_original_frame = None
 
     for countdown in [3, 2, 1]:
         print(f"  Showing: {countdown}", flush=True)
@@ -184,6 +190,7 @@ def run_snapshot_sequence(
             # Save the last frame from countdown "1" for the snapshot
             if countdown == 1:
                 last_small_frame = small_frame.copy()
+                last_original_frame = original_frame.copy()
                 # Show blue border during "1" countdown to indicate capture framing
                 small_frame = draw_border(small_frame, color=(255, 0, 0))  # Blue in BGR
 
@@ -230,12 +237,20 @@ def run_snapshot_sequence(
 
         # Save the clean frame (no border)
         frame_bytes = convert_to_rgb565(small_frame)
-        snapshot_path, debug_path, rgb565_path = snapshot_manager.save(
-            small_frame, frame_bytes, orientation, debug_mode=debug_mode
+        snapshot_path, debug_path, rgb565_path, pdf_path = snapshot_manager.save(
+            small_frame,
+            frame_bytes,
+            orientation,
+            debug_mode=debug_mode,
+            original_frame=last_original_frame,
+            render_algorithm=render_algorithm,
+            led_size_pct=led_size_pct,
         )
         print(f"\n{'=' * 60}")
         print("SNAPSHOT SAVED:")
         print(f"  Snapshot: {snapshot_path}")
+        if pdf_path:
+            print(f"  PDF: {pdf_path}")
         if debug_mode:
             if debug_path:
                 print(f"  Debug raw: {debug_path}")
@@ -337,6 +352,7 @@ def main() -> int:
         PreviewAlgorithm.GAUSSIAN_DIFFUSED
     )  # LED preview render algorithm (cycles with 'o')
     led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
+    save_enabled = not args.no_save  # Whether to save snapshots to disk
     display_enabled = not args.no_display  # User's intent to send to display
     display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
@@ -400,23 +416,17 @@ def main() -> int:
 
         print()
         print("Starting capture loop...")
-        print()
-        print("Commands (single keypress):")
-        print("  Orientation: l=landscape  p=portrait")
-        print("  Processing:  c=center  s=stretch  f=fit")
-        print("  Effects:     b=B&W toggle  z=zoom")
-        print("  Actions:     SPACE=snapshot  v=avatar  x=demo")
-        print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
-        print()
-        bw_str = "B&W" if black_and_white else "Color"
-        debug_str = "ON" if debug_mode else "OFF"
-        zoom_pct = int(zoom_level * 100)
-        print(
-            f"Current: {orientation}/{processing_mode}, {bw_str}, Debug={debug_str}, Zoom={zoom_pct}%"
+        print_help(
+            orientation,
+            processing_mode,
+            black_and_white,
+            debug_mode,
+            zoom_level,
+            config.ui.show_preview,
+            mirror_mode,
+            _ALGORITHM_LABELS[render_algorithm],
+            led_size_pct,
         )
-        print()
-        if config.ui.show_preview:
-            print("Preview window: ENABLED (press 'w' to toggle)")
         print("Starting — capturing and sending frames to Matrix Portal...")
         if transport is None:
             print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
@@ -648,7 +658,9 @@ def main() -> int:
                     print("\n=== QUIT REQUESTED ===\n")
                     break
                 elif cmd == InputCommand.SNAPSHOT:
-                    if not display_enabled and last_sent_frame is not None:
+                    if not save_enabled:
+                        print("  Snapshot saving disabled (--no-save)")
+                    elif not display_enabled and last_sent_frame is not None:
                         # Paused: save the frozen frame on the device — no countdown
                         print("  Saving paused frame...")
                         frame_bytes_save = convert_to_rgb565(last_sent_frame)
@@ -789,6 +801,7 @@ def main() -> int:
                         render_algorithm,
                         led_size_pct,
                         config.processing.max_brightness,
+                        demo_label if demo.is_active else "",
                     )
 
                 # Frame rate limiting

@@ -5,7 +5,37 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from ledportal_utils import LedMode, export_pdf
 from numpy.typing import NDArray
+
+from .overlay import PreviewAlgorithm
+
+# Map pro PreviewAlgorithm to utils LedMode.
+# CIRCLES is resolved at call time using led_size_pct.
+_ALGORITHM_TO_LED_MODE: dict[PreviewAlgorithm, LedMode] = {
+    PreviewAlgorithm.SQUARES: LedMode.SQUARES,
+    PreviewAlgorithm.GAUSSIAN_RAW: LedMode.GAUSSIAN,
+    PreviewAlgorithm.GAUSSIAN_DIFFUSED: LedMode.GAUSSIAN,
+}
+
+# Ordered thresholds for mapping led_size_pct → LedMode circle variant.
+_CIRCLE_PCT_MODES: list[tuple[int, LedMode]] = [
+    (62, LedMode.CIRCLES_50),
+    (87, LedMode.CIRCLES_75),
+    (112, LedMode.CIRCLES_100),
+    (137, LedMode.CIRCLES_125),
+    (999, LedMode.CIRCLES_CORNER),
+]
+
+
+def _resolve_led_mode(algorithm: PreviewAlgorithm, led_size_pct: int) -> LedMode:
+    """Convert a PreviewAlgorithm + led_size_pct to the closest LedMode."""
+    if algorithm != PreviewAlgorithm.CIRCLES:
+        return _ALGORITHM_TO_LED_MODE.get(algorithm, LedMode.SQUARES)
+    for threshold, mode in _CIRCLE_PCT_MODES:
+        if led_size_pct <= threshold:
+            return mode
+    return LedMode.CIRCLES_CORNER
 
 
 class SnapshotManager:
@@ -32,7 +62,10 @@ class SnapshotManager:
         orientation: str = "landscape",
         prefix: str = "snapshot",
         debug_mode: bool = False,
-    ) -> tuple[Path, Path | None, Path | None]:
+        original_frame: NDArray[np.uint8] | None = None,
+        render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
+        led_size_pct: int = 100,
+    ) -> tuple[Path, Path | None, Path | None, Path | None]:
         """Save a snapshot of the current frame.
 
         Args:
@@ -41,9 +74,14 @@ class SnapshotManager:
             orientation: Display orientation ("landscape" or "portrait").
             prefix: Filename prefix.
             debug_mode: If True, save debug files (raw BMP + RGB565 binary).
+            original_frame: Optional original camera frame (full resolution, BGR).
+                When provided, it is included in the generated PDF.
+            render_algorithm: Current LED preview algorithm (used for PDF rendering).
+            led_size_pct: Current LED size percentage (used for circle modes).
 
         Returns:
-            Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None).
+            Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None,
+            pdf_path or None).
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -77,7 +115,21 @@ class SnapshotManager:
                 with open(rgb565_path, "wb") as f:
                     f.write(frame_bytes)
 
-        return snapshot_path, debug_image_path, rgb565_path
+        # Generate PDF with LED preview, original image, and thumbnails
+        original_path = None
+        if original_frame is not None:
+            original_filename = f"{prefix}_{timestamp}_original.png"
+            original_path = self._output_dir / original_filename
+            cv2.imwrite(str(original_path), original_frame)
+
+        led_mode = _resolve_led_mode(render_algorithm, led_size_pct)
+        pdf_path = export_pdf(
+            snapshot_path,
+            original_path=original_path,
+            mode=led_mode,
+        )
+
+        return snapshot_path, debug_image_path, rgb565_path, pdf_path
 
     def save_debug_frame(self, frame: NDArray[np.uint8], filename: str = "last.bmp") -> Path:
         """Save a debug frame (overwrites previous).

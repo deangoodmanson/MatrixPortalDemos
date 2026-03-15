@@ -5,11 +5,12 @@ for better viewing and sharing.
 """
 
 import math
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 
 class LedMode(Enum):
@@ -272,6 +273,141 @@ def _render_led_array(
     bg = np.empty((out_h, out_w, 3), dtype=np.uint8)
     bg[...] = np.array(background_color, dtype=np.uint8)
     return np.where(mask[:, :, np.newaxis], upscaled, bg).astype(np.uint8)
+
+
+def export_pdf(
+    snapshot_path: str | Path,
+    output_path: str | Path | None = None,
+    original_path: str | Path | None = None,
+    mode: LedMode = LedMode.SQUARES,
+    scale_factor: int = 10,
+    background_color: tuple[int, int, int] = (0, 0, 0),
+    thumbnail_inches: float = 2.0,
+    dpi: int = 300,
+) -> Path:
+    """Export snapshot as a US Letter PDF with LED preview, original image, and thumbnails.
+
+    Composes a PDF on an 8.5″×11″ US Letter page containing four elements
+    stacked vertically and centred:
+
+    1. LED matrix preview — the snapshot rendered with the chosen LED mode
+    2. Original camera capture (if provided) — scaled to fit page width
+    3. Thumbnail — aspect-ratio-preserving blocky upscale (longest side = thumbnail_inches)
+    4. Pixel-to-pixel — the raw snapshot at native resolution (e.g. 32×64 or 64×32)
+
+    Args:
+        snapshot_path: Path to the LED matrix snapshot file (BMP or PNG, typically 32×64 or 64×32).
+        output_path: Path to output PDF file. If None, uses snapshot filename with .pdf extension.
+        original_path: Optional path to the original camera capture image.
+        mode: LED render mode for the preview section. Default is SQUARES.
+        scale_factor: Pixels per LED cell for the preview. Default is 10.
+        background_color: RGB background colour for non-LED areas in preview. Default black.
+        thumbnail_inches: Physical size of the thumbnail's longest side in inches.
+            The shorter side scales proportionally. Default is 2.0.
+        dpi: Resolution in dots per inch. Controls physical print size. Default is 300.
+
+    Returns:
+        Path to the created PDF file.
+
+    Example:
+        >>> export_pdf("snapshot_20260314_120000.bmp")
+        PosixPath('snapshot_20260314_120000.pdf')
+    """
+    snapshot_path = Path(snapshot_path)
+    output_path = snapshot_path.with_suffix(".pdf") if output_path is None else Path(output_path)
+
+    # US Letter page at target DPI
+    page_w = round(8.5 * dpi)
+    page_h = round(11.0 * dpi)
+    margin = round(0.5 * dpi)
+    padding = round(0.25 * dpi)
+    content_w = page_w - 2 * margin
+
+    # Load snapshot and render LED preview
+    snapshot_img = Image.open(snapshot_path).convert("RGB")
+    snapshot_pixels = np.array(snapshot_img)
+    led_array = _render_led_array(snapshot_pixels, mode, scale_factor, background_color)
+    led_img = Image.fromarray(led_array, "RGB")
+
+    # Scale LED preview to fill content width (match camera capture proportions)
+    led_scale = content_w / led_img.width
+    led_img = led_img.resize(
+        (content_w, round(led_img.height * led_scale)), Image.Resampling.NEAREST
+    )
+
+    # Thumbnail: preserve aspect ratio, longest side = thumbnail_inches
+    snap_w, snap_h = snapshot_img.size
+    longest = max(snap_w, snap_h)
+    thumb_scale = (thumbnail_inches * dpi) / longest
+    thumb_w = round(snap_w * thumb_scale)
+    thumb_h = round(snap_h * thumb_scale)
+    thumb_img = snapshot_img.resize((thumb_w, thumb_h), Image.Resampling.NEAREST)
+
+    # Pixel-to-pixel: both landscape and portrait at native resolution
+    if snap_w >= snap_h:
+        pixel_landscape = snapshot_img.copy()
+        pixel_portrait = snapshot_img.transpose(Image.Transpose.ROTATE_90)
+    else:
+        pixel_portrait = snapshot_img.copy()
+        pixel_landscape = snapshot_img.transpose(Image.Transpose.ROTATE_270)
+
+    # Load original camera image if provided
+    original_img = None
+    if original_path is not None:
+        original_img = Image.open(Path(original_path)).convert("RGB")
+        # Scale original to fit content width
+        orig_scale = content_w / original_img.width
+        orig_h = round(original_img.height * orig_scale)
+        original_img = original_img.resize((content_w, orig_h), Image.Resampling.LANCZOS)
+
+    # Build US Letter canvas
+    canvas = Image.new("RGB", (page_w, page_h), (255, 255, 255))
+
+    y = margin
+
+    # 1. LED preview (centred)
+    x = margin + (content_w - led_img.width) // 2
+    canvas.paste(led_img, (x, y))
+    y += led_img.height + padding
+
+    # 2. Original image (centred)
+    if original_img is not None:
+        x = margin + (content_w - original_img.width) // 2
+        canvas.paste(original_img, (x, y))
+        y += original_img.height + padding
+
+    # 3. Thumbnail (centred)
+    x = margin + (content_w - thumb_img.width) // 2
+    canvas.paste(thumb_img, (x, y))
+    y += thumb_img.height + padding
+
+    # 4. Pixel-to-pixel: landscape and portrait side by side (centred)
+    pair_gap = padding // 2
+    pair_w = pixel_landscape.width + pair_gap + pixel_portrait.width
+    pair_h = max(pixel_landscape.height, pixel_portrait.height)
+    x = margin + (content_w - pair_w) // 2
+    canvas.paste(pixel_landscape, (x, y + (pair_h - pixel_landscape.height) // 2))
+    canvas.paste(pixel_portrait, (x + pixel_landscape.width + pair_gap, y))
+    y += pair_h + padding
+
+    # 5. Timestamp at bottom
+    now = datetime.now(UTC).astimezone()
+    iso_stamp = now.isoformat(timespec="seconds")
+    readable_stamp = now.strftime("%B %d, %Y at %I:%M:%S %p %Z")
+    timestamp_text = f"{iso_stamp}  |  {readable_stamp}"
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("Helvetica", size=round(dpi * 0.1))
+    except OSError:
+        font = ImageFont.load_default(size=round(dpi * 0.1))
+    bbox = draw.textbbox((0, 0), timestamp_text, font=font)
+    text_w = bbox[2] - bbox[0]
+    x = margin + (content_w - text_w) // 2
+    draw.text((x, y), timestamp_text, fill=(0, 0, 0), font=font)
+
+    canvas.save(output_path, "PDF", resolution=dpi)
+
+    return output_path
 
 
 def export_png(input_path: str | Path, output_path: str | Path | None = None) -> Path:

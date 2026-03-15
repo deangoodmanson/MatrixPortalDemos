@@ -80,6 +80,7 @@ last.bmp
 # Snapshots and avatar captures
 snapshot_*.bmp
 snapshot_*.png
+snapshot_*.pdf
 snapshot_*.bin
 avatar_*/
 

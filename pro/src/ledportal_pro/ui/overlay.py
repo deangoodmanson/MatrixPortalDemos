@@ -382,6 +382,7 @@ def show_preview(
     algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
     led_size_pct: int = LED_SIZE_DEFAULT,
     max_brightness: int = 255,
+    demo_label: str = "",
 ) -> None:
     """Display a side-by-side preview window: camera feed on the left, enlarged
     matrix view on the right.
@@ -409,6 +410,7 @@ def show_preview(
         algorithm: How to render each LED cell in the matrix pane.
         led_size_pct: Circle diameter as percentage of cell (only for CIRCLES).
         max_brightness: LED matrix brightness cap (0-255); scales the LED pane.
+        demo_label: Optional demo mode label to draw in red on the camera pane.
     """
     scale = 10
 
@@ -473,8 +475,25 @@ def show_preview(
     px2, py2 = min(int(x2 * s), cam_resized.shape[1]) - 1, int(y2 * s) - 1
     cv2.rectangle(cam_resized, (px1, py1), (px2, py2), (255, 0, 0), 1)
 
+    # Draw demo label in red on the camera pane (bottom-left)
+    if demo_label:
+        cam_h_resized = cam_resized.shape[0]
+        cv2.putText(
+            cam_resized,
+            demo_label,
+            (10, cam_h_resized - 15),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 0, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
     combined = np.hstack([cam_resized, enlarged])
-    cv2.imshow("Camera | LED Matrix (10x)", combined)
+    cv2.imshow(
+        "[ Camera ] | [ LED Matrix Preview ]    Note: The console must have window focus for keyboard commands.",
+        combined,
+    )
     cv2.waitKey(1)
 
 
