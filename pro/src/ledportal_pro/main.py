@@ -801,6 +801,7 @@ def main() -> int:
                         render_algorithm,
                         led_size_pct,
                         config.processing.max_brightness,
+                        demo_label if demo.is_active else "",
                     )
 
                 # Frame rate limiting
