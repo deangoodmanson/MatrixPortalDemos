@@ -330,3 +330,45 @@ Potential approaches to close the gap:
 | Gamma correction | Apply inverse sRGB gamma (γ ≈ 2.2) to preview pixels before display — brightens midtones to approximate linear LED output |
 | Brightness scale | Multiply preview RGB values by a fixed factor (e.g. 1.5–2×), clipping at 255 — simple but clips highlights |
 | Tonemapping | Compress the dynamic range of the preview to simulate the panel's high-luminance output on a lower-luminance screen |
+
+---
+
+## LED Density Comparison: MatrixPortal vs. Large LED Wall
+
+### Reference object
+
+A **Lifesavers Wint-O-Green mint** was used as a physical scale reference in both photographs.
+
+| Dimension | Value |
+|-----------|-------|
+| Outer diameter | **1.5 in (38 mm)** |
+| Inner hole diameter | ~0.5 in (13 mm) |
+
+The mint was held flush against the panel surface in both images, giving a direct 1:1 scale measurement with no parallax correction needed.
+
+### Reference images
+
+| File | Device | Notes |
+|------|--------|-------|
+| `wallMint.jpg` | Large indoor LED wall | Mint against wall; "PM" time display visible |
+| `deviceMint.jpg` | MatrixPortal 64×32 | Mint against panel; digits visible in green |
+
+### Measurement method
+
+Both mints were held flush against the panel surface. The mint outer diameter (~38 mm / 1.5 in) was compared against the visible LED pixel pitch. Both displays show approximately **6 LED pitches across the mint diameter**.
+
+### Results
+
+| Display | Image | Mint spans ~N pitches | Calculated pitch | Standard pitch | LEDs/inch |
+|---------|-------|-----------------------|-----------------|----------------|-----------|
+| Large LED wall | `wallMint.jpg` | ~6 | 38 mm ÷ 6 ≈ **6.4 mm** | **P6** (6 mm) | **~4** |
+| MatrixPortal 64×32 | `deviceMint.jpg` | ~6 | 38 mm ÷ 6 ≈ **6.4 mm** | **P6** (6 mm) | **~4** |
+
+### Summary
+
+| Display | Pitch | LEDs/inch |
+|---------|-------|-----------|
+| Large indoor LED wall | P6 (6 mm) | ~4 |
+| MatrixPortal 64×32 | P6 (6 mm) | ~4 |
+
+Both displays have similar LED density at roughly **4 LEDs/inch (P6)**. The difference between them is physical scale and brightness — the wall is a much larger panel driven at higher power for room-scale viewing, while the MatrixPortal is a compact panel for close personal viewing.
