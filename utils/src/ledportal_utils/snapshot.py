@@ -5,7 +5,7 @@ for better viewing and sharing.
 """
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -391,7 +391,7 @@ def export_pdf(
     y += pair_h + padding
 
     # 5. Timestamp at bottom
-    now = datetime.now(timezone.utc).astimezone()
+    now = datetime.now(UTC).astimezone()
     iso_stamp = now.isoformat(timespec="seconds")
     readable_stamp = now.strftime("%B %d, %Y at %I:%M:%S %p %Z")
     timestamp_text = f"{iso_stamp}  |  {readable_stamp}"
