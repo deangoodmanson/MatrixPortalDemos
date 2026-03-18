@@ -19,6 +19,7 @@ Camera → Computer (Pi, Mac, PC) → USB Serial (4M baud) → Matrix Portal M4 
 | **`pro/`** | **Professional** | Modular, production-ready Python application. Uses `uv`, strict typing, and advanced config. |
 | **`hs/`** | **High School** | Educational, single-folder version (`hs/src`) for students. Simplified code, cross-platform. |
 | **`matrix-portal/`**| **Firmware** | CircuitPython code for the Adafruit Matrix Portal M4. |
+| **`macropad/`** | **MacroPad Remote** | CircuitPython macro pages for the Adafruit MacroPad RP2040. Physical button controller for all camera feed commands. |
 
 ## Raspberry Pi Workflows
 
