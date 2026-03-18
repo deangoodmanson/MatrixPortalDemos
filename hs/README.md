@@ -87,6 +87,9 @@ uv pip install picamera2
 
 #### Step 4: Run the Program
 
+No LED matrix hardware is required. The program works with just a webcam — press
+`w` to open the preview window and see the LED simulation on screen.
+
 ```bash
 # Make sure virtual environment is activated
 source .venv/bin/activate
@@ -296,8 +299,8 @@ What color does the image become?
 Once the program is running, you can use these single-key commands:
 
 **Orientation (Display Direction):**
-- `l` = Landscape (Wide, horizontal)
-- `p` = Portrait (Tall, rotates 90°)
+- `l` = Landscape (wide, horizontal)
+- `p` = Portrait (tall, rotates 90°)
 
 **Processing Mode (How Image Fits):**
 - `c` = Center (crop from center)
@@ -307,15 +310,28 @@ Once the program is running, you can use these single-key commands:
 **Effects:**
 - `b` = Toggle Black & White / Color
 - `m` = Toggle mirror (horizontal flip)
-- `o` = Cycle LED render mode (squares → circles 50%/75%/100%/125%/corner)
+- `z` = Cycle zoom (100% → 75% → 50% → 25%)
+
+**Preview:**
+- `w` = Toggle preview window on/off
+- `o` = Cycle render algorithm (Gaussian Diffused → Squares → Circles → Gaussian Raw)
+- `+` / `=` = Increase LED size (Circles mode only)
+- `-` / `_` = Decrease LED size (Circles mode only)
 
 **Actions:**
-- `Space` = Snapshot (3-2-1 countdown, saves BMP file)
+- `Space` = Snapshot (3-2-1 countdown, saves BMP + PDF)
 - `v` = Avatar Capture (guided 18-pose session with voice prompts)
 
+**Demo:**
+- `x` = Toggle auto demo mode (cycles through all features)
+- `Shift+X` = Start manual demo mode
+- `.` or `>` = Next demo step
+- `,` or `<` = Previous demo step
+- `Space` = Pause/resume auto demo
+
 **System:**
-- `t` = Toggle transmission (toggle sending images to the LED display, or reconnect)
-- `d` = Toggle Debug output
+- `t` = Toggle transmission (pause/resume sending to LED matrix, or reconnect)
+- `d` = Toggle debug output
 - `r` = Reset to defaults
 - `h` = Show help
 - `q` = Quit
@@ -323,11 +339,11 @@ Once the program is running, you can use these single-key commands:
 ## Next Steps
 
 Once you understand this code, check out the professional version in the `pro/` folder which includes:
-- Modular architecture with separate modules
-- Type hints and type checking
+- Modular architecture with separate packages (capture, transport, processing, ui)
+- Type hints and type checking with ty
 - YAML configuration files
 - Command-line arguments
-- Comprehensive unit test suite (159 tests)
+- Comprehensive unit test suite (187 tests)
 - Better error handling and logging
 
 ---

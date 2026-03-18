@@ -6,17 +6,20 @@ Captures video from a camera, processes it, and displays on a 64x32 RGB LED matr
 
 ## Features
 
-- Cross-platform support (macOS, Raspberry Pi)
-- Pi Camera and USB camera support
+- Cross-platform support (macOS, Raspberry Pi, Linux, Windows)
+- Pi Camera and USB camera support with auto-detection
 - RGB565 color conversion for LED matrix
-- Three display modes: landscape, portrait, letterbox
-- Snapshot capture with 3-2-1 countdown
+- Orientation: landscape and portrait (90° CW rotation)
+- Processing modes: center crop, stretch, fit (letterbox)
+- Effects: black & white, mirror, zoom (100/75/50/25%), render algorithm cycling, LED size control
+- Snapshot capture with 3-2-1 countdown (BMP + PDF export)
 - Avatar capture mode with guided voice prompts
-- Black and white mode
+- Demo mode: auto, manual (step-by-step), and pausable
+- Side-by-side preview window with multiple LED render modes
 - Cross-platform text-to-speech (macOS say, Linux espeak-ng, Windows pyttsx3)
-- YAML configuration
+- YAML configuration with CLI overrides
 - Type-safe Python code (checked with `ty`)
-- 159-test unit test suite
+- 187-test unit test suite
 
 ## Requirements
 
@@ -132,6 +135,10 @@ uv run ledportal --config config/pi.yaml
 
 ## Usage
 
+No LED matrix hardware is required. The app runs with just a webcam — use the
+preview window (`w`) to see the LED simulation on screen. Use `--no-display` to
+skip serial port detection entirely.
+
 ### Run with default configuration
 
 ```bash
@@ -154,7 +161,7 @@ uv run ledportal --config config/pi.yaml
 usage: ledportal [-h] [--config CONFIG] [--frames FRAMES] [--no-display]
                  [--camera CAMERA] [--port PORT] [--bw]
                  [--orientation {landscape,portrait}]
-                 [--processing {center,stretch,fit}]
+                 [--processing {center,stretch,fit}] [--no-debug] [--no-save]
 
 LED Portal Pro - Camera feed for LED matrix display
 
@@ -170,6 +177,8 @@ options:
                         Display orientation (overrides config)
   --processing {center,stretch,fit}
                         Processing mode (overrides config)
+  --no-debug            Disable debug/stats output (toggle with 'd' key)
+  --no-save             Disable saving snapshots to disk (countdown still runs)
 ```
 
 ### Interactive Controls
@@ -198,16 +207,40 @@ Single keypress (no Enter needed, Mac/Linux only):
 | `b` | Toggle black & white / color |
 | `m` | Toggle mirror (horizontal flip) |
 | `z` | Cycle zoom (100% → 75% → 50% → 25%) |
+
+**Preview:**
+
+| Key | Action |
+|-----|--------|
+| `w` | Toggle preview window on/off |
 | `o` | Cycle preview render mode (see table below) |
+| `+` / `=` | Increase LED size (Circles mode only) |
+| `-` / `_` | Decrease LED size (Circles mode only) |
 
 **Actions:**
 
 | Key | Action |
 |-----|--------|
-| `Space` | Snapshot (3-2-1 countdown, saves BMP) |
+| `Space` | Snapshot (3-2-1 countdown, saves BMP + PDF) |
 | `v` | Avatar capture mode (guided 18-pose session with voice prompts) |
-| `t` | Toggle transmission (toggle sending images to the LED display, or reconnect) |
+
+**Demo:**
+
+| Key | Action |
+|-----|--------|
+| `x` | Toggle auto demo mode (cycles through all features) |
+| `Shift+X` | Start manual demo mode |
+| `.` / `>` | Next demo step |
+| `,` / `<` | Previous demo step |
+| `Space` | Pause/resume auto demo |
+
+**System:**
+
+| Key | Action |
+|-----|--------|
+| `t` | Toggle transmission (pause/resume sending to LED matrix, or reconnect) |
 | `d` | Toggle debug stats |
+| `w` | Toggle preview window |
 | `r` | Reset to defaults |
 | `h` | Show help |
 | `q` | Quit |
@@ -304,7 +337,7 @@ All checks passed!
 
 ### Unit Tests
 
-159 tests covering all non-hardware modules. No camera or serial port required.
+187 tests covering all non-hardware modules. No camera or serial port required.
 
 ```bash
 # Run tests
@@ -318,17 +351,17 @@ uv run pytest tests/ -v
 
 | Module | Tests | Focus |
 |--------|-------|-------|
-| `config` | 13 | Defaults, YAML round-trip, error handling |
-| `processing/color` | 17 | RGB565 bit-exact encoding, grayscale, gamma |
-| `processing/resize` | 25 | All 3 modes × varied input shapes, letterbox black bars |
+| `ui/input` | 48 | Every key binding, demo keys, line-mode fallback, enum completeness |
+| `processing/resize` | 37 | All 3 modes × varied input shapes, letterbox black bars |
+| `processing/color` | 22 | RGB565 bit-exact encoding, grayscale, gamma |
+| `ui/overlay` | 22 | Non-mutation, shape, pixel-level drawing |
+| `config` | 15 | Defaults, YAML round-trip, error handling |
 | `processing/patterns` | 11 | Byte counts, color distinctness, uniformity |
-| `ui/input` | 24 | Every key binding, line-mode fallback, enum completeness |
-| `ui/overlay` | 9 | Non-mutation, shape, pixel-level drawing |
-| `ui/snapshot` | 5 | File creation, naming, content |
 | `ui/avatar` | 8 | Pose definitions, manifest JSON |
+| `processing/zoom` | 7 | Zoom level cycling, crop calculations |
 | `ui/tts` | 7 | Platform dispatch (mocked), silent failure |
+| `ui/snapshot` | 5 | File creation, naming, content |
 | `exceptions` | 5 | Hierarchy, catchability |
-| `ui/tts` | 7 | Platform dispatch (mocked), silent failure |
 
 **Intentionally not unit tested:** `capture/` and `transport/` — these require real hardware (camera, serial port) and belong in integration tests.
 
@@ -359,7 +392,7 @@ pro/
 │   ├── default.yaml
 │   ├── mac.yaml
 │   └── pi.yaml
-├── tests/                  # Unit tests (136 tests, no hardware required)
+├── tests/                  # Unit tests (187 tests, no hardware required)
 │   ├── conftest.py         # Shared fixtures
 │   ├── test_config.py
 │   ├── test_color.py
@@ -370,7 +403,8 @@ pro/
 │   ├── test_snapshot.py
 │   ├── test_avatar.py
 │   ├── test_exceptions.py
-│   └── test_tts.py
+│   ├── test_tts.py
+│   └── test_zoom.py
 └── src/
     └── ledportal_pro/
         ├── __init__.py
@@ -387,14 +421,16 @@ pro/
         │   ├── serial.py   # USB CDC serial transport
         │   └── factory.py  # Transport creation
         ├── processing/     # Image processing pipeline
-        │   ├── resize.py   # Frame resizing (4 display modes)
+        │   ├── resize.py   # Frame resizing (center, stretch, fit)
         │   ├── color.py    # RGB565 conversion, grayscale, gamma
+        │   ├── zoom.py     # Zoom level cycling and crop calculations
         │   └── patterns.py # Test pattern generators
         └── ui/             # User interface layer
             ├── input.py    # Single-keypress keyboard handling
             ├── overlay.py  # Frame text overlays
-            ├── snapshot.py # Snapshot file management
+            ├── snapshot.py # Snapshot file management (BMP + PDF)
             ├── avatar.py   # Guided avatar capture session
+            ├── demo.py     # Demo mode (auto, manual, pausable)
             └── tts.py      # Cross-platform text-to-speech
 ```
 

@@ -9,7 +9,7 @@ Camera → Computer (Pi, Mac, PC) → USB Serial (4M baud) → Matrix Portal M4 
 ```
 
 - **Render Speed**: **~24 FPS** (Optimized from 5 FPS)
-- **Tech Stack**: Python 3, CircuitPython 10, Optimized `bitmaptools`
+- **Tech Stack**: Python 3.14+, CircuitPython 10, Optimized `bitmaptools`
 - **Resolution**: 64x32 pixels, RGB565 color
 
 ## Project Versions
@@ -19,6 +19,7 @@ Camera → Computer (Pi, Mac, PC) → USB Serial (4M baud) → Matrix Portal M4 
 | **`pro/`** | **Professional** | Modular, production-ready Python application. Uses `uv`, strict typing, and advanced config. |
 | **`hs/`** | **High School** | Educational, single-folder version (`hs/src`) for students. Simplified code, cross-platform. |
 | **`matrix-portal/`**| **Firmware** | CircuitPython code for the Adafruit Matrix Portal M4. |
+| **`utils/`** | **Utilities** | `ledportal-utils` library for snapshot export (PNG, blocks, circles). |
 | **`macropad/`** | **MacroPad Remote** | CircuitPython macro pages for the Adafruit MacroPad RP2040. Physical button controller for all camera feed commands. |
 
 ## Raspberry Pi Workflows
@@ -54,15 +55,12 @@ See `hs/README.md` and `pro/README.md` for detailed workflows.
 
 ## Quick Start
 
-### 1. Setup Matrix Portal M4
-Fastest way to get the display running:
-1. Install CircuitPython 10.0.3+ on your Matrix Portal M4.
-2. Installing required library: `circup install adafruit_display_text`
-3. Copy `matrix-portal/code.py` to your `CIRCUITPY` drive.
-4. Additional libraries needed in `lib/`: `adafruit_display_text`, `adafruit_matrixportal`.
+No LED matrix or Matrix Portal hardware is required to develop or run the software.
+The app works with just a webcam — use the preview window (`w`) to see the LED
+simulation on screen. The `--no-display` flag skips serial port detection entirely.
 
-### 2. Run the Camera Feed
-You have two options to drive the display:
+### 1. Run the Camera Feed
+You have two options:
 
 #### Option A: Professional (Recommended)
 Fast, configurable, and robust.
@@ -82,14 +80,23 @@ uv pip install opencv-python numpy pyserial
 python camera_feed.py
 ```
 
+### 2. Setup Matrix Portal M4 (optional)
+To display on a physical LED matrix:
+1. Install CircuitPython 10.0.3+ on your Matrix Portal M4.
+2. Install required library: `circup install adafruit_display_text`
+3. Copy `matrix-portal/code.py` to your `CIRCUITPY` drive.
+4. Additional libraries needed in `lib/`: `adafruit_display_text`, `adafruit_matrixportal`.
+
 ## Features
 *   **Auto-Detection**: Code automatically finds the Matrix Portal USB device.
 *   **Cross-Platform**: Works on macOS, Linux, Raspberry Pi, and Windows.
 *   **Orientation**: `l` landscape (default) · `p` portrait
 *   **Processing**: `c` center crop (default) · `s` stretch · `f` fit (letterbox)
-*   **Effects**: `b` B&W toggle · `z` zoom (100% → 75% → 50% → 25%)
-*   **Actions**: `Space` snapshot · `v` avatar capture
-*   **System**: `t` toggle transmission · `r` reset · `d` debug · `h` help · `q` quit
+*   **Effects**: `b` B&W toggle · `m` mirror · `z` zoom (100→75→50→25%) · `o` render algorithm · `+`/`-` LED size
+*   **Actions**: `Space` snapshot (with PDF export) · `v` avatar capture
+*   **Demo**: `x` auto demo · `Shift+X` manual demo · `.`/`,` next/prev step
+*   **Preview**: `w` toggle preview window with camera + LED side-by-side
+*   **System**: `t` toggle transmission · `d` debug · `r` reset · `h` help · `q` quit
 
 ## Performance Optimizations
 We achieved a ~500% performance increase (5 FPS → 24 FPS) by:
@@ -106,7 +113,6 @@ do not appear in the software BMP snapshot, use the comparison script to
 investigate:
 
 ```bash
-cd MatrixPortalDemos
 uv run --project pro python docs/compare_rgb565.py [pro/snapshot_*.bmp]
 ```
 
