@@ -48,11 +48,23 @@ class TestSingleKeyParsing:
         assert result.command == InputCommand.NONE
         assert result.raw_input == "i"
 
-    def test_uppercase_not_mapped(self):
-        """Key map uses lowercase; uppercase should be NONE (caller lowercases)."""
+    def test_uppercase_case_insensitive(self):
+        """Most keys are case-insensitive — uppercase maps to same command."""
         handler = KeyboardHandler(single_keypress=False)
         result = handler._parse_single_key("Q")
-        assert result.command == InputCommand.NONE
+        assert result.command == InputCommand.QUIT
+
+    def test_uppercase_x_is_manual_demo(self):
+        """Shift+X maps to DEMO_MANUAL (case-sensitive)."""
+        handler = KeyboardHandler(single_keypress=False)
+        result = handler._parse_single_key("X")
+        assert result.command == InputCommand.DEMO_MANUAL
+
+    def test_lowercase_x_is_demo_toggle(self):
+        """Lowercase x maps to DEMO_TOGGLE."""
+        handler = KeyboardHandler(single_keypress=False)
+        result = handler._parse_single_key("x")
+        assert result.command == InputCommand.DEMO_TOGGLE
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +146,9 @@ class TestInputCommand:
         "TOGGLE_DEBUG",
         "TOGGLE_PREVIEW",
         "DEMO_TOGGLE",
+        "DEMO_MANUAL",
+        "DEMO_NEXT",
+        "DEMO_PREV",
         "RESET",
         "HELP",
         "QUIT",

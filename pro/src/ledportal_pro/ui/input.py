@@ -35,6 +35,9 @@ class InputCommand(Enum):
     TOGGLE_DEBUG = auto()
     TOGGLE_PREVIEW = auto()  # Toggle preview window
     DEMO_TOGGLE = auto()  # Toggle automatic demo mode
+    DEMO_MANUAL = auto()  # Start manual (navigate-only) demo mode
+    DEMO_NEXT = auto()  # Next demo step
+    DEMO_PREV = auto()  # Previous demo step
     RESET = auto()
     HELP = auto()
     QUIT = auto()
@@ -117,9 +120,9 @@ class KeyboardHandler:
         try:
             if select.select([sys.stdin], [], [], 0)[0]:
                 if self._single_keypress and self._in_context:
-                    # Single character read
-                    char = sys.stdin.read(1).lower()
-                    return self._parse_single_key(char)
+                    # Single character read — preserve case for shift-key commands
+                    raw_char = sys.stdin.read(1)
+                    return self._parse_single_key(raw_char)
                 else:
                     # Line-based input
                     line = sys.stdin.readline().strip().lower()
@@ -132,12 +135,30 @@ class KeyboardHandler:
     def _parse_single_key(self, char: str) -> InputResult:
         """Parse single keypress into command.
 
+        Case-sensitive keys (checked before lowercasing):
+        - X (shift+x): manual demo mode
+        - >/. : demo next step
+        - </,  : demo previous step
+
         Args:
-            char: Single character input.
+            char: Single character input (original case preserved).
 
         Returns:
             InputResult with the parsed command.
         """
+        # Case-sensitive keys checked first
+        case_sensitive_map = {
+            "X": InputCommand.DEMO_MANUAL,
+            ".": InputCommand.DEMO_NEXT,
+            ">": InputCommand.DEMO_NEXT,
+            ",": InputCommand.DEMO_PREV,
+            "<": InputCommand.DEMO_PREV,
+        }
+        if char in case_sensitive_map:
+            return InputResult(case_sensitive_map[char], char)
+
+        # Everything else is case-insensitive
+        lower = char.lower()
         key_map = {
             # Display orientation
             "l": InputCommand.ORIENTATION_LANDSCAPE,
@@ -168,7 +189,7 @@ class KeyboardHandler:
             "q": InputCommand.QUIT,
         }
 
-        command = key_map.get(char, InputCommand.NONE)
+        command = key_map.get(lower, InputCommand.NONE)
         return InputResult(command, char)
 
     def _parse_line(self, line: str) -> InputResult:
@@ -287,7 +308,8 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom")
     print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
-    print("  Actions:     SPACE=snapshot  v=avatar  x=demo")
+    print("  Actions:     SPACE=snapshot  v=avatar")
+    print("  Demo:        x=auto  X=manual  ,/<  ./>  SPACE=pause/resume")
     print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
