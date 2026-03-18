@@ -2,7 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2026-02-23
+## [0.2.0] - 2026-03-17
+
+### MacroPad Remote Control
+
+- Adafruit MacroPad RP2040 configuration for physical button control of all camera feed commands
+- 5-page Hotkeys layout: Processing, Effects, Actions, Orientation, System
+- Bottom-row repeaters (Reset, TX, Quit) accessible on every page
+- Encoder click for snapshot on all pages
+- Full demo navigation support (manual mode, next/prev step)
+
+### Demo Mode
+
+- Auto demo mode (`x`): cycles through all features automatically
+- Manual demo mode (`Shift+X`): step through features with `.`/`>` (next) and `,`/`<` (prev)
+- Pausable: Space pauses/resumes auto demo
+- Algorithm tour in preview window with label overlay on camera pane
+- Any unmapped key stops demo and executes the command normally
+
+### PDF Export
+
+- Snapshot PDF export with LED preview, original image, and matrix-ready print
+- US Letter page layout with full-width LED preview
+- Both landscape and portrait pixel-to-pixel BMP views
+- ISO 8601 + readable timestamp on each page
+- `--no-save` flag to disable snapshot saving to disk
+- Cross-platform printing documentation
 
 ### Connection UX
 
@@ -12,16 +37,17 @@ All notable changes to this project will be documented in this file.
 - Paused message now reads `press 't' to resume`
 - All failed reconnect attempts followed by `press 't' to try again` prompt
 
-### Terminology
-
-- Renamed `toggle display` → `toggle transmission` across all help text and READMEs (more accurate: matrix holds last frame; only frame sending stops)
-
 ### Preview Window
 
 - Blue 1-pixel border on camera side of preview shows the exact region being sent to the matrix portal
 - Center mode: inner crop rectangle reflecting the actual aspect-ratio crop
 - Stretch/fit modes: full-image border (entire frame is used)
+- Algorithm label overlay on camera pane during demo
 - Both Pro and HS versions updated
+
+### Terminology
+
+- Renamed `toggle display` → `toggle transmission` across all help text and READMEs (more accurate: matrix holds last frame; only frame sending stops)
 
 ### Python & Tooling
 
@@ -32,6 +58,7 @@ All notable changes to this project will be documented in this file.
 
 - Silent camera frame drops (transient, self-recovering — no warning printed)
 - Fixed two-press reconnect bug in `t` key handler
+- Fixed startup help: replaced stale inline copy with `print_help()` call
 
 ## [0.1.0] - 2026-02-22
 
