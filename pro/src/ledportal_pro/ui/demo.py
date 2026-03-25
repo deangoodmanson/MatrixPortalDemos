@@ -1,5 +1,6 @@
 """Demo mode that automatically cycles through all display features."""
 
+import time
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -229,25 +230,27 @@ class DemoMode:
     def next_step(self) -> DemoCommand:
         """Advance to the next step and return its command.
 
-        In AUTO mode, also resets the timer so the step gets its full duration.
+        In AUTO mode, resets the timer so the step gets its full duration before
+        auto-advancing again.
         """
         step = self._sequence[self._step_index]
         fired = DemoCommand(command=step.command, description=step.description, label=step.label)
         self._step_index = (self._step_index + 1) % len(self._sequence)
-        self._step_start_time = 0.0
+        self._step_start_time = time.time()
         return fired
 
     def prev_step(self) -> DemoCommand:
         """Go back to the previous step and return its command.
 
         Wraps around to the last step if at the beginning.
-        In AUTO mode, also resets the timer so the step gets its full duration.
+        In AUTO mode, resets the timer so the step gets its full duration before
+        auto-advancing again.
         """
         self._step_index = (self._step_index - 2) % len(self._sequence)
         step = self._sequence[self._step_index]
         fired = DemoCommand(command=step.command, description=step.description, label=step.label)
         self._step_index = (self._step_index + 1) % len(self._sequence)
-        self._step_start_time = 0.0
+        self._step_start_time = time.time()
         return fired
 
     def get_next_command(self, current_time: float) -> DemoCommand | None:

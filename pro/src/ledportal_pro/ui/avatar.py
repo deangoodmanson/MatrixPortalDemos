@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 import cv2
 
+from ..processing import apply_zoom_crop
 from .tts import speak
 
 if TYPE_CHECKING:
@@ -214,8 +215,6 @@ class AvatarCaptureManager:
 
                 # Apply zoom
                 if zoom_level < 1.0:
-                    from ..processing import apply_zoom_crop
-
                     frame = apply_zoom_crop(frame, zoom_level)
 
                 small_frame = resize_fn(

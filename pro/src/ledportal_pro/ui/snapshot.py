@@ -35,7 +35,7 @@ def _resolve_led_mode(algorithm: PreviewAlgorithm, led_size_pct: int) -> LedMode
     for threshold, mode in _CIRCLE_PCT_MODES:
         if led_size_pct <= threshold:
             return mode
-    return LedMode.CIRCLES_CORNER
+    return LedMode.CIRCLES_CORNER  # unreachable: last threshold is 999
 
 
 class SnapshotManager:

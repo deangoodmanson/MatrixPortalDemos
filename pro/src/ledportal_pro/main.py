@@ -461,6 +461,9 @@ def main() -> int:
                         )
                         cmd = demo_cmd.command
                         demo_label = demo_cmd.label
+                    elif cmd == InputCommand.SNAPSHOT and demo.state == DemoState.MANUAL:
+                        # Space is not meaningful in manual demo — ignore rather than stopping demo
+                        continue
                     elif cmd == InputCommand.SNAPSHOT and demo.state in (
                         DemoState.AUTO,
                         DemoState.PAUSED,
