@@ -1,0 +1,13 @@
+[project]
+name = "matrix-portal-emulator"
+version = "0.1.0"
+description = "Standalone LED Matrix Portal emulator — listens on USB serial and displays RGB565 frames"
+requires-python = ">=3.11"
+dependencies = [
+    "opencv-python>=4.8",
+    "numpy>=1.24",
+    "pyserial>=3.5",
+]
+
+[tool.uv]
+# Run with: uv run emulator.py [port]

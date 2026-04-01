@@ -10,16 +10,18 @@ if TYPE_CHECKING:
 
 
 def create_transport(config: TransportConfig) -> TransportBase:
-    """Create transport instance.
-
-    Currently only serial transport is supported.
+    """Create transport instance based on config.transport_type.
 
     Args:
         config: Transport configuration settings.
 
     Returns:
-        TransportBase instance.
+        TransportBase instance (SerialTransport or PipeTransport).
     """
+    if config.transport_type == "pipe":
+        from .pipe import PipeTransport
+
+        return PipeTransport(config)
     return SerialTransport(config)
 
 

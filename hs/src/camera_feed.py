@@ -711,6 +711,65 @@ def find_matrix_portal() -> Optional[str]:
 # ===========================================
 # FUNCTION: Connect to the LED Matrix
 # ===========================================
+class PipeConnection:
+    """
+    Thin wrapper around a Unix named pipe that mimics the serial.Serial interface.
+
+    This lets the rest of the code treat a pipe exactly like a serial connection,
+    without any extra if/else branches.  Start the emulator BEFORE calling
+    setup_pipe() — opening a FIFO for writing blocks until the reader is ready.
+    """
+
+    def __init__(self, path: str) -> None:
+        self._path = path
+        self._file = None
+        self.is_open = False
+
+    def open_pipe(self) -> None:
+        import stat as stat_module
+        # Create the FIFO if it doesn't exist
+        if not os.path.exists(self._path):
+            os.mkfifo(self._path)
+            print(f"  Created pipe at {self._path}")
+        elif not stat_module.S_ISFIFO(os.stat(self._path).st_mode):
+            raise OSError(f"{self._path} exists but is not a named pipe")
+        # Blocks until the emulator opens the other end for reading
+        self._file = open(self._path, 'wb', buffering=0)  # noqa: SIM115
+        self.is_open = True
+
+    def write(self, data: bytes) -> int:
+        return self._file.write(data)  # type: ignore[union-attr]
+
+    def flush(self) -> None:
+        self._file.flush()  # type: ignore[union-attr]
+
+    def close(self) -> None:
+        if self._file is not None:
+            self._file.close()
+        self.is_open = False
+
+
+def setup_pipe(pipe_path: str) -> Optional[PipeConnection]:
+    """
+    Open a named pipe (FIFO) for writing to the emulator.
+
+    The emulator must be started first — this call blocks until the emulator
+    opens the pipe for reading.
+
+    RETURNS:
+    - PipeConnection object, or None if it failed
+    """
+    print(f"  Pipe at {pipe_path} — waiting for emulator to connect...")
+    try:
+        conn = PipeConnection(pipe_path)
+        conn.open_pipe()
+        print("  Emulator connected via pipe!")
+        return conn
+    except OSError as error:
+        print(f"  ERROR: Could not open pipe: {error}")
+        return None
+
+
 def setup_usb_serial() -> Optional[serial.Serial]:
     """
     Establish a connection to the LED Matrix.
@@ -759,9 +818,11 @@ def setup_usb_serial() -> Optional[serial.Serial]:
 # ===========================================
 # FUNCTION: Send a frame to the LED Matrix
 # ===========================================
-def send_frame(serial_connection: Optional[serial.Serial], frame_bytes: bytes) -> int:
+def send_frame(serial_connection: Optional[Any], frame_bytes: bytes) -> int:
     """
-    Send one frame of image data to the LED Matrix.
+    Send one frame of image data to the LED Matrix or emulator pipe.
+
+    Works with both serial.Serial (real hardware) and PipeConnection (emulator).
 
     RETURNS:
     - Number of bytes sent, or 0 if failed
@@ -769,11 +830,15 @@ def send_frame(serial_connection: Optional[serial.Serial], frame_bytes: bytes) -
     if serial_connection is None or not serial_connection.is_open:
         return 0
 
-    serial_connection.write(FRAME_HEADER)
-    bytes_sent = serial_connection.write(frame_bytes)
-    serial_connection.flush()
-
-    return bytes_sent
+    try:
+        serial_connection.write(FRAME_HEADER)
+        bytes_sent = serial_connection.write(frame_bytes)
+        serial_connection.flush()
+        return bytes_sent
+    except BrokenPipeError:
+        # Emulator disconnected
+        serial_connection.is_open = False
+        return 0
 
 
 # ===========================================
@@ -1506,9 +1571,17 @@ def main() -> None:
         action="store_true",
         help="Disable debug/stats output (toggle with 'd' key)",
     )
+    parser.add_argument(
+        "--pipe",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Send frames to a named pipe instead of serial (e.g. /tmp/ledportal.pipe); start emulator first",
+    )
     args = parser.parse_args()
     if args.no_debug:
         debug_output = False
+    pipe_mode = args.pipe is not None  # True when using pipe instead of serial
 
     # ===========================================
     # ADVANCED: Save and modify terminal settings
@@ -1574,12 +1647,17 @@ def main() -> None:
         print(f"  Sensor modes: {len(camera.sensor_modes)}")
     print("")
 
-    # Connect to LED matrix
-    serial_connection = setup_usb_serial()
-
-    if serial_connection is None:
-        print("\nWARNING: LED Matrix not connected!")
-        print("Display paused (device not found). Press 't' to retry.")
+    # Connect to LED matrix or emulator pipe
+    if pipe_mode:
+        serial_connection = setup_pipe(args.pipe)
+        if serial_connection is None:
+            print("\nWARNING: Could not connect to emulator pipe!")
+            print("Make sure the emulator is running: uv run emulator.py --pipe", args.pipe)
+    else:
+        serial_connection = setup_usb_serial()
+        if serial_connection is None:
+            print("\nWARNING: LED Matrix not connected!")
+            print("Display paused (device not found). Press 't' to retry.")
 
     print("")
     print("=" * 50)
@@ -1680,11 +1758,14 @@ def main() -> None:
             if key == 't':
                 if display_enabled and serial_connection is None:
                     # Already enabled but disconnected — reconnect without toggling to paused
-                    print("\n=== RECONNECTING TO MATRIX PORTAL ===")
-                    serial_connection = setup_usb_serial()
+                    if pipe_mode:
+                        print("\n=== RECONNECTING TO EMULATOR PIPE ===")
+                        serial_connection = setup_pipe(args.pipe)
+                    else:
+                        print("\n=== RECONNECTING TO MATRIX PORTAL ===")
+                        serial_connection = setup_usb_serial()
                     if serial_connection is None:
-                        print("Connection failed: Matrix Portal not found")
-                        print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                        print("Connection failed — press 't' to try again.\n")
                     else:
                         print("Connected successfully!\n")
                 else:
@@ -1692,11 +1773,14 @@ def main() -> None:
                     if display_enabled:
                         print("\n=== DISPLAY: ENABLED ===")
                         if serial_connection is None:
-                            print("Attempting to reconnect to Matrix Portal...")
-                            serial_connection = setup_usb_serial()
+                            if pipe_mode:
+                                print("Attempting to reconnect to emulator pipe...")
+                                serial_connection = setup_pipe(args.pipe)
+                            else:
+                                print("Attempting to reconnect to Matrix Portal...")
+                                serial_connection = setup_usb_serial()
                             if serial_connection is None:
-                                print("Connection failed: Matrix Portal not found")
-                                print("!!! Press 't' to try again when the portal is connected. !!!\n")
+                                print("Connection failed — press 't' to try again.\n")
                             else:
                                 print("Connected successfully!\n")
                         else:
