@@ -53,6 +53,37 @@ class InputResult:
     raw_input: str | None = None
 
 
+# Case-insensitive key → command mappings shared by single-key and line-based input.
+_KEY_MAP: dict[str, InputCommand] = {
+    "l": InputCommand.ORIENTATION_LANDSCAPE,
+    "p": InputCommand.ORIENTATION_PORTRAIT,
+    "c": InputCommand.PROCESSING_CENTER,
+    "s": InputCommand.PROCESSING_STRETCH,
+    "f": InputCommand.PROCESSING_FIT,
+    "b": InputCommand.TOGGLE_BW,
+    "m": InputCommand.TOGGLE_MIRROR,
+    "z": InputCommand.ZOOM_TOGGLE,
+    "o": InputCommand.CYCLE_RENDER_ALGORITHM,
+    "+": InputCommand.LED_SIZE_INCREASE,
+    "=": InputCommand.LED_SIZE_INCREASE,
+    "-": InputCommand.LED_SIZE_DECREASE,
+    "_": InputCommand.LED_SIZE_DECREASE,
+    " ": InputCommand.SNAPSHOT,
+    "v": InputCommand.AVATAR,
+    "x": InputCommand.DEMO_TOGGLE,
+    ".": InputCommand.DEMO_NEXT,
+    ">": InputCommand.DEMO_NEXT,
+    ",": InputCommand.DEMO_PREV,
+    "<": InputCommand.DEMO_PREV,
+    "t": InputCommand.TOGGLE_DISPLAY,
+    "d": InputCommand.TOGGLE_DEBUG,
+    "w": InputCommand.TOGGLE_PREVIEW,
+    "r": InputCommand.RESET,
+    "h": InputCommand.HELP,
+    "q": InputCommand.QUIT,
+}
+
+
 class KeyboardHandler:
     """Handles non-blocking keyboard input with single-keypress support.
 
@@ -157,39 +188,7 @@ class KeyboardHandler:
         if char in case_sensitive_map:
             return InputResult(case_sensitive_map[char], char)
 
-        # Everything else is case-insensitive
-        lower = char.lower()
-        key_map = {
-            # Display orientation
-            "l": InputCommand.ORIENTATION_LANDSCAPE,
-            "p": InputCommand.ORIENTATION_PORTRAIT,
-            # Processing modes
-            "c": InputCommand.PROCESSING_CENTER,
-            "s": InputCommand.PROCESSING_STRETCH,
-            "f": InputCommand.PROCESSING_FIT,
-            # Effects
-            "b": InputCommand.TOGGLE_BW,
-            "m": InputCommand.TOGGLE_MIRROR,
-            "z": InputCommand.ZOOM_TOGGLE,
-            "o": InputCommand.CYCLE_RENDER_ALGORITHM,
-            "+": InputCommand.LED_SIZE_INCREASE,
-            "=": InputCommand.LED_SIZE_INCREASE,
-            "-": InputCommand.LED_SIZE_DECREASE,
-            "_": InputCommand.LED_SIZE_DECREASE,
-            # Actions
-            " ": InputCommand.SNAPSHOT,
-            "v": InputCommand.AVATAR,
-            "x": InputCommand.DEMO_TOGGLE,
-            # System
-            "t": InputCommand.TOGGLE_DISPLAY,
-            "d": InputCommand.TOGGLE_DEBUG,
-            "w": InputCommand.TOGGLE_PREVIEW,
-            "r": InputCommand.RESET,
-            "h": InputCommand.HELP,
-            "q": InputCommand.QUIT,
-        }
-
-        command = key_map.get(lower, InputCommand.NONE)
+        command = _KEY_MAP.get(char.lower(), InputCommand.NONE)
         return InputResult(command, char)
 
     def _parse_line(self, line: str) -> InputResult:
@@ -203,46 +202,10 @@ class KeyboardHandler:
         """
         if line == "":
             return InputResult(InputCommand.SNAPSHOT, line)
-        elif line == "l":
-            return InputResult(InputCommand.ORIENTATION_LANDSCAPE, line)
-        elif line == "p":
-            return InputResult(InputCommand.ORIENTATION_PORTRAIT, line)
-        elif line == "c":
-            return InputResult(InputCommand.PROCESSING_CENTER, line)
-        elif line == "s":
-            return InputResult(InputCommand.PROCESSING_STRETCH, line)
-        elif line == "f":
-            return InputResult(InputCommand.PROCESSING_FIT, line)
-        elif line == "b":
-            return InputResult(InputCommand.TOGGLE_BW, line)
-        elif line == "m":
-            return InputResult(InputCommand.TOGGLE_MIRROR, line)
-        elif line == "z":
-            return InputResult(InputCommand.ZOOM_TOGGLE, line)
-        elif line == "o":
-            return InputResult(InputCommand.CYCLE_RENDER_ALGORITHM, line)
-        elif line in ("+", "="):
-            return InputResult(InputCommand.LED_SIZE_INCREASE, line)
-        elif line in ("-", "_"):
-            return InputResult(InputCommand.LED_SIZE_DECREASE, line)
-        elif line == "v":
-            return InputResult(InputCommand.AVATAR, line)
-        elif line == "x":
-            return InputResult(InputCommand.DEMO_TOGGLE, line)
-        elif line == "t":
-            return InputResult(InputCommand.TOGGLE_DISPLAY, line)
-        elif line == "d":
-            return InputResult(InputCommand.TOGGLE_DEBUG, line)
-        elif line == "w":
-            return InputResult(InputCommand.TOGGLE_PREVIEW, line)
-        elif line == "r":
-            return InputResult(InputCommand.RESET, line)
-        elif line == "h":
-            return InputResult(InputCommand.HELP, line)
-        elif line in ("q", "quit", "exit"):
+        if line in ("quit", "exit"):
             return InputResult(InputCommand.QUIT, line)
-        else:
-            return InputResult(InputCommand.NONE, line)
+        command = _KEY_MAP.get(line, InputCommand.NONE)
+        return InputResult(command, line)
 
     def check_abort(self) -> bool:
         """Check if abort key (space) was pressed.
@@ -252,10 +215,7 @@ class KeyboardHandler:
         Returns:
             True if abort key was pressed.
         """
-        result = self.check_input()
-        if result.command == InputCommand.SNAPSHOT:
-            return True
-        return result.raw_input == " "
+        return self.check_input().command == InputCommand.SNAPSHOT
 
     def clear_buffer(self) -> None:
         """Clear any buffered input."""

@@ -1290,11 +1290,9 @@ def _render_led_gaussian(
 
     # Step 1: create black canvas, place one bright pixel per LED at its centre
     dots = np.zeros((out_h, out_w, 3), dtype=np.float32)
-    for row in range(h):
-        for col in range(w):
-            cy = row * scale + scale // 2   # Y coordinate of this LED's centre
-            cx = col * scale + scale // 2   # X coordinate of this LED's centre
-            dots[cy, cx] = small_frame[row, col].astype(np.float32)
+    cy = np.arange(h) * scale + scale // 2  # Y coordinate of each row's centre
+    cx = np.arange(w) * scale + scale // 2  # X coordinate of each column's centre
+    dots[np.ix_(cy, cx)] = small_frame.astype(np.float32)
 
     # Step 2: spread each point source with Gaussian blur
     # cv2.GaussianBlur with ksize=(0,0) auto-sizes the kernel from sigma

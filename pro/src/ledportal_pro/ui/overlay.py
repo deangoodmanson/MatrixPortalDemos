@@ -154,11 +154,9 @@ def _render_gaussian(
 
     # Place each LED as a single bright pixel at its cell centre
     dots = np.zeros((out_h, out_w, 3), dtype=np.float32)
-    for row in range(h):
-        for col in range(w):
-            cy = row * scale + scale // 2
-            cx = col * scale + scale // 2
-            dots[cy, cx] = small_frame[row, col].astype(np.float32)
+    cy = np.arange(h) * scale + scale // 2
+    cx = np.arange(w) * scale + scale // 2
+    dots[np.ix_(cy, cx)] = small_frame.astype(np.float32)
 
     # Spread each point source with Gaussian blur (simulates the diffuser)
     blurred = cv2.GaussianBlur(dots, (0, 0), sigma)

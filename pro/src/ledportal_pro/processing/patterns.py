@@ -30,16 +30,13 @@ def create_test_pattern(matrix_config: MatrixConfig) -> bytes:
     width = matrix_config.width
     height = matrix_config.height
 
-    frame = np.zeros((height, width, 3), dtype=np.uint8)
-
     # Create gradient pattern with LOW brightness to avoid USB power issues
     # Full brightness can cause Matrix Portal to brown out and reset
     MAX_BRIGHTNESS = 64  # Limit to 25% brightness for USB power safety
-    for y in range(height):
-        for x in range(width):
-            frame[y, x, 2] = int((x / width) * MAX_BRIGHTNESS)  # Red (BGR order)
-            frame[y, x, 1] = int((y / height) * MAX_BRIGHTNESS)  # Green
-            frame[y, x, 0] = MAX_BRIGHTNESS // 2  # Blue constant
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+    frame[:, :, 2] = (np.arange(width) / width * MAX_BRIGHTNESS).astype(np.uint8)  # Red (BGR)
+    frame[:, :, 1] = (np.arange(height) / height * MAX_BRIGHTNESS).astype(np.uint8)[:, np.newaxis]
+    frame[:, :, 0] = MAX_BRIGHTNESS // 2  # Blue constant
 
     return convert_to_rgb565(frame)
 
@@ -120,12 +117,11 @@ def create_checkerboard(
     height = matrix_config.height
 
     frame = np.zeros((height, width, 3), dtype=np.uint8)
-
-    for y in range(height):
-        for x in range(width):
-            if ((x // cell_size) + (y // cell_size)) % 2 == 0:
-                frame[y, x] = color1
-            else:
-                frame[y, x] = color2
+    checker = (np.arange(width) // cell_size)[np.newaxis, :] + (np.arange(height) // cell_size)[
+        :, np.newaxis
+    ]
+    even = checker % 2 == 0
+    frame[even] = color1
+    frame[~even] = color2
 
     return convert_to_rgb565(frame)
