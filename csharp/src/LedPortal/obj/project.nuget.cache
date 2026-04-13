@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "dgSpecHash": "DPqcz9xhFLg=",
+  "success": true,
+  "projectFilePath": "/Users/frank/projects/ledportal/csharp/src/LedPortal/LedPortal.csproj",
+  "expectedPackageFiles": [
+    "/Users/frank/.nuget/packages/opencvsharp4/4.13.0.20260330/opencvsharp4.4.13.0.20260330.nupkg.sha512",
+    "/Users/frank/.nuget/packages/opencvsharp4.runtime.osx.10.15-universal/4.7.0.20230224/opencvsharp4.runtime.osx.10.15-universal.4.7.0.20230224.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.android-arm.runtime.native.system.io.ports/10.0.5/runtime.android-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.android-arm64.runtime.native.system.io.ports/10.0.5/runtime.android-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.android-x64.runtime.native.system.io.ports/10.0.5/runtime.android-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.android-x86.runtime.native.system.io.ports/10.0.5/runtime.android-x86.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-arm.runtime.native.system.io.ports/10.0.5/runtime.linux-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-arm64.runtime.native.system.io.ports/10.0.5/runtime.linux-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-bionic-arm64.runtime.native.system.io.ports/10.0.5/runtime.linux-bionic-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-bionic-x64.runtime.native.system.io.ports/10.0.5/runtime.linux-bionic-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-musl-arm.runtime.native.system.io.ports/10.0.5/runtime.linux-musl-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-musl-arm64.runtime.native.system.io.ports/10.0.5/runtime.linux-musl-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-musl-x64.runtime.native.system.io.ports/10.0.5/runtime.linux-musl-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.linux-x64.runtime.native.system.io.ports/10.0.5/runtime.linux-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.maccatalyst-arm64.runtime.native.system.io.ports/10.0.5/runtime.maccatalyst-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.maccatalyst-x64.runtime.native.system.io.ports/10.0.5/runtime.maccatalyst-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.native.system.io.ports/10.0.5/runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.osx-arm64.runtime.native.system.io.ports/10.0.5/runtime.osx-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/runtime.osx-x64.runtime.native.system.io.ports/10.0.5/runtime.osx-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/system.commandline/3.0.0-preview.2.26159.112/system.commandline.3.0.0-preview.2.26159.112.nupkg.sha512",
+    "/Users/frank/.nuget/packages/system.io.ports/10.0.5/system.io.ports.10.0.5.nupkg.sha512",
+    "/Users/frank/.nuget/packages/yamldotnet/16.3.0/yamldotnet.16.3.0.nupkg.sha512"
+  ],
+  "logs": []
+}
