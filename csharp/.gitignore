@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+packages/
