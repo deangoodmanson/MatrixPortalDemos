@@ -410,6 +410,96 @@ def export_pdf(
     return output_path
 
 
+def export_4x6_pdf(
+    snapshot_path: str | Path,
+    output_path: str | Path | None = None,
+    mode: LedMode = LedMode.SQUARES,
+    scale_factor: int = 10,
+    background_color: tuple[int, int, int] = (0, 0, 0),
+    dpi: int = 300,
+) -> Path:
+    """Export snapshot as a 4×6″ landscape PDF sized for photo-booth printing.
+
+    The page is landscape 4×6 (6″ wide × 4″ tall). The LED matrix preview is
+    scaled to fill the content width, centred vertically, with a small timestamp
+    in the lower-right corner.
+
+    Args:
+        snapshot_path: Path to the LED matrix snapshot file (BMP or PNG).
+        output_path: Path to output PDF. If None, uses snapshot filename with
+            ``_4x6.pdf`` suffix.
+        mode: LED render mode. Default is SQUARES.
+        scale_factor: Pixels per LED cell for the preview. Default is 10.
+        background_color: RGB background colour for non-LED areas. Default black.
+        dpi: Resolution in dots per inch. Default is 300.
+
+    Returns:
+        Path to the created PDF file.
+
+    Example:
+        >>> export_4x6_pdf("snapshot_20260314_120000.bmp")
+        PosixPath('snapshot_20260314_120000_4x6.pdf')
+    """
+    snapshot_path = Path(snapshot_path)
+    if output_path is None:
+        output_path = snapshot_path.with_name(snapshot_path.stem + "_4x6.pdf")
+    output_path = Path(output_path)
+
+    # Landscape 4×6: 6″ wide × 4″ tall
+    page_w = round(6.0 * dpi)
+    page_h = round(4.0 * dpi)
+    margin = round(0.25 * dpi)
+    content_w = page_w - 2 * margin
+    content_h = page_h - 2 * margin
+
+    # Render LED preview
+    snapshot_img = Image.open(snapshot_path).convert("RGB")
+    snapshot_pixels = np.array(snapshot_img)
+    led_array = _render_led_array(snapshot_pixels, mode, scale_factor, background_color)
+    led_img = Image.fromarray(led_array, "RGB")
+
+    # Scale to fill content width; if taller than content area, scale to height instead
+    scale_by_w = content_w / led_img.width
+    scaled_h = round(led_img.height * scale_by_w)
+    if scaled_h <= content_h:
+        led_img = led_img.resize((content_w, scaled_h), Image.Resampling.NEAREST)
+    else:
+        scale_by_h = content_h / led_img.height
+        led_img = led_img.resize(
+            (round(led_img.width * scale_by_h), content_h), Image.Resampling.NEAREST
+        )
+
+    # Build canvas — white background
+    canvas = Image.new("RGB", (page_w, page_h), (255, 255, 255))
+
+    # Paste LED art centred in the content area
+    x = (page_w - led_img.width) // 2
+    y = (page_h - led_img.height) // 2
+    canvas.paste(led_img, (x, y))
+
+    # Timestamp — small, lower-right corner
+    now = datetime.now(UTC).astimezone()
+    timestamp_text = now.strftime("%Y-%m-%d  %I:%M %p")
+    draw = ImageDraw.Draw(canvas)
+    font_size = round(dpi * 0.07)  # 0.07″ ≈ 21 pt at 300 dpi
+    try:
+        font = ImageFont.truetype("Helvetica", size=font_size)
+    except OSError:
+        font = ImageFont.load_default(size=font_size)
+    bbox = draw.textbbox((0, 0), timestamp_text, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    draw.text(
+        (page_w - margin - text_w, page_h - margin - text_h),
+        timestamp_text,
+        fill=(180, 180, 180),
+        font=font,
+    )
+
+    canvas.save(output_path, "PDF", resolution=dpi)
+    return output_path
+
+
 def export_png(input_path: str | Path, output_path: str | Path | None = None) -> Path:
     """Export snapshot as PNG format.
 

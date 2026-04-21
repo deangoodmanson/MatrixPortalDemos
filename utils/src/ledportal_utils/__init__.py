@@ -2,6 +2,7 @@
 
 from .snapshot import (
     LedMode,
+    export_4x6_pdf,
     export_blocks,
     export_circles,
     export_led_preview,
@@ -10,11 +11,12 @@ from .snapshot import (
 )
 
 __all__ = [
-    "export_png",
-    "export_pdf",
+    "export_4x6_pdf",
     "export_blocks",
     "export_circles",
     "export_led_preview",
+    "export_pdf",
+    "export_png",
     "LedMode",
 ]
 __version__ = "0.1.0"
