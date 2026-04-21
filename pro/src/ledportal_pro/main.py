@@ -246,6 +246,7 @@ def run_snapshot_sequence(
             original_frame=last_original_frame,
             render_algorithm=render_algorithm,
             led_size_pct=led_size_pct,
+            auto_print=config.ui.auto_print,
         )
         print(f"\n{'=' * 60}")
         print("SNAPSHOT SAVED:")

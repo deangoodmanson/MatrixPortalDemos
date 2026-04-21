@@ -8,6 +8,7 @@ from PIL import Image
 
 from ledportal_utils import (
     LedMode,
+    export_4x6_pdf,
     export_blocks,
     export_circles,
     export_led_preview,
@@ -515,3 +516,68 @@ class TestEdgeCases:
         assert export_png(bmp_str).exists()
         assert export_blocks(bmp_str, scale_factor=2).exists()
         assert export_circles(bmp_str, scale_factor=2).exists()
+
+
+class TestExport4x6Pdf:
+    """Test 4×6 photo-booth PDF export."""
+
+    def test_creates_pdf_file(self, sample_bmp: Path) -> None:
+        output = export_4x6_pdf(sample_bmp)
+        assert output.exists()
+        assert output.suffix == ".pdf"
+
+    def test_default_output_name_has_4x6_suffix(self, sample_bmp: Path) -> None:
+        output = export_4x6_pdf(sample_bmp)
+        assert output.stem.endswith("_4x6")
+
+    def test_custom_output_path(self, sample_bmp: Path, temp_dir: Path) -> None:
+        custom = temp_dir / "booth.pdf"
+        output = export_4x6_pdf(sample_bmp, output_path=custom)
+        assert output == custom
+        assert output.exists()
+
+    def test_returns_path_object(self, sample_bmp: Path) -> None:
+        assert isinstance(export_4x6_pdf(sample_bmp), Path)
+
+    def test_accepts_string_input(self, sample_bmp: Path) -> None:
+        output = export_4x6_pdf(str(sample_bmp))
+        assert output.exists()
+
+    def test_pdf_valid_header(self, sample_bmp: Path) -> None:
+        output = export_4x6_pdf(sample_bmp)
+        with open(output, "rb") as f:
+            assert f.read(4) == b"%PDF"
+
+    def test_pdf_is_4x6_landscape_size(self, sample_bmp: Path) -> None:
+        """PDF MediaBox should be 6×4 inches = 432×288 PDF points."""
+        output = export_4x6_pdf(sample_bmp)
+        with open(output, "rb") as f:
+            content = f.read().decode("latin-1")
+        # 6″ × 4″ at 72 pt/inch = 432 × 288 points
+        assert "432" in content
+        assert "288" in content
+
+    def test_nonzero_file_size(self, sample_bmp: Path) -> None:
+        output = export_4x6_pdf(sample_bmp)
+        assert output.stat().st_size > 0
+
+    def test_different_led_modes(self, small_bmp: Path, temp_dir: Path) -> None:
+        for mode in [LedMode.SQUARES, LedMode.CIRCLES_75, LedMode.GAUSSIAN]:
+            output = export_4x6_pdf(
+                small_bmp,
+                output_path=temp_dir / f"4x6_{mode.name}.pdf",
+                mode=mode,
+                scale_factor=4,
+            )
+            assert output.exists()
+
+    def test_portrait_snapshot(self, temp_dir: Path) -> None:
+        """Should handle portrait-orientation (32×64) snapshots without crashing."""
+        portrait_array = np.zeros((64, 32, 3), dtype=np.uint8)
+        portrait_array[:, :] = [100, 200, 50]
+        portrait_img = Image.fromarray(portrait_array, "RGB")
+        portrait_path = temp_dir / "portrait.bmp"
+        portrait_img.save(portrait_path, "BMP")
+
+        output = export_4x6_pdf(portrait_path, output_path=temp_dir / "portrait_4x6.pdf")
+        assert output.exists()
