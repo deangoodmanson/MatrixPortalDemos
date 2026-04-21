@@ -36,6 +36,8 @@ class AvatarPlayer:
         asset: Loaded AvatarAsset (schema metadata).
         asset_dir: Directory containing the PNG files referenced by the asset.
         transport: Optional transport for sending frames to the matrix.
+        preview_scale: If > 0, show a scaled preview window on every render.
+            Uses INTER_NEAREST upscaling (default 0 = no window).
     """
 
     def __init__(
@@ -43,9 +45,11 @@ class AvatarPlayer:
         asset: AvatarAsset,
         asset_dir: Path,
         transport: TransportBase | None = None,
+        preview_scale: int = 0,
     ) -> None:
         self._asset = asset
         self._transport = transport
+        self._preview_scale = preview_scale
 
         # Palette as (N, 3) uint8 RGB lookup table.
         self._palette_rgb: NDArray[np.uint8] = np.array(
@@ -116,6 +120,14 @@ class AvatarPlayer:
             self._paste_indexed(frame, ovl_indices, ax, ay)
 
         frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        if self._preview_scale > 0:
+            big = cv2.resize(
+                frame_bgr,
+                (64 * self._preview_scale, 32 * self._preview_scale),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            cv2.imshow("Avatar", big)
+            cv2.waitKey(1)
         return convert_to_rgb565(frame_bgr)
 
     def send_frame(self) -> None:
