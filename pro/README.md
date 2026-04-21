@@ -13,13 +13,14 @@ Captures video from a camera, processes it, and displays on a 64x32 RGB LED matr
 - Processing modes: center crop, stretch, fit (letterbox)
 - Effects: black & white, mirror, zoom (100/75/50/25%), render algorithm cycling, LED size control
 - Snapshot capture with 3-2-1 countdown (BMP + PDF export)
-- Avatar capture mode with guided voice prompts
+- Avatar capture mode with guided voice prompts (25 poses, burst sharpness selection)
+- **Avatar asset pipeline** (`ledportal-avatar build/preview/play`): palette-quantized pixel-art face avatar with eye/mouth sprite compositing, keyboard-driven expression control, and auto-blink middleware — see [`docs/avatar.md`](../docs/avatar.md)
 - Demo mode: auto, manual (step-by-step), and pausable
 - Side-by-side preview window with multiple LED render modes
 - Cross-platform text-to-speech (macOS say, Linux espeak-ng, Windows pyttsx3)
 - YAML configuration with CLI overrides
 - Type-safe Python code (checked with `ty`)
-- 187-test unit test suite
+- 324-test unit test suite
 
 ## Requirements
 
@@ -357,6 +358,14 @@ uv run pytest tests/ -v
 | `ui/overlay` | 22 | Non-mutation, shape, pixel-level drawing |
 | `config` | 15 | Defaults, YAML round-trip, error handling |
 | `processing/patterns` | 11 | Byte counts, color distinctness, uniformity |
+| `avatar/schema` | 25 | YAML round-trip, palette validation, schema versioning |
+| `avatar/builder` | 31 | Palette extraction, sprite assembly, full integration (no MediaPipe) |
+| `avatar/player` | 10 | Compositing correctness, variant switching, RGB565 output |
+| `avatar/resolver` | 14 | Semantic→variant fallback chain, partial state merging |
+| `avatar/loop` | 7 | Frame timing, stop signal, KeyboardInterrupt handling |
+| `avatar/blink_filter` | 8 | Blink injection, duration, passthrough when already closed |
+| `avatar/keyboard` | 20 | Key→semantic mapping, multi-key polls, stop keys |
+| `avatar/webcam` | 29 | Blendshape→semantic thresholds, Euler angle extraction, mocked MediaPipe |
 | `ui/avatar` | 8 | Pose definitions, manifest JSON |
 | `processing/zoom` | 7 | Zoom level cycling, crop calculations |
 | `ui/tts` | 7 | Platform dispatch (mocked), silent failure |

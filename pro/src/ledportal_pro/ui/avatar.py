@@ -58,7 +58,17 @@ AVATAR_POSES: list[tuple[str, str, str]] = [
     ("front", "mouth_o", "Front facing, make an O shape with your mouth"),
     ("front", "mouth_ee", "Front facing, say cheese, hold the ee sound"),
     ("front", "mouth_closed", "Front facing, lips together"),
+    # Additions to reach 25 poses
+    ("front", "furrowed", "Front facing, furrow your brows like you're concentrating"),
+    ("left", "eyes_closed", "Stay left, close your eyes"),
+    ("left", "mouth_o", "Stay left, make an O shape with your mouth"),
+    ("right", "eyes_closed", "Stay right, close your eyes"),
+    ("right", "mouth_o", "Stay right, make an O shape with your mouth"),
+    ("up", "eyebrows_up", "Chin tilted up, raise your eyebrows"),
+    ("down", "eyebrows_up", "Chin tilted down, raise your eyebrows"),
 ]
+
+BURST_SIZE: int = 5
 
 
 @dataclass
@@ -69,6 +79,9 @@ class CapturedPose:
     angle: str
     expression: str
     filename: str
+    raw_filename: str
+    sharpness_score: float
+    burst_size: int
 
 
 @dataclass
@@ -137,7 +150,7 @@ class AvatarCaptureManager:
 
         for i, (angle, expression, prompt) in enumerate(AVATAR_POSES):
             pose_num = i + 1
-            result = self._capture_single_pose(
+            result, sharpness = self._capture_single_pose(
                 camera=camera,
                 transport=transport,
                 config=config,
@@ -156,12 +169,16 @@ class AvatarCaptureManager:
 
             if result == "captured":
                 filename = f"avatar_{angle}_{expression}.bmp"
+                raw_filename = f"avatar_{angle}_{expression}_raw.png"
                 session.captured.append(
                     CapturedPose(
                         pose_number=pose_num,
                         angle=angle,
                         expression=expression,
                         filename=filename,
+                        raw_filename=raw_filename,
+                        sharpness_score=sharpness,
+                        burst_size=BURST_SIZE,
                     )
                 )
             elif result == "skipped":
@@ -190,35 +207,33 @@ class AvatarCaptureManager:
         angle: str,
         expression: str,
         prompt: str,
-    ) -> str:
+    ) -> tuple[str, float]:
         """Capture a single pose with voice prompt.
 
         Returns:
-            "captured", "skipped", or "quit"
+            Tuple of (result, sharpness_score) where result is
+            "captured", "skipped", or "quit" and sharpness_score is
+            the winning frame's Laplacian variance (0.0 when not captured).
         """
         filename = f"avatar_{angle}_{expression}.bmp"
         filepath = avatar_dir / filename
+        raw_filepath = avatar_dir / f"avatar_{angle}_{expression}_raw.png"
 
         print(f"\n--- Pose {pose_num}/{total}: {angle} - {expression} ---")
         print(f"Prompt: {prompt}")
 
         speak(prompt)
 
-        frame = None
-        frame_bytes = None
         small_frame = None
+        frame_bytes = None
 
         while True:
             # Capture and display live preview
             try:
-                frame = camera.capture()
-
-                # Apply zoom
-                if zoom_level < 1.0:
-                    frame = apply_zoom_crop(frame, zoom_level)
-
+                raw_frame = camera.capture()
+                zoomed = apply_zoom_crop(raw_frame, zoom_level) if zoom_level < 1.0 else raw_frame
                 small_frame = resize_fn(
-                    frame, config.matrix, config.processing, orientation, processing_mode
+                    zoomed, config.matrix, config.processing, orientation, processing_mode
                 )
                 frame_bytes = convert_fn(small_frame)
 
@@ -238,22 +253,49 @@ class AvatarCaptureManager:
                     continue
 
                 if key == " ":
-                    # Capture this pose
-                    if small_frame is not None and frame_bytes is not None:
-                        cv2.imwrite(str(filepath), small_frame)
-                        rgb565_path = filepath.with_suffix(".bin")
-                        rgb565_path.write_bytes(frame_bytes)
+                    # Burst: capture BURST_SIZE frames, keep the sharpest
+                    best_raw: Any = None
+                    best_small: Any = None
+                    best_bytes: Any = None
+                    best_score = -1.0
 
-                        print("  Captured!")
+                    for _ in range(BURST_SIZE):
+                        try:
+                            raw = camera.capture()
+                            zoomed = apply_zoom_crop(raw, zoom_level) if zoom_level < 1.0 else raw
+                            small = resize_fn(
+                                zoomed,
+                                config.matrix,
+                                config.processing,
+                                orientation,
+                                processing_mode,
+                            )
+                            b = convert_fn(small)
+                            gray = cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
+                            score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+                            if score > best_score:
+                                best_score = score
+                                best_raw = raw
+                                best_small = small
+                                best_bytes = b
+                        except Exception:
+                            continue
+
+                    if best_small is not None and best_bytes is not None:
+                        cv2.imwrite(str(filepath), best_small)
+                        filepath.with_suffix(".bin").write_bytes(best_bytes)
+                        cv2.imwrite(str(raw_filepath), best_raw)
+
+                        print(f"  Captured! (sharpness: {best_score:.0f})")
                         speak("Got it")
-                        return "captured"
+                        return "captured", best_score
                     else:
                         speak("Failed, try again")
 
                 elif key == "s":
                     print("  Skipped")
                     speak("Skipped")
-                    return "skipped"
+                    return "skipped", 0.0
 
                 elif key == "r":
                     speak(prompt)
@@ -261,7 +303,7 @@ class AvatarCaptureManager:
                 elif key == "q":
                     print("\n  Avatar capture cancelled.")
                     speak("Cancelled")
-                    return "quit"
+                    return "quit", 0.0
 
     def _print_session_header(self, avatar_dir: Path) -> None:
         """Print session startup information."""
@@ -299,6 +341,9 @@ class AvatarCaptureManager:
                     "angle": p.angle,
                     "expression": p.expression,
                     "file": p.filename,
+                    "raw_file": p.raw_filename,
+                    "sharpness_score": p.sharpness_score,
+                    "burst_size": p.burst_size,
                 }
                 for p in session.captured
             ],
