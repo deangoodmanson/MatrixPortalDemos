@@ -108,6 +108,18 @@ def main() -> None:
         help="Path to face_landmarker.task for --driver webcam "
         "(default: same path used by 'build')",
     )
+    play_p.add_argument(
+        "--preview",
+        action="store_true",
+        help="Show a live on-screen preview window while playing",
+    )
+    play_p.add_argument(
+        "--preview-scale",
+        type=int,
+        default=8,
+        metavar="N",
+        help="Upscale factor for the preview window (default: 8)",
+    )
 
     args = parser.parse_args()
 
@@ -179,7 +191,8 @@ def _cmd_play(args: argparse.Namespace) -> None:
             print(f"Error opening serial port {args.port!r}: {exc}", file=sys.stderr)
             sys.exit(1)
 
-    player = AvatarPlayer(asset, asset_dir, transport=transport)
+    preview_scale = args.preview_scale if args.preview else 0
+    player = AvatarPlayer(asset, asset_dir, transport=transport, preview_scale=preview_scale)
     resolver = VariantResolver(asset)
 
     if args.driver == "webcam":

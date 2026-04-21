@@ -35,8 +35,8 @@ uv run ledportal-avatar build avatar_20260420_123456/
 # 3. Preview on-screen (no hardware needed).
 uv run ledportal-avatar preview avatar_asset_avatar_20260420_123456/
 
-# 4. Play on the LED matrix.
-uv run ledportal-avatar play avatar_asset_avatar_20260420_123456/ --port /dev/ttyACM0
+# 4. Play on the LED matrix with a live preview window.
+uv run ledportal-avatar play avatar_asset_avatar_20260420_123456/ --port /dev/ttyACM0 --preview
 ```
 
 ---
@@ -124,12 +124,14 @@ uv run ledportal-avatar play ASSET_DIR [options]
 |---|---|---|
 | `--driver DRIVER` | `keyboard` | Input driver: `keyboard` or `webcam`. (`audio` is not yet implemented.) |
 | `--no-blink` | off | Disable automatic blink injection. |
-| `--port PORT` | (none) | Serial port for the LED matrix (e.g. `/dev/ttyACM0`). Omit for preview-only mode. |
+| `--port PORT` | (none) | Serial port for the LED matrix (e.g. `/dev/ttyACM0`). Omit to run without hardware. |
 | `--fps FPS` | `15` | Target frame rate. |
+| `--preview` | off | Show a live on-screen window displaying exactly what is sent to the matrix. |
+| `--preview-scale N` | `8` | Upscale factor for the preview window (default 8 → 512×256). |
 | `--webcam-index N` | `0` | Camera device index for `--driver webcam`. |
 | `--webcam-model PATH` | `~/.cache/ledportal/face_landmarker.task` | Path to `face_landmarker.task` for the webcam driver. |
 
-If `--port` is omitted, frames are composited but not sent to hardware (useful for testing).
+`--preview` works with or without `--port` — useful for testing expressions without hardware, or for monitoring what is being sent to the matrix while it plays.
 
 ---
 
