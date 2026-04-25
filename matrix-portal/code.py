@@ -152,21 +152,28 @@ def show_kitten():
 
 
 def show_dog():
-    """Display dog image for self-check."""
-    print("Self-check: Displaying dog...")
-
-    # Load the dog image
+    """Display dog image."""
     dog_bitmap, dog_palette = load("/dog.bmp")
-
-    # Create a TileGrid to display the image
     dog_grid = displayio.TileGrid(dog_bitmap, pixel_shader=dog_palette)
     dog_group = displayio.Group()
     dog_group.append(dog_grid)
-
-    # Show the image
     display.root_group = dog_group
     time.sleep(5)
-    print("Self-check complete!")
+
+
+def show_bird_hint():
+    """Display 'push DOWN for silly bird game' hint."""
+    lines = [
+        ("PUSH DOWN", 0xFFFF00),
+        ("FOR SILLY", 0x00FFCC),
+        ("BIRD GAME", 0xFF8800),
+    ]
+    hint_group = displayio.Group()
+    for i, (text, color) in enumerate(lines):
+        x = (MATRIX_WIDTH - len(text) * 6) // 2
+        hint_group.append(label.Label(terminalio.FONT, text=text, color=color, x=x, y=7 + i * 10))
+    display.root_group = hint_group
+    time.sleep(5)
 
 
 def _fb_box(x, y, w, h, c):
@@ -399,11 +406,18 @@ def main():
     last_display_time = 0
     min_frame_time = 1.0 / MAX_FPS
     receiving_frames = False
+    up_cycle = 0   # cycles: 0=kitten  1=dog  2=bird-game hint
 
     while True:
-        # Check for UP button press (show kitten)
-        if not button_up.value:  # Button is pressed (active low)
-            show_kitten()
+        # UP button cycles: kitten → dog → "push DOWN for bird game" hint
+        if not button_up.value:
+            if up_cycle == 0:
+                show_kitten()
+            elif up_cycle == 1:
+                show_dog()
+            else:
+                show_bird_hint()
+            up_cycle = (up_cycle + 1) % 3
             # Return to waiting screen
             if receiving_frames:
                 display.root_group = group
