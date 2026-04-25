@@ -246,11 +246,14 @@ def run_flappy_bird():
     _fb_lbl.hidden = False
     display.refresh()
 
-    # Wait for either button to start
+    # Title screen: UP=play, DOWN=exit, both=exit
     while button_up.value and button_down.value:
         time.sleep(0.02)
-    while not button_up.value or not button_down.value:
+    down_was_pressed = not button_down.value
+    while not button_up.value or not button_down.value:   # wait for full release
         time.sleep(0.02)
+    if down_was_pressed:
+        return   # back to camera / waiting screen
 
     # Game loop
     _fb_lbl.hidden = True
@@ -260,10 +263,14 @@ def run_flappy_bird():
     score  = 0
     spd    = _FB_SPD0
     dist   = 32.0
-    prev   = not button_up.value or not button_down.value
+    prev   = False
 
     while True:
-        cur = not button_up.value or not button_down.value
+        up   = not button_up.value
+        down = not button_down.value
+        if up and down:
+            return   # both buttons = quit mid-game
+        cur = up or down
         if cur and not prev:
             bird_v = _FB_FLAP
         prev = cur
