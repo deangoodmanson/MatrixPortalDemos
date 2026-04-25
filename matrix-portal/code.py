@@ -19,6 +19,7 @@ import struct
 import struct
 import bitmaptools
 import array
+import random
 
 # Matrix configuration
 MATRIX_WIDTH = 64
@@ -63,6 +64,48 @@ button_up.switch_to_input(pull=digitalio.Pull.UP)
 
 button_down = digitalio.DigitalInOut(board.BUTTON_DOWN)
 button_down.switch_to_input(pull=digitalio.Pull.UP)
+
+# ── Flappy Bird resources (created once at startup) ───────────────────────
+_FB_SKY, _FB_GND, _FB_PIPE, _FB_CAP, _FB_YEL, _FB_WHT, _FB_BLK, _FB_CYN = range(8)
+_fb_pal = displayio.Palette(8)
+_fb_pal[_FB_SKY]  = 0x001040
+_fb_pal[_FB_GND]  = 0x7A5C1E
+_fb_pal[_FB_PIPE] = 0x00AA00
+_fb_pal[_FB_CAP]  = 0x007700
+_fb_pal[_FB_YEL]  = 0xFFD700
+_fb_pal[_FB_WHT]  = 0xFFFFFF
+_fb_pal[_FB_BLK]  = 0x000000
+_fb_pal[_FB_CYN]  = 0x00FFCC
+
+_fb_bmp = displayio.Bitmap(MATRIX_WIDTH, MATRIX_HEIGHT, 8)
+_fb_tg  = displayio.TileGrid(_fb_bmp, pixel_shader=_fb_pal)
+_fb_grp = displayio.Group()
+_fb_grp.append(_fb_tg)
+_fb_lbl = label.Label(terminalio.FONT, text=" ", color=0xFFFFFF)
+_fb_grp.append(_fb_lbl)
+
+_FB_GY   = 27     # ground top y
+_FB_BX   = 10     # bird fixed x
+_FB_BW   = 4      # bird width
+_FB_BH   = 3      # bird height
+_FB_PW   = 5      # pipe width
+_FB_GAP  = 9      # gap between top/bottom pipe
+_FB_GRAV = 0.32
+_FB_FLAP = -2.7
+_FB_SPD0 = 1.0
+
+_FB_DIGITS = [
+    [0b111, 0b101, 0b101, 0b101, 0b111],  # 0
+    [0b010, 0b110, 0b010, 0b010, 0b111],  # 1
+    [0b111, 0b001, 0b111, 0b100, 0b111],  # 2
+    [0b111, 0b001, 0b111, 0b001, 0b111],  # 3
+    [0b101, 0b101, 0b111, 0b001, 0b001],  # 4
+    [0b111, 0b100, 0b111, 0b001, 0b111],  # 5
+    [0b111, 0b100, 0b111, 0b101, 0b111],  # 6
+    [0b111, 0b001, 0b001, 0b001, 0b001],  # 7
+    [0b111, 0b101, 0b111, 0b101, 0b111],  # 8
+    [0b111, 0b101, 0b111, 0b001, 0b111],  # 9
+]
 
 
 def show_startup_message():
@@ -124,6 +167,150 @@ def show_dog():
     display.root_group = dog_group
     time.sleep(5)
     print("Self-check complete!")
+
+
+def _fb_box(x, y, w, h, c):
+    x1 = max(0, x);             y1 = max(0, y)
+    x2 = min(MATRIX_WIDTH, x+w); y2 = min(MATRIX_HEIGHT, y+h)
+    if x2 > x1 and y2 > y1:
+        bitmaptools.fill_region(_fb_bmp, x1, y1, x2, y2, c)
+
+def _fb_dot(x, y, c):
+    if 0 <= x < MATRIX_WIDTH and 0 <= y < MATRIX_HEIGHT:
+        _fb_bmp[x, y] = c
+
+def _fb_draw_score(n):
+    x = 1
+    for ch in str(n):
+        rows = _FB_DIGITS[int(ch)]
+        for r, bits in enumerate(rows):
+            for b in range(3):
+                if bits & (1 << (2 - b)):
+                    _fb_dot(x + b, 1 + r, _FB_CYN)
+        x += 4
+
+def _fb_draw_bird(by):
+    by = int(by)
+    _fb_box(_FB_BX, by, _FB_BW, _FB_BH, _FB_YEL)
+    _fb_dot(_FB_BX + 3, by,     _FB_WHT)
+    _fb_dot(_FB_BX + 3, by + 1, _FB_BLK)
+
+def _fb_draw_pipe(px, gy):
+    px = int(px)
+    if gy > 2:
+        _fb_box(px, 0, _FB_PW, gy - 2, _FB_PIPE)
+    if gy > 0:
+        _fb_box(px - 1, gy - 2, _FB_PW + 2, 2, _FB_CAP)
+    bot = gy + _FB_GAP
+    if bot < _FB_GY:
+        _fb_box(px - 1, bot, _FB_PW + 2, 2, _FB_CAP)
+    if bot + 2 < _FB_GY:
+        _fb_box(px, bot + 2, _FB_PW, _FB_GY - bot - 2, _FB_PIPE)
+
+def _fb_draw_scene():
+    _fb_box(0, 0, MATRIX_WIDTH, _FB_GY, _FB_SKY)
+    _fb_box(0, _FB_GY, MATRIX_WIDTH, MATRIX_HEIGHT - _FB_GY, _FB_GND)
+
+def _fb_collides(by, pipes):
+    by = int(by)
+    if by < 0 or by + _FB_BH > _FB_GY:
+        return True
+    for p in pipes:
+        px = int(p[0])
+        gy = p[1]
+        if _FB_BX + _FB_BW > px and _FB_BX < px + _FB_PW:
+            if by < gy or by + _FB_BH > gy + _FB_GAP:
+                return True
+    return False
+
+def run_flappy_bird():
+    """Run Flappy Bird. Returns after game over so the caller can restore the display."""
+    print("Launching Flappy Bird...")
+    display.root_group = _fb_grp
+
+    # Title screen
+    _fb_draw_scene()
+    _fb_draw_pipe(44, 8)
+    _fb_draw_pipe(30, 14)
+    _fb_draw_bird(_FB_GY // 2 - 1)
+    _fb_lbl.text = "FLAP!"
+    _fb_lbl.color = 0xFFD700
+    _fb_lbl.x, _fb_lbl.y = 17, 8
+    _fb_lbl.hidden = False
+    display.refresh()
+
+    # Wait for either button to start
+    while button_up.value and button_down.value:
+        time.sleep(0.02)
+    while not button_up.value or not button_down.value:
+        time.sleep(0.02)
+
+    # Game loop
+    _fb_lbl.hidden = True
+    bird_y = float(_FB_GY // 2)
+    bird_v = 0.0
+    pipes  = []          # [x, gap_y, scored]
+    score  = 0
+    spd    = _FB_SPD0
+    dist   = 32.0
+    prev   = not button_up.value or not button_down.value
+
+    while True:
+        cur = not button_up.value or not button_down.value
+        if cur and not prev:
+            bird_v = _FB_FLAP
+        prev = cur
+
+        bird_v += _FB_GRAV
+        bird_y += bird_v
+
+        dist -= spd
+        if dist <= 0:
+            dist = 32.0
+            gy = random.randint(4, _FB_GY - _FB_GAP - 4)
+            pipes.append([float(MATRIX_WIDTH), gy, False])
+
+        kept = []
+        for p in pipes:
+            p[0] -= spd
+            if not p[2] and p[0] + _FB_PW < _FB_BX:
+                p[2] = True
+                score += 1
+                spd = _FB_SPD0 + score * 0.08
+            if p[0] > -_FB_PW - 2:
+                kept.append(p)
+        pipes = kept
+
+        _fb_draw_scene()
+        for p in pipes:
+            _fb_draw_pipe(p[0], p[1])
+        _fb_draw_bird(bird_y)
+        _fb_draw_score(score)
+        display.refresh()
+
+        if _fb_collides(bird_y, pipes):
+            break
+
+        time.sleep(0.05)   # ~20 FPS
+
+    # Game over: flash score then return
+    _fb_lbl.text = "DEAD"
+    _fb_lbl.color = 0xFF2200
+    _fb_lbl.x, _fb_lbl.y = 20, 16
+    _fb_lbl.hidden = False
+    for _ in range(3):
+        _fb_draw_scene()
+        _fb_draw_score(score)
+        display.refresh()
+        time.sleep(0.22)
+        bitmaptools.fill_region(_fb_bmp, 0, 0, MATRIX_WIDTH, MATRIX_HEIGHT, _FB_BLK)
+        display.refresh()
+        time.sleep(0.13)
+    _fb_draw_scene()
+    _fb_draw_score(score)
+    display.refresh()
+    time.sleep(1.5)
+    print(f"Flappy Bird — score: {score}")
 
 
 def receive_frame(serial):
@@ -226,9 +413,9 @@ def main():
             while not button_up.value:
                 time.sleep(0.01)
 
-        # Check for DOWN button press (show dog)
-        if not button_down.value:  # Button is pressed (active low)
-            show_dog()
+        # Check for DOWN button press (launch Flappy Bird)
+        if not button_down.value:
+            run_flappy_bird()
             # Return to waiting screen
             if receiving_frames:
                 display.root_group = group
