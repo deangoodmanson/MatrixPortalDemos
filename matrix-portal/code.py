@@ -20,6 +20,7 @@ import struct
 import bitmaptools
 import array
 import random
+from adafruit_debouncer import Debouncer
 
 # Matrix configuration
 MATRIX_WIDTH = 64
@@ -58,12 +59,18 @@ group = displayio.Group()
 group.append(tile_grid)
 display.root_group = group
 
-# Setup buttons for self-check
-button_up = digitalio.DigitalInOut(board.BUTTON_UP)
-button_up.switch_to_input(pull=digitalio.Pull.UP)
+# Setup buttons — all three wrapped in Debouncer for clean edge detection.
+# Debouncer.fell  → fires once when button is pressed   (HIGH→LOW, active-low)
+# Debouncer.rose  → fires once when button is released  (LOW→HIGH)
+# Debouncer.value → current debounced state (False = pressed)
+# Requires debouncer.update() to be called every loop iteration.
+_pin_up = digitalio.DigitalInOut(board.BUTTON_UP)
+_pin_up.switch_to_input(pull=digitalio.Pull.UP)
+button_up = Debouncer(_pin_up)
 
-button_down = digitalio.DigitalInOut(board.BUTTON_DOWN)
-button_down.switch_to_input(pull=digitalio.Pull.UP)
+_pin_dn = digitalio.DigitalInOut(board.BUTTON_DOWN)
+_pin_dn.switch_to_input(pull=digitalio.Pull.UP)
+button_down = Debouncer(_pin_dn)
 
 # External snap / flap button
 # ── Wiring ────────────────────────────────────────────────────────────────
@@ -74,8 +81,9 @@ button_down.switch_to_input(pull=digitalio.Pull.UP)
 #  The 3.3 V pad sits between them and should not be connected to the switch.
 #  No external resistor is needed; the internal pull-up is enabled below.
 # ─────────────────────────────────────────────────────────────────────────
-ext_button = digitalio.DigitalInOut(board.A0)
-ext_button.switch_to_input(pull=digitalio.Pull.UP)
+_pin_ext = digitalio.DigitalInOut(board.A0)
+_pin_ext.switch_to_input(pull=digitalio.Pull.UP)
+ext_button = Debouncer(_pin_ext)
 
 # ── Flappy Bird resources (created once at startup) ───────────────────────
 _FB_SKY, _FB_GND, _FB_PIPE, _FB_CAP, _FB_YEL, _FB_WHT, _FB_BLK, _FB_CYN = range(8)
@@ -266,14 +274,19 @@ def run_flappy_bird():
     _fb_lbl.hidden = False
     display.refresh()
 
-    # Title screen: UP or ext=play, DOWN=exit, UP+DOWN=exit
-    while button_up.value and button_down.value and ext_button.value:
-        time.sleep(0.02)
-    down_was_pressed = not button_down.value
+    # Drain any buttons still held from the DOWN press that launched us
     while not button_up.value or not button_down.value or not ext_button.value:
-        time.sleep(0.02)   # wait for full release
-    if down_was_pressed:
-        return   # back to camera / waiting screen
+        button_up.update(); button_down.update(); ext_button.update()
+        time.sleep(0.01)
+
+    # Title screen: UP or ext=play, DOWN=exit
+    while True:
+        button_up.update(); button_down.update(); ext_button.update()
+        if button_down.fell:
+            return                          # back to camera / waiting screen
+        if button_up.fell or ext_button.fell:
+            break                           # start game
+        time.sleep(0.02)
 
     # Game loop
     _fb_lbl.hidden = True
@@ -283,18 +296,13 @@ def run_flappy_bird():
     score  = 0
     spd    = _FB_SPD0
     dist   = 32.0
-    prev   = False
 
     while True:
-        up   = not button_up.value
-        down = not button_down.value
-        ext  = not ext_button.value
-        if up and down:
-            return   # both built-in buttons = quit mid-game
-        cur = up or down or ext
-        if cur and not prev:
+        button_up.update(); button_down.update(); ext_button.update()
+        if not button_up.value and not button_down.value:
+            return                          # both built-in buttons held = quit
+        if button_up.fell or button_down.fell or ext_button.fell:
             bird_v = _FB_FLAP
-        prev = cur
 
         bird_v += _FB_GRAV
         bird_y += bird_v
@@ -437,8 +445,10 @@ def main():
     up_cycle = 0   # cycles: 0=kitten  1=dog  2=bird-game hint
 
     while True:
+        button_up.update(); button_down.update(); ext_button.update()
+
         # UP button cycles: kitten → dog → "push DOWN for bird game" hint
-        if not button_up.value:
+        if button_up.fell:
             if up_cycle == 0:
                 show_kitten()
             elif up_cycle == 1:
@@ -446,31 +456,29 @@ def main():
             else:
                 show_bird_hint()
             up_cycle = (up_cycle + 1) % 3
-            # Return to waiting screen
             if receiving_frames:
                 display.root_group = group
             else:
                 show_startup_message()
-            # Wait for button release
+            # Resync debouncer after the blocking show_* call (may have been
+            # seconds with no update(); drain any held state before continuing)
             while not button_up.value:
+                button_up.update()
                 time.sleep(0.01)
 
         # External snap button — sends SNAP to the USB console for the host to act on
-        if not ext_button.value:
+        if ext_button.fell:
             trigger_snap()
-            while not ext_button.value:
-                time.sleep(0.01)
 
-        # Check for DOWN button press (launch Flappy Bird)
-        if not button_down.value:
+        # DOWN button launches Flappy Bird
+        if button_down.fell:
             run_flappy_bird()
-            # Return to waiting screen
             if receiving_frames:
                 display.root_group = group
             else:
                 show_startup_message()
-            # Wait for button release
             while not button_down.value:
+                button_down.update()
                 time.sleep(0.01)
 
         current_time = time.monotonic()
