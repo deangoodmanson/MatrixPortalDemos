@@ -65,6 +65,18 @@ button_up.switch_to_input(pull=digitalio.Pull.UP)
 button_down = digitalio.DigitalInOut(board.BUTTON_DOWN)
 button_down.switch_to_input(pull=digitalio.Pull.UP)
 
+# External snap / flap button
+# ── Wiring ────────────────────────────────────────────────────────────────
+#  One side of the momentary switch → A0  pad on the Matrix Portal M4
+#  Other side of the switch         → GND pad on the Matrix Portal M4
+#
+#  Both pads are on the bottom edge of the board, labelled A0 and GND.
+#  The 3.3 V pad sits between them and should not be connected to the switch.
+#  No external resistor is needed; the internal pull-up is enabled below.
+# ─────────────────────────────────────────────────────────────────────────
+ext_button = digitalio.DigitalInOut(board.A0)
+ext_button.switch_to_input(pull=digitalio.Pull.UP)
+
 # ── Flappy Bird resources (created once at startup) ───────────────────────
 _FB_SKY, _FB_GND, _FB_PIPE, _FB_CAP, _FB_YEL, _FB_WHT, _FB_BLK, _FB_CYN = range(8)
 _fb_pal = displayio.Palette(8)
@@ -161,6 +173,14 @@ def show_dog():
     time.sleep(5)
 
 
+def trigger_snap():
+    """Signal the host to save a snapshot.
+    Prints SNAP to the USB console port; the host can monitor that port
+    (usb_cdc.console / the first CDC serial device) and act on it.
+    """
+    print("SNAP")
+
+
 def show_bird_hint():
     """Display 'push DOWN for silly bird game' hint."""
     lines = [
@@ -246,12 +266,12 @@ def run_flappy_bird():
     _fb_lbl.hidden = False
     display.refresh()
 
-    # Title screen: UP=play, DOWN=exit, both=exit
-    while button_up.value and button_down.value:
+    # Title screen: UP or ext=play, DOWN=exit, UP+DOWN=exit
+    while button_up.value and button_down.value and ext_button.value:
         time.sleep(0.02)
     down_was_pressed = not button_down.value
-    while not button_up.value or not button_down.value:   # wait for full release
-        time.sleep(0.02)
+    while not button_up.value or not button_down.value or not ext_button.value:
+        time.sleep(0.02)   # wait for full release
     if down_was_pressed:
         return   # back to camera / waiting screen
 
@@ -268,9 +288,10 @@ def run_flappy_bird():
     while True:
         up   = not button_up.value
         down = not button_down.value
+        ext  = not ext_button.value
         if up and down:
-            return   # both buttons = quit mid-game
-        cur = up or down
+            return   # both built-in buttons = quit mid-game
+        cur = up or down or ext
         if cur and not prev:
             bird_v = _FB_FLAP
         prev = cur
@@ -432,6 +453,12 @@ def main():
                 show_startup_message()
             # Wait for button release
             while not button_up.value:
+                time.sleep(0.01)
+
+        # External snap button — sends SNAP to the USB console for the host to act on
+        if not ext_button.value:
+            trigger_snap()
+            while not ext_button.value:
                 time.sleep(0.01)
 
         # Check for DOWN button press (launch Flappy Bird)
