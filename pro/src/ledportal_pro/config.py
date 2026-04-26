@@ -39,6 +39,8 @@ class TransportConfig:
     timeout: float = 0.1
     write_timeout: float = 0.5
     frame_header: bytes = field(default=b"IMG1")
+    transport_type: str = "serial"  # "serial" or "pipe" (Unix only)
+    pipe_path: str = "/tmp/ledportal.pipe"
 
 
 @dataclass

@@ -78,6 +78,13 @@ def parse_args() -> argparse.Namespace:
         help="Serial port to use (overrides auto-detection)",
     )
     parser.add_argument(
+        "--pipe",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Use a named pipe instead of serial (e.g. /tmp/ledportal.pipe); start emulator first",
+    )
+    parser.add_argument(
         "--bw",
         action="store_true",
         help="Start in black and white mode",
@@ -389,10 +396,13 @@ def main() -> int:
         print("=" * 60)
         print()
 
-        # Setup transport
+        # Setup transport — pipe mode overrides serial if --pipe is given
+        if args.pipe:
+            config.transport.transport_type = "pipe"
+            config.transport.pipe_path = args.pipe
         transport = create_transport(config.transport)
         try:
-            transport.connect(args.port)
+            transport.connect(None if args.pipe else args.port)
             print(f"Connected to Matrix Portal on {transport.port}")
 
             # Send test patterns to verify connection (only if display enabled)
