@@ -662,6 +662,8 @@ def main() -> int:
                     black_and_white = False
                     mirror_mode = False
                     zoom_level = 1.0
+                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
+                    led_size_pct = LED_SIZE_DEFAULT
                     demo.start_auto()
                     print("\n=== DEMO MODE: AUTO (SPACE=pause, ./>=next, ,/<=prev, x=stop) ===\n")
                     continue
@@ -672,6 +674,8 @@ def main() -> int:
                     black_and_white = False
                     mirror_mode = False
                     zoom_level = 1.0
+                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
+                    led_size_pct = LED_SIZE_DEFAULT
                     demo.start_manual()
                     demo_cmd = demo.next_step()
                     demo_label = demo_cmd.label
