@@ -219,8 +219,9 @@ def play():
         if cur and not prev:
             if bird_v < 0:              # already climbing → smoke or fire
                 climb_flap_count += 1
-                is_fire = (climb_flap_count % 3 == 0)
-                puffs.append([BX - 2, int(bird_y) + 1, 0, is_fire])
+                if climb_flap_count > 1:
+                    is_fire = (climb_flap_count % 3 == 0)
+                    puffs.append([BX - 2, int(bird_y) + 1, 0, is_fire])
             else:
                 climb_flap_count = 0
             bird_v = FLAP
