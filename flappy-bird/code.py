@@ -28,9 +28,11 @@ matrix = rgbmatrix.RGBMatrix(
 )
 display = framebufferio.FramebufferDisplay(matrix, auto_refresh=False)
 
-# 8-colour palette
+# 10-colour palette
 SKY, GND, PIPE, CAP, YELLOW, WHITE, BLACK, CYAN = range(8)
-pal = displayio.Palette(8)
+GREY = 8   # smoke puff
+FIRE = 9   # fire puff (every 3rd consecutive climbing flap)
+pal = displayio.Palette(10)
 pal[SKY]    = 0x001040   # dark blue sky
 pal[GND]    = 0x7A5C1E   # brown ground
 pal[PIPE]   = 0x00AA00   # green pipe body
@@ -39,8 +41,10 @@ pal[YELLOW] = 0xFFD700   # bird body
 pal[WHITE]  = 0xFFFFFF   # bird eye white
 pal[BLACK]  = 0x000000   # bird pupil / flash
 pal[CYAN]   = 0x00FFCC   # score digits
+pal[GREY]   = 0x888888   # smoke puff
+pal[FIRE]   = 0xFF6600   # fire puff
 
-bmp = displayio.Bitmap(W, H, 8)
+bmp = displayio.Bitmap(W, H, 16)
 tg  = displayio.TileGrid(bmp, pixel_shader=pal)
 
 # Root display group: bitmap layer + text overlay
@@ -125,6 +129,16 @@ def draw_bird(by, bird_v=0.0):
     elif bird_v > 0.5 and by + BH < GY:
         dot(BX + 1, by + BH, YELLOW)             # wing down
 
+def draw_puff(puff):
+    x, y, age, is_fire = puff[0], puff[1], puff[2], puff[3]
+    c = FIRE if is_fire else GREY
+    if age == 0:                         # fresh: 3-pixel Y-cluster
+        dot(x,     y,     c)
+        dot(x - 1, y - 1, c)
+        dot(x - 1, y + 1, c)
+    else:                                # age 1: single fading pixel
+        dot(x - 2, y, c)
+
 def draw_pipe(px, gy):
     px = int(px)
     # Top pipe: body + cap on its bottom edge
@@ -189,18 +203,26 @@ def show_dead(score):
 
 # ── Main game loop ────────────────────────────────────────────────────────
 def play():
-    bird_y = float(GY // 2)
-    bird_v = 0.0
-    pipes  = []          # each entry: [x, gap_y, scored_flag]
-    score  = 0
-    spd    = SPD0
-    dist   = 32.0        # pixels until next pipe spawns
-    prev   = any_pressed()
-    lbl.hidden = True
+    bird_y           = float(GY // 2)
+    bird_v           = 0.0
+    pipes            = []          # each entry: [x, gap_y, scored_flag]
+    score            = 0
+    spd              = SPD0
+    dist             = 32.0        # pixels until next pipe spawns
+    puffs            = []          # [x, y, age, is_fire]
+    climb_flap_count = 0
+    prev             = any_pressed()
+    lbl.hidden       = True
 
     while True:
         cur = any_pressed()
         if cur and not prev:
+            if bird_v < 0:              # already climbing → smoke or fire
+                climb_flap_count += 1
+                is_fire = (climb_flap_count % 3 == 0)
+                puffs.append([BX - 2, int(bird_y) + 1, 0, is_fire])
+            else:
+                climb_flap_count = 0
             bird_v = FLAP
         prev = cur
 
@@ -231,6 +253,13 @@ def play():
         draw_scene()
         for p in pipes:
             draw_pipe(p[0], p[1])
+        alive = []
+        for p in puffs:
+            draw_puff(p)
+            p[2] += 1
+            if p[2] < 2:
+                alive.append(p)
+        puffs = alive
         draw_bird(bird_y, bird_v)
         draw_score(score)
         display.refresh()

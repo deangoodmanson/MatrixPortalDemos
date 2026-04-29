@@ -87,7 +87,9 @@ ext_button = Debouncer(_pin_ext)
 
 # ── Flappy Bird resources (created once at startup) ───────────────────────
 _FB_SKY, _FB_GND, _FB_PIPE, _FB_CAP, _FB_YEL, _FB_WHT, _FB_BLK, _FB_CYN = range(8)
-_fb_pal = displayio.Palette(8)
+_FB_GREY = 8   # smoke puff
+_FB_FIRE = 9   # fire puff (every 3rd consecutive climbing flap)
+_fb_pal = displayio.Palette(10)
 _fb_pal[_FB_SKY]  = 0x001040
 _fb_pal[_FB_GND]  = 0x7A5C1E
 _fb_pal[_FB_PIPE] = 0x00AA00
@@ -96,8 +98,10 @@ _fb_pal[_FB_YEL]  = 0xFFD700
 _fb_pal[_FB_WHT]  = 0xFFFFFF
 _fb_pal[_FB_BLK]  = 0x000000
 _fb_pal[_FB_CYN]  = 0x00FFCC
+_fb_pal[_FB_GREY] = 0x888888
+_fb_pal[_FB_FIRE] = 0xFF6600
 
-_fb_bmp = displayio.Bitmap(MATRIX_WIDTH, MATRIX_HEIGHT, 8)
+_fb_bmp = displayio.Bitmap(MATRIX_WIDTH, MATRIX_HEIGHT, 16)
 _fb_tg  = displayio.TileGrid(_fb_bmp, pixel_shader=_fb_pal)
 _fb_grp = displayio.Group()
 _fb_grp.append(_fb_tg)
@@ -235,6 +239,16 @@ def _fb_draw_bird(by, bird_v=0.0):
     elif bird_v > 0.5 and by + _FB_BH < _FB_GY:
         _fb_dot(_FB_BX + 1, by + _FB_BH, _FB_YEL)         # wing down
 
+def _fb_draw_puff(puff):
+    x, y, age, is_fire = puff[0], puff[1], puff[2], puff[3]
+    c = _FB_FIRE if is_fire else _FB_GREY
+    if age == 0:                         # fresh: 3-pixel Y-cluster
+        _fb_dot(x,     y,     c)
+        _fb_dot(x - 1, y - 1, c)
+        _fb_dot(x - 1, y + 1, c)
+    else:                                # age 1: single fading pixel
+        _fb_dot(x - 2, y, c)
+
 def _fb_draw_pipe(px, gy):
     px = int(px)
     if gy > 2:
@@ -295,18 +309,26 @@ def run_flappy_bird():
 
     # Game loop
     _fb_lbl.hidden = True
-    bird_y = float(_FB_GY // 2)
-    bird_v = 0.0
-    pipes  = []          # [x, gap_y, scored]
-    score  = 0
-    spd    = _FB_SPD0
-    dist   = 32.0
+    bird_y           = float(_FB_GY // 2)
+    bird_v           = 0.0
+    pipes            = []          # [x, gap_y, scored]
+    score            = 0
+    spd              = _FB_SPD0
+    dist             = 32.0
+    puffs            = []          # [x, y, age, is_fire]
+    climb_flap_count = 0
 
     while True:
         button_up.update(); button_down.update(); ext_button.update()
         if not button_up.value and not button_down.value:
             return                          # both built-in buttons held = quit
         if button_up.fell or button_down.fell or ext_button.fell:
+            if bird_v < 0:                  # already climbing → smoke or fire
+                climb_flap_count += 1
+                is_fire = (climb_flap_count % 3 == 0)
+                puffs.append([_FB_BX - 2, int(bird_y) + 1, 0, is_fire])
+            else:
+                climb_flap_count = 0
             bird_v = _FB_FLAP
 
         bird_v += _FB_GRAV
@@ -332,6 +354,13 @@ def run_flappy_bird():
         _fb_draw_scene()
         for p in pipes:
             _fb_draw_pipe(p[0], p[1])
+        alive = []
+        for p in puffs:
+            _fb_draw_puff(p)
+            p[2] += 1
+            if p[2] < 2:
+                alive.append(p)
+        puffs = alive
         _fb_draw_bird(bird_y, bird_v)
         _fb_draw_score(score)
         display.refresh()
