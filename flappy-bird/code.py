@@ -114,11 +114,16 @@ def draw_score(n):
                     dot(x + b, 1 + r, CYAN)
         x += 4
 
-def draw_bird(by):
+def draw_bird(by, bird_v=0.0):
     by = int(by)
     box(BX, by, BW, BH, YELLOW)
     dot(BX + 3, by,     WHITE)   # eye white
     dot(BX + 3, by + 1, BLACK)   # pupil
+    # Wing pixel animates with velocity: up when climbing, down when falling
+    if bird_v < -1.0:
+        dot(BX + 1, by - 1, YELLOW)              # wing up
+    elif bird_v > 0.5 and by + BH < GY:
+        dot(BX + 1, by + BH, YELLOW)             # wing down
 
 def draw_pipe(px, gy):
     px = int(px)
@@ -226,7 +231,7 @@ def play():
         draw_scene()
         for p in pipes:
             draw_pipe(p[0], p[1])
-        draw_bird(bird_y)
+        draw_bird(bird_y, bird_v)
         draw_score(score)
         display.refresh()
 

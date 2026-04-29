@@ -224,11 +224,16 @@ def _fb_draw_score(n):
                     _fb_dot(x + b, 1 + r, _FB_CYN)
         x += 4
 
-def _fb_draw_bird(by):
+def _fb_draw_bird(by, bird_v=0.0):
     by = int(by)
     _fb_box(_FB_BX, by, _FB_BW, _FB_BH, _FB_YEL)
     _fb_dot(_FB_BX + 3, by,     _FB_WHT)
     _fb_dot(_FB_BX + 3, by + 1, _FB_BLK)
+    # Wing pixel animates with velocity: up when climbing, down when falling
+    if bird_v < -1.0:
+        _fb_dot(_FB_BX + 1, by - 1, _FB_YEL)              # wing up
+    elif bird_v > 0.5 and by + _FB_BH < _FB_GY:
+        _fb_dot(_FB_BX + 1, by + _FB_BH, _FB_YEL)         # wing down
 
 def _fb_draw_pipe(px, gy):
     px = int(px)
@@ -327,7 +332,7 @@ def run_flappy_bird():
         _fb_draw_scene()
         for p in pipes:
             _fb_draw_pipe(p[0], p[1])
-        _fb_draw_bird(bird_y)
+        _fb_draw_bird(bird_y, bird_v)
         _fb_draw_score(score)
         display.refresh()
 
