@@ -74,14 +74,14 @@ button_down = Debouncer(_pin_dn)
 
 # External snap / flap button
 # ── Wiring ────────────────────────────────────────────────────────────────
-#  One side of the momentary switch → A0  pad on the Matrix Portal M4
+#  One side of the momentary switch → A1  pad on the Matrix Portal M4
 #  Other side of the switch         → GND pad on the Matrix Portal M4
 #
-#  Both pads are on the bottom edge of the board, labelled A0 and GND.
-#  The 3.3 V pad sits between them and should not be connected to the switch.
-#  No external resistor is needed; the internal pull-up is enabled below.
+#  A0 is used internally by the board and is not exposed as a solder pad.
+#  A1 is the first available pad on the bottom edge (labelled A1).
+#  No external resistor needed; internal pull-up is enabled below.
 # ─────────────────────────────────────────────────────────────────────────
-_pin_ext = digitalio.DigitalInOut(board.A0)
+_pin_ext = digitalio.DigitalInOut(board.A1)
 _pin_ext.switch_to_input(pull=digitalio.Pull.UP)
 ext_button = Debouncer(_pin_ext)
 
