@@ -105,6 +105,27 @@ def parse_args() -> argparse.Namespace:
         help="Disable saving snapshots to disk (countdown still runs)",
     )
 
+    # A0 hardware snap button (reads "SNAP" from the device console serial port)
+    snap_group = parser.add_mutually_exclusive_group()
+    snap_group.add_argument(
+        "--a0-snap",
+        action="store_true",
+        default=None,
+        help="Enable A0 hardware snap button (overrides config; requires --console-port or console_port in config)",
+    )
+    snap_group.add_argument(
+        "--no-a0-snap",
+        action="store_true",
+        help="Disable A0 hardware snap button (overrides config; releases console port for REPL access)",
+    )
+    parser.add_argument(
+        "--console-port",
+        type=str,
+        default=None,
+        metavar="PORT",
+        help="Matrix Portal CDC console serial port for A0 snap (e.g. /dev/ttyACM0 or /dev/cu.usbmodem14101)",
+    )
+
     return parser.parse_args()
 
 
@@ -289,6 +310,78 @@ def run_snapshot_sequence(
     return True
 
 
+def instant_snapshot(
+    last_sent_frame: object,
+    transport: object | None,
+    snapshot_manager: SnapshotManager,
+    orientation: str,
+    debug_mode: bool = False,
+    render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
+    led_size_pct: int = LED_SIZE_DEFAULT,
+) -> None:
+    """Save an instant snapshot from the last frame sent to the device.
+
+    Triggered by the A0 hardware snap button on the Matrix Portal.  Uses the
+    cached last-sent frame so there is no 3-2-1 countdown delay and no new
+    camera capture — the saved image exactly matches what the device displayed
+    when the button was pressed (drift < one frame period, typically < 50 ms).
+
+    Args:
+        last_sent_frame: The last processed frame sent to the device (numpy array).
+        transport: Transport instance for showing a brief confirmation flash.
+        snapshot_manager: Snapshot manager instance.
+        orientation: Current orientation (landscape/portrait).
+        debug_mode: Whether to save debug files alongside snapshot.
+        render_algorithm: Current LED preview render algorithm.
+        led_size_pct: Current LED size percentage.
+    """
+    import numpy as np
+
+    if not isinstance(last_sent_frame, np.ndarray):
+        print("  A0 SNAP: no frame available yet — waiting for first frame")
+        return
+
+    print("\n=== A0 SNAP (hardware button) ===")
+    speak("Got it")
+
+    try:
+        frame_bytes = convert_to_rgb565(last_sent_frame)
+        snapshot_path, debug_path, rgb565_path, pdf_path = snapshot_manager.save(
+            last_sent_frame,
+            frame_bytes,
+            orientation,
+            debug_mode=debug_mode,
+            render_algorithm=render_algorithm,
+            led_size_pct=led_size_pct,
+        )
+
+        print(f"\n{'=' * 60}")
+        print("SNAPSHOT SAVED (A0 hardware button):")
+        print(f"  Snapshot: {snapshot_path}")
+        if pdf_path:
+            print(f"  PDF: {pdf_path}")
+        if debug_mode:
+            if debug_path:
+                print(f"  Debug raw: {debug_path}")
+            if rgb565_path:
+                print(f"  Debug RGB565: {rgb565_path}")
+        print(f"{'=' * 60}\n")
+
+        # Brief blue border flash on the device to confirm capture
+        if transport is not None:
+            from .transport.base import TransportBase
+
+            if isinstance(transport, TransportBase):
+                try:
+                    bordered = draw_border(last_sent_frame, color=(255, 0, 0))
+                    transport.send_frame(convert_to_rgb565(bordered))
+                except Exception:
+                    pass
+
+    except Exception as e:
+        print(f"  A0 SNAP failed: {e}")
+
+
 def main() -> int:
     """Main entry point.
 
@@ -311,6 +404,12 @@ def main() -> int:
         config.processing.orientation = args.orientation
     if args.processing is not None:
         config.processing.processing_mode = args.processing
+    if args.no_a0_snap:
+        config.a0_snap_button = False
+    elif args.a0_snap:
+        config.a0_snap_button = True
+    if args.console_port is not None:
+        config.console_port = args.console_port
 
     # Print startup info
     print("LED Portal Pro v0.2.0")
@@ -343,6 +442,7 @@ def main() -> int:
     # Initialize state
     camera = None
     transport = None
+    console_serial = None  # CDC console port for A0 hardware snap button
     black_and_white = args.bw
     orientation = config.processing.orientation
     processing_mode = config.processing.processing_mode
@@ -415,6 +515,22 @@ def main() -> int:
         # Setup UI components
         snapshot_manager = SnapshotManager()
 
+        # Open console port for A0 hardware snap button (if configured)
+        if config.a0_snap_button and config.console_port:
+            from .transport.serial import open_console_port
+
+            try:
+                console_serial = open_console_port(config.console_port)
+                print(f"A0 snap button enabled — console port: {config.console_port}")
+                print("  NOTE: REPL/terminal access to the device is suspended while running.")
+                print("  Use --no-a0-snap or set a0_snap_button: false to restore REPL access.")
+            except Exception as e:
+                print(f"Warning: Could not open console port {config.console_port}: {e}")
+                print("  A0 snap button disabled.  Check console_port in config.")
+        elif config.a0_snap_button and not config.console_port:
+            print("A0 snap button enabled in config but console_port is not set — feature inactive.")
+            print("  Set console_port in your YAML or use --console-port PORT to activate.")
+
         print()
         print("Starting capture loop...")
         print_help(
@@ -444,6 +560,26 @@ def main() -> int:
                 # Check for keyboard input
                 input_result = keyboard.check_input()
                 cmd = input_result.command
+
+                # Poll A0 hardware snap button via console port
+                if console_serial is not None and console_serial.is_open:
+                    try:
+                        while console_serial.in_waiting > 0:
+                            line = console_serial.readline().decode("utf-8", errors="ignore").strip()
+                            if line == "SNAP" and save_enabled:
+                                instant_snapshot(
+                                    last_sent_frame,
+                                    transport,
+                                    snapshot_manager,
+                                    orientation,
+                                    debug_mode=debug_mode,
+                                    render_algorithm=render_algorithm,
+                                    led_size_pct=led_size_pct,
+                                )
+                            elif line == "SNAP" and not save_enabled:
+                                print("  A0 SNAP received but snapshot saving disabled (--no-save)")
+                    except Exception:
+                        pass  # Serial errors don't crash the main loop
 
                 # Demo mode input handling
                 if demo.is_active:
@@ -887,6 +1023,11 @@ def main() -> int:
             camera.close()
         if transport is not None:
             transport.disconnect()
+        if console_serial is not None:
+            try:
+                console_serial.close()
+            except Exception:
+                pass
         if config.ui.show_preview:
             import cv2 as _cv2
 

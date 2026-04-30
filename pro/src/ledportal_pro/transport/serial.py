@@ -134,6 +134,40 @@ class SerialTransport(TransportBase):
         return None
 
 
+def open_console_port(port: str) -> serial.Serial:
+    """Open the Matrix Portal CDC console serial port for reading SNAP commands.
+
+    The console port is the lower-numbered of the two CDC ports the Matrix Portal
+    exposes when usb_cdc.enable(console=True, data=True) is active in boot.py.
+    Baud rate is irrelevant for USB CDC but 115200 is the conventional default.
+
+    Args:
+        port: Path to the console serial port (e.g. /dev/ttyACM0 or
+              /dev/cu.usbmodem14101).
+
+    Returns:
+        Opened serial.Serial instance with non-blocking readline (timeout=0).
+
+    Raises:
+        ConnectionError: If the port cannot be opened.
+    """
+    try:
+        ser = serial.Serial(
+            port,
+            baudrate=115200,
+            timeout=0,       # non-blocking: returns immediately if no data
+            dsrdtr=False,
+            rtscts=False,
+        )
+        # Prevent DTR from resetting the device
+        ser.dtr = False
+        ser.rts = False
+        ser.reset_input_buffer()
+        return ser
+    except serial.SerialException as e:
+        raise ConnectionError(f"Failed to open console port {port}: {e}") from e
+
+
 def find_matrix_portal_port() -> str | None:
     """Find Matrix Portal M4 USB CDC serial port.
 

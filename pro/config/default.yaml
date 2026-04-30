@@ -29,3 +29,38 @@ ui:
 
 target_fps: 30
 debug_save_frames: false
+
+# ── A0 Hardware Snap Button ───────────────────────────────────────────────────
+# The Matrix Portal M4 exposes a JST PH 3-pin connector near the 5V screw
+# terminal.  Wiring a momentary pushbutton between the white (A0) and black
+# (GND) wires gives you a physical shutter button.  The device firmware reads
+# this pin and prints "SNAP" to its USB console serial port when pressed.
+#
+# ledportal reads that console port and triggers an INSTANT snapshot —
+# bypassing the 3-2-1 countdown — using the last frame already on the device,
+# keeping image drift to < one frame period (50 ms at 20 FPS).
+#
+# IMPORTANT: Opening the console port prevents terminal/REPL access to the
+# device while ledportal is running.  Set a0_snap_button to false to release
+# the console port and restore terminal/REPL monitoring.
+#
+# Other uses for this feature:
+#   - Wireless camera remote (radio/IR → microcontroller → A0)
+#   - Foot pedal trigger for hands-free photo booth
+#   - Any switch/relay that can pull A0 to GND momentarily
+#
+a0_snap_button: true   # Enable reading SNAP commands from the console port
+
+# Explicit path to the Matrix Portal CDC console serial port.
+# The device exposes two CDC ports; the LOWER-numbered one is the console.
+#
+# macOS example:  /dev/cu.usbmodem14101
+#                 (run `ls /dev/cu.usbmodem*` before/after plugging in to identify)
+#
+# Linux example:  /dev/ttyACM0
+#                 (run `ls /dev/ttyACM*` before/after plugging in to identify)
+#
+# Set to null to disable the A0 snap button even if a0_snap_button is true.
+# The higher-numbered port is automatically used for the data (frame) stream.
+#
+console_port: null     # e.g. /dev/cu.usbmodem14101 (Mac) or /dev/ttyACM0 (Linux)

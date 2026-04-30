@@ -29,3 +29,18 @@ ui:
 
 target_fps: 30
 debug_save_frames: false
+
+# ── A0 Hardware Snap Button ───────────────────────────────────────────────────
+# Physical shutter button wired to the A0 pin on the Matrix Portal JST connector.
+# When pressed, the device prints "SNAP" to its CDC console port and ledportal
+# triggers an instant snapshot (no countdown) from the last frame on the device.
+#
+# NOTE: Opening the console port prevents terminal/REPL access to the device
+# while ledportal is running.  Set a0_snap_button: false to restore REPL access.
+#
+# To find your console port on macOS:
+#   ls /dev/cu.usbmodem*   (before and after plugging in — the NEW lower-numbered
+#                           entry is the console port; the higher one is data)
+#
+a0_snap_button: true        # Set to false to disable and restore REPL access
+console_port: null          # e.g. /dev/cu.usbmodem14101 — set to enable A0 snap
