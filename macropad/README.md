@@ -1,7 +1,7 @@
 # LED Portal MacroPad Key Mapping
 
 Macro configuration files for the [Adafruit MacroPad RP2040](https://www.adafruit.com/product/5128)
-using the [MACROPAD Hotkeys](https://learn.adafruit.com/macropad-hotkeys) app to control
+using the [MACROPAD Hotkeys](https://learn.adafruit.com/macropad-hotkeys) app ([Code](https://github.com/adafruit/Adafruit_Learning_System_Guides/tree/main/Macropad_Hotkeys)) to control 
 [MatrixPortalDemos](https://github.com/deangoodmanson/MatrixPortalDemos) .
 
 ## Setup
