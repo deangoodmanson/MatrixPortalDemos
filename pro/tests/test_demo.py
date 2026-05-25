@@ -2,8 +2,6 @@
 
 import time
 
-import pytest
-
 from ledportal_pro.ui.demo import DemoMode, DemoState, _build_sequence
 from ledportal_pro.ui.input import InputCommand
 
@@ -188,7 +186,7 @@ class TestGetNextCommand:
 
         t = 1000.0
         # Consume steps up to (but not including) the instant step
-        for i in range(instant_idx):
+        for _i in range(instant_idx):
             while demo.get_next_command(t) is None:
                 t += 3.1
 
