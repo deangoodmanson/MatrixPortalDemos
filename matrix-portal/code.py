@@ -187,9 +187,15 @@ else:
                 else:
                     image_display.show_startup_message(display)
 
-            # EXT → snapshot (only active from the hub)
+            # EXT → enter sticky game mode (same as DOWN)
             elif ext_button.fell:
-                image_display.trigger_snap()
+                current_mode = "game"
+                silly_bird.run(display, button_up, button_down, ext_button)
+                current_mode = "hub"
+                if receiving_frames:
+                    display.root_group = camera_group
+                else:
+                    image_display.show_startup_message(display)
 
         # Camera feed is a passive overlay — keep receiving frames in any mode
         current_time = time.monotonic()

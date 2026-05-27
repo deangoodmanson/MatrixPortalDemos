@@ -39,8 +39,8 @@ GROUND_Y      = 27     # y-coordinate of the ground in landscape mode
 FRAME_DELAY   = 0.05   # seconds between frames  (smaller = faster game, ~20 FPS at 0.05)
 
 # Portrait orientation overrides (hold device tall-side up, USB at bottom)
-# Portrait has a taller play area, so it needs a stronger flap and bigger gap.
-PORTRAIT_FLAP_POWER = -1.8
+# Portrait has a taller play area so the gap and pipe width differ,
+# but the bird's flap arc is the same number of pixels in both modes.
 PORTRAIT_PIPE_GAP   = 14
 PORTRAIT_PIPE_WIDTH = 3
 PORTRAIT_GROUND_Y   = 56   # ground sits ~87% down the 64-tall virtual space
@@ -115,6 +115,7 @@ _DIGITS = [
 ]
 
 
+
 # ── COORDINATE TRANSFORM HELPERS ──────────────────────────────────────────────
 # The display is always 64 wide × 32 tall.  In portrait mode we pretend the
 # game world is 32 wide × 64 tall and rotate every pixel 90° clockwise when
@@ -151,7 +152,7 @@ def _init_mode(portrait):
         _PW   = PORTRAIT_PIPE_WIDTH
         _GAP  = PORTRAIT_PIPE_GAP
         _GRAV = GRAVITY
-        _FLAP = PORTRAIT_FLAP_POWER
+        _FLAP = FLAP_POWER
         _SPD0 = START_SPEED
     else:
         # Landscape: virtual space matches the physical 64×32 display
@@ -326,17 +327,16 @@ def _show_quit_confirm(display, button_up, button_down, ext_button):
 
 
 def _show_stats_screen(display, score, stats, button_up, button_down, ext_button):
-    """Show the post-game stats screen until any button is pressed."""
-    # Stats screen always renders in landscape on the physical 64×32 display:
-    # labels can't be rotated, so the player reads them by holding the device
-    # flat/landscape. Force landscape coords so internal state is consistent
-    # whether the previous round was portrait or landscape.
+    """Show the post-game stats screen until any button is pressed.
+
+    Always renders in landscape so the player can read labels upright.
+    terminalio.FONT character cells are ~8 px tall; four lines at y=5,12,19,26
+    (7 px steps) fit the 32 px display but share ~1 px between adjacent rows.
+    See PIXEL_FONT.md if you want gap-free hand-drawn text here instead.
+    """
     _init_mode(False)
-    # "NEW BEST!" celebrates whenever this run ties or beats the session high
     new_best = score > 0 and score >= stats["high_score"]
     grp = displayio.Group()
-    # terminalio.FONT label y is the vertical CENTRE of the character cell (~7px tall).
-    # y=5 puts the top of line 1 at ~row 2 (safe); 7px steps = tight stack, no gaps.
     grp.append(label.Label(terminalio.FONT,
         text="NEW BEST!" if new_best else "- STATS -",
         color=0xFF6600 if new_best else 0xFFD700, x=4, y=5))
@@ -398,16 +398,20 @@ def run(display, button_up, button_down, ext_button):
         _draw_scene()
         _draw_bird(float(_GY // 2))
 
-        # Two-line mode hint at the bottom — active mode is bright, inactive is dim.
-        # label y is the vertical centre of the character cell.
-        _lbl.text    = "UP:WIDE"
-        _lbl.color   = 0xFFFFFF if not portrait else 0x555555
-        _lbl.x, _lbl.y = 1, 22
-        _lbl.hidden  = False
-        _lbl2.text   = "DN:TALL"
-        _lbl2.color  = 0xFFFFFF if portrait else 0x555555
-        _lbl2.x, _lbl2.y = 1, 29
-        _lbl2.hidden = False
+        # Mode hint at the bottom — only in landscape; in portrait the labels are
+        # sideways (labels can't rotate), and the rotated game scene speaks for itself.
+        if not portrait:
+            _lbl.text      = "UP:WIDE"
+            _lbl.color     = 0xFFFFFF
+            _lbl.x, _lbl.y = 1, 22
+            _lbl.hidden    = False
+            _lbl2.text     = "DN:TALL"
+            _lbl2.color    = 0x555555
+            _lbl2.x, _lbl2.y = 1, 29
+            _lbl2.hidden   = False
+        else:
+            _lbl.hidden  = True
+            _lbl2.hidden = True
         display.refresh()
 
         while True:
@@ -520,19 +524,12 @@ def run(display, button_up, button_down, ext_button):
         # Post-game screens always render in landscape: labels can't be rotated, so
         # the player reads them by holding the device flat/landscape. If the round
         # was portrait, hint "TILT" so the player knows to rotate the device.
-        was_portrait = _portrait
         _init_mode(False)   # landscape coords so the label reads upright
         _lbl.text   = "OOF!"
         _lbl.color  = 0xFF2200
         _lbl.x, _lbl.y = 20, 16   # centred on 64×32: x=(64-24)//2, y≈H//2
         _lbl.hidden = False
-        if was_portrait:
-            _lbl2.text   = "TILT"
-            _lbl2.color  = 0x888888
-            _lbl2.x, _lbl2.y = 22, 27   # below OOF!, near bottom of landscape view
-            _lbl2.hidden = False
-        else:
-            _lbl2.hidden = True
+        _lbl2.hidden = True
         display.refresh()
 
         # Update stats and announce the result over USB serial
