@@ -383,46 +383,39 @@ def run(display, button_up, button_down, ext_button):
 
     portrait = False   # remembered across rounds — sticks to last chosen mode
 
-    while True:  # outer loop: title → game → stats → title
-        # ── Title screen (always landscape for readability) ───────────────────
-        _init_mode(False)               # landscape constants for title draw
+    while True:  # outer loop: ready → game → stats → ready
+        # ── Ready state: draw the game scene and wait for first input ─────────
+        # No separate title screen — the game scene IS the menu.
+        # UP = play landscape, DOWN = play portrait, EXT = play in current mode.
+        # To exit game mode: hold both UP+DN → QUIT_CONFIRM → UP/DN.
+        _init_mode(portrait)
         display.root_group = _grp
         _draw_scene()
-        _draw_pipe(44, 8)
-        _draw_pipe(30, 14)
-        _draw_bird(_GY // 2 - 1)
+        _draw_bird(float(_GY // 2))
 
-        _lbl.text  = "SILLY!"
-        _lbl.color = 0xFFD700
-        _lbl.x, _lbl.y = 14, 8
-        _lbl.hidden = False
-
-        # Bottom hint: "UP:W DN:T" centred (9 chars × 6px = 54px → x=5)
-        _lbl2.text  = "UP:W DN:T"
-        _lbl2.color = 0x888888
+        # Small mode hint in the bottom corner so the player knows their options
+        _lbl2.text   = "UP:W DN:T"
+        _lbl2.color  = 0x888888
         _lbl2.x, _lbl2.y = 5, 26
         _lbl2.hidden = False
-
+        _lbl.hidden  = True
         display.refresh()
 
-        # Pick a mode: UP/EXT = landscape (wide), DOWN = portrait (tall)
-        # portrait is remembered from the previous round — title highlights current choice.
-        # EXT starts a game in the current mode so clicker-only players never need device buttons.
-        # To exit game mode entirely: hold both UP+DN → QUIT_CONFIRM → UP/DN.
         while True:
             button_up.update(); button_down.update(); ext_button.update()
             if ext_button.fell:
-                break            # keep portrait as-is from last round
+                break                   # play in current mode
             if button_up.fell:
                 portrait = False
+                _init_mode(False)
                 break
             if button_down.fell:
                 portrait = True
+                _init_mode(True)
                 break
             time.sleep(0.02)
 
-        _lbl.hidden = _lbl2.hidden = True
-        _init_mode(portrait)
+        _lbl2.hidden = True
         print(f"Silly Bird — {'portrait' if portrait else 'landscape'}")
 
         # ── Game loop ─────────────────────────────────────────────────────────
