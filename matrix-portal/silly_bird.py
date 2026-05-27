@@ -292,9 +292,9 @@ def _show_instructions(display, button_up, button_down, ext_button):
     grp = displayio.Group()
     # Title-screen controls
     grp.append(label.Label(terminalio.FONT, text="UP:W DN:T",  color=0x888888, x=2, y=5))
-    # In-game controls
+    # In-game: any button flaps; EXT starts a new game from the title screen too
     grp.append(label.Label(terminalio.FONT, text="TAP=FLAP",   color=0x00FFCC, x=2, y=16))
-    grp.append(label.Label(terminalio.FONT, text="EXT=EXIT",   color=0xFF6600, x=2, y=25))
+    grp.append(label.Label(terminalio.FONT, text="EXT=PLAY",   color=0xFF6600, x=2, y=25))
     display.root_group = grp
     display.refresh()
     while True:
@@ -305,19 +305,23 @@ def _show_instructions(display, button_up, button_down, ext_button):
 
 
 def _show_quit_confirm(display, button_up, button_down, ext_button):
-    """Ask the player to confirm quitting mid-game; return True to quit, False to resume."""
+    """Ask the player to confirm quitting; return True to quit, False to resume.
+
+    EXT = keep playing (back to title) so clicker-only players never get stuck.
+    UP or DOWN = exit game mode back to the hub.
+    """
     grp = displayio.Group()
-    grp.append(label.Label(terminalio.FONT, text="QUIT?",   color=0xFF2200, x=16, y=8))
-    grp.append(label.Label(terminalio.FONT, text="EXT=YES", color=0xFF6600, x=4,  y=19))
-    grp.append(label.Label(terminalio.FONT, text="TAP=NO",  color=0x00FFCC, x=7,  y=28))
+    grp.append(label.Label(terminalio.FONT, text="QUIT?",    color=0xFF2200, x=16, y=5))
+    grp.append(label.Label(terminalio.FONT, text="UP/DN=HUB",color=0xFF6600, x=1,  y=16))
+    grp.append(label.Label(terminalio.FONT, text="EXT=PLAY", color=0x00FFCC, x=4,  y=25))
     display.root_group = grp
     display.refresh()
     while True:
         button_up.update(); button_down.update(); ext_button.update()
-        if ext_button.fell:
-            return True    # confirmed quit → go back to title
         if button_up.fell or button_down.fell:
-            return False   # resume the game
+            return True    # exit to hub
+        if ext_button.fell:
+            return False   # keep playing — go back to title
         time.sleep(0.02)
 
 
@@ -397,14 +401,13 @@ def run(display, button_up, button_down, ext_button):
 
         display.refresh()
 
-        # Pick a mode: UP = landscape (wide), DOWN = portrait (tall), EXT = quit
+        # Pick a mode: UP/EXT = landscape (wide), DOWN = portrait (tall)
+        # EXT starts landscape so the clicker-only player never needs the device buttons.
+        # To exit game mode entirely: hold both UP+DN → QUIT_CONFIRM → UP/DN.
         portrait = False
         while True:
             button_up.update(); button_down.update(); ext_button.update()
-            if ext_button.fell:
-                _lbl.hidden = _lbl2.hidden = True
-                return                      # leave Silly Bird entirely
-            if button_up.fell:
+            if button_up.fell or ext_button.fell:
                 portrait = False
                 break
             if button_down.fell:
