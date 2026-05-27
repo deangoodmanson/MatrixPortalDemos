@@ -50,7 +50,11 @@ ext_button = Debouncer(_pin_ext)
 
 # ── Config ────────────────────────────────────────────────────────────────
 MODE = os.getenv("MODE", "both")
-print(f"Matrix Portal M4 — mode: {MODE}")
+try:
+    from version import BUILD
+except ImportError:
+    BUILD = "unknown"
+print(f"Matrix Portal M4 — mode: {MODE}  build: {BUILD}")
 
 # ── Mode: silly_bird ──────────────────────────────────────────────────────
 if MODE == "silly_bird":
