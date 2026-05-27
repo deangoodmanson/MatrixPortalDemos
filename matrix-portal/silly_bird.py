@@ -330,15 +330,17 @@ def _show_stats_screen(display, score, stats, button_up, button_down, ext_button
     # "NEW BEST!" celebrates whenever this run ties or beats the session high
     new_best = score > 0 and score >= stats["high_score"]
     grp = displayio.Group()
+    # terminalio.FONT renders ~7px tall per line; y is the top of the cell.
+    # y=1 avoids the 1-pixel top-clip on capital letters; 7px spacing = tight stack.
     grp.append(label.Label(terminalio.FONT,
         text="NEW BEST!" if new_best else "- STATS -",
-        color=0xFF6600 if new_best else 0xFFD700, x=4, y=3))
+        color=0xFF6600 if new_best else 0xFFD700, x=4, y=1))
     grp.append(label.Label(terminalio.FONT,
-        text=f"SCORE {score}", color=0xFFFFFF, x=4, y=12))
+        text=f"SCORE {score}", color=0xFFFFFF, x=4, y=9))
     grp.append(label.Label(terminalio.FONT,
-        text=f"BEST  {stats['high_score']}", color=0x00FFCC, x=4, y=21))
+        text=f"BEST  {stats['high_score']}", color=0x00FFCC, x=4, y=17))
     grp.append(label.Label(terminalio.FONT,
-        text=f"RUNS  {stats['games_played']}", color=0x00FF00, x=4, y=28))
+        text=f"RUNS  {stats['games_played']}", color=0x00FF00, x=4, y=25))
     display.root_group = grp
     display.refresh()
     while True:
