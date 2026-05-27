@@ -15,9 +15,13 @@ MATRIX_HEIGHT = 32
 FRAME_SIZE    = MATRIX_WIDTH * MATRIX_HEIGHT * 2  # RGB565, 2 bytes/pixel
 FRAME_HEADER  = b'IMG1'
 
+# Kept at module level so the GC doesn't collect groups that are still displayed.
+_current_group = None
+
 
 def show_startup_message(display):
     """Show the idle hub screen: USB:MIRROR / UP:PHOTOS / DN:BIRD."""
+    global _current_group
     rows = [
         ("MIRROR",     0x0066FF,  5),
         ("UP:PHOTOS",  0xADD8E6, 15),
@@ -27,6 +31,7 @@ def show_startup_message(display):
     for text, color, y in rows:
         x = max(0, (MATRIX_WIDTH - len(text) * 6) // 2)
         grp.append(label.Label(terminalio.FONT, text=text, color=color, x=x, y=y))
+    _current_group = grp
     display.root_group = grp
 
 
@@ -45,9 +50,11 @@ def _wait_for_button(button_up, button_down, ext_button):
 
 def _show_photo(display, path):
     """Load and display a BMP image."""
+    global _current_group
     bmp, pal = load(path)
     grp = displayio.Group()
     grp.append(displayio.TileGrid(bmp, pixel_shader=pal))
+    _current_group = grp
     display.root_group = grp
 
 
@@ -89,6 +96,7 @@ def show_kitten(display):
 
 def _show_bird_hint(display):
     """Show the 'PUSH DOWN FOR SILLY BIRD GAME' teaser screen."""
+    global _current_group
     lines = [
         ("PUSH DOWN", 0xFFFF00),
         ("FOR SILLY", 0x00FFCC),
@@ -98,6 +106,7 @@ def _show_bird_hint(display):
     for i, (text, color) in enumerate(lines):
         x = (MATRIX_WIDTH - len(text) * 6) // 2
         grp.append(label.Label(terminalio.FONT, text=text, color=color, x=x, y=7 + i * 10))
+    _current_group = grp
     display.root_group = grp
 
 

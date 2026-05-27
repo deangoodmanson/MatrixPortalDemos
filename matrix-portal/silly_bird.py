@@ -26,6 +26,7 @@ import terminalio
 
 GRAVITY       = 0.18   # how fast the bird falls   (bigger = falls faster)
 FLAP_POWER    = -1.1   # how high one flap goes    (more negative = stronger flap)
+DOUBLE_FLAP   = -1.7   # extra boost on consecutive climbing flaps (tail effect)
 PIPE_GAP      = 9      # pixels between top/bottom pipe  (bigger = easier)
 PIPE_WIDTH    = 5      # how wide each pipe is
 START_SPEED   = 1.0    # pipe scroll speed at game start
@@ -459,9 +460,12 @@ def run(display, button_up, button_down, ext_button):
                     if climb_flap_count > 1:
                         is_fire = (climb_flap_count % 3 == 0)
                         puffs.append([_BX - 2, int(bird_y) + 1, 0, is_fire])
+                        bird_v = DOUBLE_FLAP   # double-jump boost when tail fires
+                    else:
+                        bird_v = _FLAP
                 else:
                     climb_flap_count = 0
-                bird_v = _FLAP
+                    bird_v = _FLAP
 
             # Physics: gravity pulls the bird down each frame
             bird_v += _GRAV
@@ -524,12 +528,17 @@ def run(display, button_up, button_down, ext_button):
         # Post-game screens always render in landscape: labels can't be rotated, so
         # the player reads them by holding the device flat/landscape. If the round
         # was portrait, hint "TILT" so the player knows to rotate the device.
+        was_portrait = _portrait
         _init_mode(False)   # landscape coords so the label reads upright
+        _draw_scene()       # clear portrait bitmap content so OOF! has a clean background
         _lbl.text   = "OOF!"
         _lbl.color  = 0xFF2200
-        _lbl.x, _lbl.y = 20, 16   # centred on 64×32: x=(64-24)//2, y≈H//2
+        _lbl.x, _lbl.y = 20, 13
         _lbl.hidden = False
-        _lbl2.hidden = True
+        _lbl2.text    = "TILT" if was_portrait else " "
+        _lbl2.color   = 0x888888
+        _lbl2.x, _lbl2.y = 20, 24
+        _lbl2.hidden  = False
         display.refresh()
 
         # Update stats and announce the result over USB serial
