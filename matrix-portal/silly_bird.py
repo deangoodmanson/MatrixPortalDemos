@@ -379,6 +379,8 @@ def run(display, button_up, button_down, ext_button):
         _show_instructions(display, button_up, button_down, ext_button)
         _instructions_shown = True
 
+    portrait = False   # remembered across rounds — sticks to last chosen mode
+
     while True:  # outer loop: title → game → stats → title
         # ── Title screen (always landscape for readability) ───────────────────
         _init_mode(False)               # landscape constants for title draw
@@ -402,12 +404,14 @@ def run(display, button_up, button_down, ext_button):
         display.refresh()
 
         # Pick a mode: UP/EXT = landscape (wide), DOWN = portrait (tall)
-        # EXT starts landscape so the clicker-only player never needs the device buttons.
+        # portrait is remembered from the previous round — title highlights current choice.
+        # EXT starts a game in the current mode so clicker-only players never need device buttons.
         # To exit game mode entirely: hold both UP+DN → QUIT_CONFIRM → UP/DN.
-        portrait = False
         while True:
             button_up.update(); button_down.update(); ext_button.update()
-            if button_up.fell or ext_button.fell:
+            if ext_button.fell:
+                break            # keep portrait as-is from last round
+            if button_up.fell:
                 portrait = False
                 break
             if button_down.fell:
