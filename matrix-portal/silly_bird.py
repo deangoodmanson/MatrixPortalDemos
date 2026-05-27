@@ -327,6 +327,11 @@ def _show_quit_confirm(display, button_up, button_down, ext_button):
 
 def _show_stats_screen(display, score, stats, button_up, button_down, ext_button):
     """Show the post-game stats screen until any button is pressed."""
+    # Stats screen always renders in landscape on the physical 64×32 display:
+    # labels can't be rotated, so the player reads them by holding the device
+    # flat/landscape. Force landscape coords so internal state is consistent
+    # whether the previous round was portrait or landscape.
+    _init_mode(False)
     # "NEW BEST!" celebrates whenever this run ties or beats the session high
     new_best = score > 0 and score >= stats["high_score"]
     grp = displayio.Group()
@@ -507,12 +512,23 @@ def run(display, button_up, button_down, ext_button):
         if quit_game:
             continue    # loop back to title screen (stay in game mode)
 
-        # Show "OOF!" over the crash frame — no black wipe, just overlay the label
+        # Show "OOF!" over the crash frame — no black wipe, just overlay the label.
+        # Post-game screens always render in landscape: labels can't be rotated, so
+        # the player reads them by holding the device flat/landscape. If the round
+        # was portrait, hint "TILT" so the player knows to rotate the device.
+        was_portrait = _portrait
         _init_mode(False)   # landscape coords so the label reads upright
         _lbl.text   = "OOF!"
         _lbl.color  = 0xFF2200
-        _lbl.x, _lbl.y = 20, 13
+        _lbl.x, _lbl.y = 20, 16   # centred on 64×32: x=(64-24)//2, y≈H//2
         _lbl.hidden = False
+        if was_portrait:
+            _lbl2.text   = "TILT"
+            _lbl2.color  = 0x888888
+            _lbl2.x, _lbl2.y = 22, 27   # below OOF!, near bottom of landscape view
+            _lbl2.hidden = False
+        else:
+            _lbl2.hidden = True
         display.refresh()
 
         # Update stats and announce the result over USB serial
