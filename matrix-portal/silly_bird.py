@@ -508,21 +508,13 @@ def run(display, button_up, button_down, ext_button):
         if quit_game:
             continue    # loop back to title screen (stay in game mode)
 
-        # Brief death pause so the player sees where they crashed
-        _draw_scene()
-        _draw_score(score)
-        display.refresh()
-        time.sleep(0.3)
-
-        # Switch back to landscape so the "OOF!" label reads upright
-        _init_mode(False)
-        bitmaptools.fill_region(_bmp, 0, 0, _PHYS_W, _PHYS_H, _BLK)
+        # Show "OOF!" over the crash frame — no black wipe, just overlay the label
+        _init_mode(False)   # landscape coords so the label reads upright
         _lbl.text   = "OOF!"
         _lbl.color  = 0xFF2200
-        _lbl.x, _lbl.y = 20, 16
+        _lbl.x, _lbl.y = 20, 13
         _lbl.hidden = False
         display.refresh()
-        time.sleep(1.2)
 
         # Update stats and announce the result over USB serial
         stats["games_played"] += 1
@@ -530,9 +522,7 @@ def run(display, button_up, button_down, ext_button):
             stats["high_score"] = score
         print(f"Silly Bird — score: {score}  best: {stats['high_score']}  runs: {stats['games_played']}")
 
-        _lbl.text  = "TAP!"
-        _lbl.color = 0xFFFF00
-        display.refresh()
+        # Wait for any click to dismiss OOF! — goes straight to stats, no TAP screen
         while True:
             button_up.update(); button_down.update(); ext_button.update()
             if button_up.fell or button_down.fell or ext_button.fell:
