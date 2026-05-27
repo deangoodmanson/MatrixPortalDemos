@@ -291,7 +291,7 @@ def _show_instructions(display, button_up, button_down, ext_button):
     """Show the controls cheat-sheet until any button is pressed."""
     grp = displayio.Group()
     # Title-screen controls
-    grp.append(label.Label(terminalio.FONT, text="UP:W DN:T",  color=0x888888, x=2, y=5))
+    grp.append(label.Label(terminalio.FONT, text="WIDE/TALL",  color=0x888888, x=2, y=5))
     # In-game: any button flaps; EXT starts a new game from the title screen too
     grp.append(label.Label(terminalio.FONT, text="TAP=FLAP",   color=0x00FFCC, x=2, y=16))
     grp.append(label.Label(terminalio.FONT, text="EXT=PLAY",   color=0xFF6600, x=2, y=25))
@@ -398,12 +398,16 @@ def run(display, button_up, button_down, ext_button):
         _draw_scene()
         _draw_bird(float(_GY // 2))
 
-        # Small mode hint in the bottom corner so the player knows their options
-        _lbl2.text   = "UP:W DN:T"
-        _lbl2.color  = 0x888888
-        _lbl2.x, _lbl2.y = 5, 26
+        # Two-line mode hint at the bottom — active mode is bright, inactive is dim.
+        # label y is the vertical centre of the character cell.
+        _lbl.text    = "UP:WIDE"
+        _lbl.color   = 0xFFFFFF if not portrait else 0x555555
+        _lbl.x, _lbl.y = 1, 22
+        _lbl.hidden  = False
+        _lbl2.text   = "DN:TALL"
+        _lbl2.color  = 0xFFFFFF if portrait else 0x555555
+        _lbl2.x, _lbl2.y = 1, 29
         _lbl2.hidden = False
-        _lbl.hidden  = True
         display.refresh()
 
         while True:
@@ -420,7 +424,7 @@ def run(display, button_up, button_down, ext_button):
                 break
             time.sleep(0.02)
 
-        _lbl2.hidden = True
+        _lbl.hidden = _lbl2.hidden = True
         print(f"Silly Bird — {'portrait' if portrait else 'landscape'}")
 
         # ── Game loop ─────────────────────────────────────────────────────────
