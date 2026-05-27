@@ -25,9 +25,9 @@ def show_startup_message(display):
       DN:BIRD   — DOWN button launches Silly Bird game
     """
     rows = [
-        ("USB:CAM",   0x0066FF,  5),
-        ("UP:PHOTOS", 0xFFD700, 15),
-        ("DN:BIRD",   0x00FFCC, 25),
+        ("USB:MIRROR", 0x0066FF,  5),
+        ("UP:PHOTOS",  0xADD8E6, 15),
+        ("DN:BIRD",    0xFFD700, 25),
     ]
     grp = displayio.Group()
     for text, color, y in rows:

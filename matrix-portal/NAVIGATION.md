@@ -9,7 +9,7 @@ Buttons: UP (board.BUTTON_UP), DOWN (board.BUTTON_DOWN), EXT (A0 external moment
 
 | Screen Name | Description | Entry Trigger | Exit Trigger(s) |
 |---|---|---|---|
-| STARTUP_SCREEN | 3-row idle guide: "USB:CAM / UP:PHOTOS / DN:BIRD" | Boot, or return from any sub-mode | USB frame arrives (→ CAMERA_FEED); UP press (→ photo cycle); DOWN press (→ GAME_MODE, `both` only) |
+| STARTUP_SCREEN | 3-row idle guide: "USB:MIRROR / UP:PHOTOS / DN:BIRD" | Boot, or return from any sub-mode | USB frame arrives (→ CAMERA_FEED); UP press (→ photo cycle); DOWN press (→ GAME_MODE, `both` only) |
 | CAMERA_FEED | Live RGB565 frame stream rendered to bitmap | First frame received over USB CDC serial | USB host disconnects (falls back to STARTUP_SCREEN on next UP/DOWN event) |
 | KITTEN_PHOTO | kitten.bmp displayed full-screen | UP short-press (up_cycle == 0) | 5 s timeout (auto-returns to CAMERA_FEED or STARTUP_SCREEN) |
 | DOG_PHOTO | dog.bmp displayed full-screen | UP short-press (up_cycle == 1) | 5 s timeout (auto-returns to CAMERA_FEED or STARTUP_SCREEN) |
@@ -33,7 +33,7 @@ graph TD
     BOOT -->|MODE=both default| STARTUP
 
     subgraph image_display [image_display top-level loop]
-        STARTUP["STARTUP_SCREEN\nUSB:CAM / UP:PHOTOS / DN:BIRD"]
+        STARTUP["STARTUP_SCREEN\nUSB:MIRROR / UP:PHOTOS / DN:BIRD"]
         CAMERA["CAMERA_FEED\nlive RGB565 frames"]
         KITTEN["KITTEN_PHOTO\nkitten.bmp"]
         DOG["DOG_PHOTO\ndog.bmp"]
@@ -99,7 +99,7 @@ graph TD
     BOOT([Boot])
     BOOT --> STARTUP
 
-    STARTUP["STARTUP_SCREEN\nhub - USB:CAM / UP:PHOTOS / DN:GAME"]
+    STARTUP["STARTUP_SCREEN\nhub - USB:MIRROR / UP:PHOTOS / DN:GAME"]
 
     STARTUP -->|USB frames arrive auto| CAMERA_OVERLAY["CAMERA_FEED\noverlay - always active when USB connected"]
     CAMERA_OVERLAY -->|USB disconnects| STARTUP
