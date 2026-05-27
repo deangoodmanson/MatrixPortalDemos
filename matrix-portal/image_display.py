@@ -19,7 +19,7 @@ FRAME_HEADER  = b'IMG1'
 def show_startup_message(display):
     """Show the idle hub screen: USB:MIRROR / UP:PHOTOS / DN:BIRD."""
     rows = [
-        ("USB:MIRROR", 0x0066FF,  5),
+        ("MIRROR",     0x0066FF,  5),
         ("UP:PHOTOS",  0xADD8E6, 15),
         ("DN:BIRD",    0xFFD700, 25),
     ]
