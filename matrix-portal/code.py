@@ -150,43 +150,44 @@ else:
     last_display_time = 0
     min_frame_time    = 1.0 / 30
     receiving_frames  = False
-    up_cycle          = 0   # 0=kitten  1=dog  2=silly bird hint
+
+    # current_mode tracks where the player is:
+    #   "hub"   — STARTUP_SCREEN, waiting for input or USB frames
+    #   "photo" — sticky photo slideshow (run_photo_mode handles its own loop)
+    #   "game"  — sticky Silly Bird (silly_bird.run handles its own loop)
+    current_mode = "hub"
 
     while True:
         button_up.update(); button_down.update(); ext_button.update()
 
-        # UP cycles: kitten → dog → "push DOWN for silly bird" hint
-        if button_up.fell:
-            if up_cycle == 0:
-                image_display.show_kitten(display)
-            elif up_cycle == 1:
-                image_display.show_dog(display)
-            else:
-                image_display.show_bird_hint(display)
-            up_cycle = (up_cycle + 1) % 3
-            if receiving_frames:
-                display.root_group = camera_group
-            else:
-                image_display.show_startup_message(display)
-            while not button_up.value:
-                button_up.update()
-                time.sleep(0.01)
+        if current_mode == "hub":
+            # UP → enter sticky photo mode
+            if button_up.fell:
+                current_mode = "photo"
+                image_display.run_photo_mode(display, button_up, button_down, ext_button)
+                # run_photo_mode returns only when EXT is pressed
+                current_mode = "hub"
+                if receiving_frames:
+                    display.root_group = camera_group
+                else:
+                    image_display.show_startup_message(display)
 
-        # EXT → snapshot
-        if ext_button.fell:
-            image_display.trigger_snap()
+            # DOWN → enter sticky game mode
+            elif button_down.fell:
+                current_mode = "game"
+                silly_bird.run(display, button_up, button_down, ext_button)
+                # silly_bird.run returns only when EXT is pressed on the title screen
+                current_mode = "hub"
+                if receiving_frames:
+                    display.root_group = camera_group
+                else:
+                    image_display.show_startup_message(display)
 
-        # DOWN → switch to Silly Bird; returns here when player exits
-        if button_down.fell:
-            silly_bird.run(display, button_up, button_down, ext_button)
-            if receiving_frames:
-                display.root_group = camera_group
-            else:
-                image_display.show_startup_message(display)
-            while not button_down.value:
-                button_down.update()
-                time.sleep(0.01)
+            # EXT → snapshot (only active from the hub)
+            elif ext_button.fell:
+                image_display.trigger_snap()
 
+        # Camera feed is a passive overlay — keep receiving frames in any mode
         current_time = time.monotonic()
         if current_time - last_display_time < min_frame_time:
             time.sleep(0.01)
@@ -195,9 +196,11 @@ else:
         frame_data = image_display.receive_frame(serial)
         if frame_data:
             if not receiving_frames:
-                display.root_group = camera_group
                 receiving_frames = True
                 print("Receiving frames!")
+            # Only update the display when at the hub; game/photo own the display
+            if current_mode == "hub":
+                display.root_group = camera_group
             image_display.display_frame(bitmap, frame_data)
             frame_count += 1
             last_display_time = current_time

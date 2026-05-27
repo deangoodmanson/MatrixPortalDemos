@@ -281,6 +281,10 @@ def _collides(by, pipes):
     return False
 
 
+# Instructions are shown once per power-on, not once per run() call.
+_instructions_shown = False
+
+
 # ── SCREEN FUNCTIONS ──────────────────────────────────────────────────────────
 
 def _show_instructions(display, button_up, button_down, ext_button):
@@ -297,6 +301,23 @@ def _show_instructions(display, button_up, button_down, ext_button):
         button_up.update(); button_down.update(); ext_button.update()
         if button_up.fell or button_down.fell or ext_button.fell:
             break
+        time.sleep(0.02)
+
+
+def _show_quit_confirm(display, button_up, button_down, ext_button):
+    """Ask the player to confirm quitting mid-game; return True to quit, False to resume."""
+    grp = displayio.Group()
+    grp.append(label.Label(terminalio.FONT, text="QUIT?",   color=0xFF2200, x=16, y=8))
+    grp.append(label.Label(terminalio.FONT, text="EXT=YES", color=0xFF6600, x=4,  y=19))
+    grp.append(label.Label(terminalio.FONT, text="TAP=NO",  color=0x00FFCC, x=7,  y=28))
+    display.root_group = grp
+    display.refresh()
+    while True:
+        button_up.update(); button_down.update(); ext_button.update()
+        if ext_button.fell:
+            return True    # confirmed quit → go back to title
+        if button_up.fell or button_down.fell:
+            return False   # resume the game
         time.sleep(0.02)
 
 
@@ -335,7 +356,9 @@ def run(display, button_up, button_down, ext_button):
     # Title-screen controls:
     #   UP   → play landscape (64×32 wide)
     #   DOWN → play portrait (32×64 tall — hold device long-side up, USB at bottom)
-    #   EXT  → exit back to camera / waiting screen
+    #   EXT  → exit back to the hub (STARTUP_SCREEN)
+
+    global _instructions_shown
 
     print("Launching Silly Bird...")
 
@@ -347,8 +370,10 @@ def run(display, button_up, button_down, ext_button):
     # Session stats — kept in RAM only, never written to disk
     stats = {"high_score": 0, "games_played": 0}
 
-    # Show controls once per session before the title loop
-    _show_instructions(display, button_up, button_down, ext_button)
+    # Show controls once per power-on (not on every re-entry from the hub)
+    if not _instructions_shown:
+        _show_instructions(display, button_up, button_down, ext_button)
+        _instructions_shown = True
 
     while True:  # outer loop: title → game → stats → title
         # ── Title screen (always landscape for readability) ───────────────────
@@ -405,10 +430,13 @@ def run(display, button_up, button_down, ext_button):
 
         while True:
             button_up.update(); button_down.update(); ext_button.update()
-            # Both bird buttons held at once = give up this round
+            # Both bird buttons held at once → ask before quitting
             if not button_up.value and not button_down.value:
-                quit_game = True
-                break
+                if _show_quit_confirm(display, button_up, button_down, ext_button):
+                    quit_game = True
+                    break
+                # Player chose to resume — restore the game display
+                display.root_group = _grp
             # Any button press is a flap; consecutive climbing flaps spawn puffs
             if button_up.fell or button_down.fell or ext_button.fell:
                 if bird_v < 0:
@@ -475,7 +503,7 @@ def run(display, button_up, button_down, ext_button):
 
         # ── Game over ─────────────────────────────────────────────────────────
         if quit_game:
-            return
+            continue    # loop back to title screen (stay in game mode)
 
         # Brief death pause so the player sees where they crashed
         _draw_scene()
