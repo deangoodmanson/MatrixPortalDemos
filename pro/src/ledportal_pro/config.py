@@ -76,6 +76,16 @@ class AppConfig:
     ui: UIConfig = field(default_factory=UIConfig)
     target_fps: int = 30
     debug_save_frames: bool = False
+    # A0 hardware snap button: reads "SNAP" lines from the Matrix Portal CDC
+    # console port and triggers an instant snapshot bypassing the countdown.
+    # Requires console_port to be set. Disabling releases the console port for
+    # REPL/terminal access while ledportal is running.
+    a0_snap_button: bool = True
+    # Path to the Matrix Portal CDC console port (the lower-numbered of the two
+    # CDC ports).  macOS: /dev/cu.usbmodem<id>1 — Linux: /dev/ttyACM0.
+    # Run `ls /dev/cu.usbmodem*` (Mac) or `ls /dev/ttyACM*` (Linux) before and
+    # after plugging in to identify it.  Set to None to disable the feature.
+    console_port: str | None = None
 
     @property
     def frame_size_bytes(self) -> int:
@@ -153,6 +163,8 @@ def _parse_config(data: dict[str, Any]) -> AppConfig:
         ui=UIConfig(**ui_data),
         target_fps=data.get("target_fps", 30),
         debug_save_frames=data.get("debug_save_frames", False),
+        a0_snap_button=data.get("a0_snap_button", True),
+        console_port=data.get("console_port", None),
     )
 
 
@@ -198,6 +210,8 @@ def save_config(config: AppConfig, config_path: Path | str) -> None:
         },
         "target_fps": config.target_fps,
         "debug_save_frames": config.debug_save_frames,
+        "a0_snap_button": config.a0_snap_button,
+        "console_port": config.console_port,
     }
 
     with open(config_path, "w") as f:

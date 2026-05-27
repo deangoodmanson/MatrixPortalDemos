@@ -17,9 +17,22 @@ FRAME_HEADER  = b'IMG1'
 
 
 def show_startup_message(display):
+    """Mode/button guide shown while waiting for USB camera connection.
+
+    3-row layout, each row centred:
+      USB:CAM   — camera feed starts automatically when PC connects
+      UP:PHOTOS — UP button cycles photo slideshow
+      DN:BIRD   — DOWN button launches Silly Bird game
+    """
+    rows = [
+        ("USB:CAM",   0x0066FF,  5),
+        ("UP:PHOTOS", 0xFFD700, 15),
+        ("DN:BIRD",   0x00FFCC, 25),
+    ]
     grp = displayio.Group()
-    grp.append(label.Label(terminalio.FONT, text="WAITING", color=0x00FF00, x=8, y=12))
-    grp.append(label.Label(terminalio.FONT, text="FOR USB",  color=0x00FF00, x=8, y=22))
+    for text, color, y in rows:
+        x = max(0, (MATRIX_WIDTH - len(text) * 6) // 2)
+        grp.append(label.Label(terminalio.FONT, text=text, color=color, x=x, y=y))
     display.root_group = grp
 
 
