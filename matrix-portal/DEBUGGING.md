@@ -169,6 +169,80 @@ external clicker.
 
 ---
 
+## Screen brightness on RGBMatrix (known limitation)
+
+**TL;DR: `display.brightness` and `matrix.brightness` are silently ignored on the
+Matrix Portal M4 / CircuitPython 10. The matrix always runs at full brightness.**
+The `BRIGHTNESS` value in `settings.toml` exists but has no observable effect.
+
+### What we observed
+
+Both attributes exist on the relevant objects:
+
+- `framebufferio.FramebufferDisplay.brightness` (set via `display.brightness = x`)
+- `rgbmatrix.RGBMatrix.brightness` (set via `matrix.brightness = x`)
+
+Writes don't raise. They're accepted, then silently discarded — read-back always
+returns `1.0` regardless of what was just written. The LED output stays at full
+intensity. This is true for both the boot-time assignment in `code.py` and any
+runtime write attempt.
+
+### Diagnostic — confirm on your hardware
+
+Make sure no other mpremote session is holding the port, then:
+
+```bash
+uv tool run mpremote connect /dev/cu.usbmodem<lower-number> exec "
+import board, rgbmatrix, framebufferio, displayio
+displayio.release_displays()
+m = rgbmatrix.RGBMatrix(width=64, height=32, bit_depth=6,
+    rgb_pins=[board.MTX_R1, board.MTX_G1, board.MTX_B1,
+              board.MTX_R2, board.MTX_G2, board.MTX_B2],
+    addr_pins=[board.MTX_ADDRA, board.MTX_ADDRB, board.MTX_ADDRC, board.MTX_ADDRD],
+    clock_pin=board.MTX_CLK, latch_pin=board.MTX_LAT, output_enable_pin=board.MTX_OE)
+d = framebufferio.FramebufferDisplay(m)
+print('matrix.brightness =', m.brightness)
+print('display.brightness =', d.brightness)
+m.brightness = 0.3
+print('after m.brightness = 0.3, read back:', m.brightness)
+import time; time.sleep(3)
+"
+```
+
+If the read-back after the write is `1.0` and the LEDs don't visibly dim during the
+3-second pause, the property is a no-op on your device.
+
+### Why this happens
+
+`brightness` is part of the displayio API contract — for displays with a backlight
+(LCDs, OLEDs), the property modulates a PWM channel that drives the backlight LED.
+RGB LED matrices don't have a backlight; their "brightness" would have to come from
+shortening the OE (output enable) duty cycle during the BCM refresh. On CircuitPython
+10 / Matrix Portal M4 that wiring isn't implemented, so the property is a stub.
+
+### Workarounds
+
+Pick one based on need:
+
+1. **Live with it.** This is the default. Document expectations and move on. Some
+   rooms are bright enough that full brightness is fine; others are not.
+2. **Lower the `bit_depth`** in the `RGBMatrix(...)` constructor. This isn't a
+   brightness control — it reduces color depth — but it does change the perceived
+   intensity of mid-tones. Trade-off: fewer colors, faster refresh.
+3. **Software brightness scaling.** Scale RGB565 values (camera frames) or palette
+   entries (game) by a brightness factor before they hit the bitmap. Uses CPU but
+   actually works.  For camera frames specifically, modify `display_frame` in
+   `image_display.py` to multiply each pixel's R/G/B channels before blitting; a
+   small per-channel lookup table keeps it cheap.
+4. **Hardware approach (advanced).** Drive the OE pin via an external NPN/MOSFET
+   PWM circuit. Out of scope for this project.
+
+The `BRIGHTNESS` key in `settings.toml` is preserved as documentation of intent —
+if CircuitPython implements RGB matrix brightness in a later release, the existing
+boot-time assignment in `code.py` will start working with no other code changes.
+
+---
+
 ## Prerequisites
 
 Install `mpremote` via uv (required — do not use pip):
