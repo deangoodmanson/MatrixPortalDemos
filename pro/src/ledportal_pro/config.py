@@ -164,7 +164,7 @@ def _parse_config(data: dict[str, Any]) -> AppConfig:
         target_fps=data.get("target_fps", 30),
         debug_save_frames=data.get("debug_save_frames", False),
         a0_snap_button=data.get("a0_snap_button", True),
-        console_port=data.get("console_port", None),
+        console_port=data.get("console_port"),
     )
 
 

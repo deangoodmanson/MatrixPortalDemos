@@ -5,7 +5,6 @@ import time
 from ledportal_pro.ui.demo import DemoMode, DemoState, _build_sequence
 from ledportal_pro.ui.input import InputCommand
 
-
 # ---------------------------------------------------------------------------
 # Sequence structure
 # ---------------------------------------------------------------------------
