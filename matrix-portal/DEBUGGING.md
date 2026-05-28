@@ -95,21 +95,6 @@ T=70 ms   update() → pin HIGH → never confirmed LOW → fell=False  ✗
 In practice: **hold the button until you see or feel the response**, not just a
 light tap. A press that lasts at least one full frame (~70 ms) almost always registers.
 
-### The quit-confirm chord (UP + DOWN held together)
-
-The "both held" gesture uses `button.value` (the current debounced state) rather than
-`fell`:
-
-```python
-if not button_up.value and not button_down.value:
-    # both buttons confirmed held right now
-    ...
-```
-
-`value` is checked every frame regardless of whether a falling edge occurred, so
-sustained holds are far more reliable than taps. The 10 ms debounce still applies,
-but once confirmed the state stays `False` as long as the button is physically held.
-
 ### Making taps more reliable (trade-offs)
 
 | Approach | Effect | Cost |
@@ -121,6 +106,66 @@ but once confirmed the state stays `False` as long as the button is physically h
 The current design keeps the loop simple and the 50 ms frame is generous for normal
 game play. A deliberate press (not a light fingernail tap) is virtually always
 detected on the first or second frame.
+
+---
+
+## Diagnosing the EXT (A0) button
+
+UP, DOWN, and EXT all use the same software debounce path (`digitalio.DigitalInOut`
+with `Pull.UP`, wrapped in `Debouncer(pin)` with the default 10 ms interval). So if
+EXT misbehaves while UP/DOWN work, the cause is almost always **hardware**, not the
+debounce code:
+
+| Symptom on EXT | Likely cause |
+|---|---|
+| Never registers | Broken wire, loose JST PH connector, switch stuck open, or A0 pin damaged (often from ESD or accidentally wiring red 3.3 V to GND) |
+| Always registers (game thinks it's always pressed) | Wire shorted to GND, switch stuck closed, or A0 pin damaged stuck-low |
+| Erratic / multiple presses per tap | Long mechanical bounce exceeding the 10 ms debounce window, or electrical noise on a long cable run |
+| Works sometimes, not others | Intermittent connector contact or oxidation in the JST crimp |
+
+### Quick diagnostic: read the raw pin
+
+This bypasses `Debouncer` entirely and prints the raw pin state 20× per second for
+about 10 seconds. Press and release the clicker while it runs:
+
+```bash
+uv tool run mpremote connect /dev/cu.usbmodem2101 exec "
+import board, digitalio, time
+p = digitalio.DigitalInOut(board.A0)
+p.switch_to_input(pull=digitalio.Pull.UP)
+for _ in range(200):
+    print(p.value, end='', flush=True)
+    time.sleep(0.05)
+"
+```
+
+Interpret the output:
+
+| Output pattern | Verdict |
+|---|---|
+| All `True`, even when pressed | Open: wire / connector / switch is broken; or A0 stuck high |
+| All `False`, even when released | Short: wire-to-GND, switch stuck closed, or A0 stuck low |
+| Cleanly flips `True` ↔ `False` with each press/release | Hardware is fine — the issue is in the debounce / loop timing |
+| Flickers between `True` and `False` while untouched | Electrical noise; consider a shorter cable, a 0.1 µF cap across the switch, or a stronger external pull-up |
+
+You'll need to soft-reset the device after running this snippet (Ctrl-D in mpremote)
+to get `code.py` running again — the snippet leaves `A0` claimed by its own
+`DigitalInOut`, which would conflict with `code.py`'s own claim on next launch.
+
+### If the pin reads cleanly but the game still misses presses
+
+The 10 ms debounce window may be too aggressive for the clicker's mechanical bounce.
+A bounce longer than 10 ms shows up as a single confirmed press followed by
+spurious "rose / fell" pairs, sometimes leading to no detection at all. Try
+increasing the interval:
+
+```python
+ext_button = Debouncer(_pin_ext, interval=0.02)   # 20 ms instead of 10
+```
+
+Tuning above ~30 ms starts to feel noticeably laggy in gameplay; below 10 ms makes
+bounce-induced double-presses likely. 15–20 ms is a reasonable range for a noisy
+external clicker.
 
 ---
 

@@ -2,14 +2,14 @@
 Matrix Portal M4 — Silly Bird
 Flappy Bird-style game for the 64×32 LED matrix.
 Public API: run(display, button_up, button_down, ext_button)
-Loops instructions → ready → game → stats until DOWN is pressed on the title screen.
+Loops MODE? picker → game → stats forever; RESET is the only exit.
 Stats are kept in RAM only; nothing is written to the file system.
 
-Portrait mode maps a virtual 32×64 game space onto the 64×32 physical display
-via a 90° CW coordinate rotation.  Hold the Matrix Portal with its 64-pixel
-axis vertical and USB port at the bottom to play in portrait orientation.
-
-Transform: virtual (vx, vy) → physical (px=vy, py=virtual_width-1-vx)
+Portrait mode uses display.rotation = 90 so labels (which CircuitPython can
+only render horizontally) appear upright when the device is held tall with
+USB at the bottom.  Each orientation has its own bitmap + group + labels so
+the active orientation just sets display.rotation and switches root_group;
+the rest of the drawing code uses natural coordinates with no manual rotation.
 """
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
@@ -34,17 +34,20 @@ SPEED_UP      = 0.08   # extra speed gained per pipe cleared
 
 BIRD_WIDTH    = 4      # bird hitbox width in pixels
 BIRD_HEIGHT   = 3      # bird hitbox height in pixels
-BIRD_X        = 10     # bird's fixed horizontal position (virtual coords)
+BIRD_X        = 10     # bird's fixed horizontal position
 GROUND_Y      = 27     # y-coordinate of the ground in landscape mode
 
 FRAME_DELAY   = 0.05   # seconds between frames     (smaller = faster game)
 
 # Portrait orientation overrides (hold device tall-side up, USB at bottom).
 # Portrait has a taller play area, so the gap and pipe width differ — but
-# the bird's flap arc is the same number of pixels in both modes.
+# the bird's flap arc is the same number of pixels in both modes.  The bird
+# also sits closer to the left edge in portrait: only 32 pixels wide, so
+# pushing the bird in from x=10 left only 20 pixels of runway; x=3 gives ~28.
+PORTRAIT_BIRD_X     = 3
 PORTRAIT_PIPE_GAP   = 14
 PORTRAIT_PIPE_WIDTH = 3
-PORTRAIT_GROUND_Y   = 56   # ground sits ~87% down the 64-tall virtual space
+PORTRAIT_GROUND_Y   = 56   # ground sits ~87% down the 64-tall play space
 
 
 # ── COLORS ────────────────────────────────────────────────────────────────────
@@ -81,19 +84,42 @@ palette[CYN]  = COLOR_SCORE
 palette[GREY] = COLOR_SMOKE
 palette[FIRE] = COLOR_FIRE
 
-# Physical display is always 64×32 — portrait is a coordinate transform,
-# not a rotation of the underlying bitmap.
-PHYS_W = 64
-PHYS_H = 32
+# Two bitmap + group pairs — one per orientation. Switching display.rotation
+# between 0 (landscape) and 90 (portrait) rotates the bitmap AND any labels
+# together, so we don't need any manual coordinate transform anymore.
+#
+# Each group carries its own label objects positioned in that group's natural
+# coordinate space:
+#   grp_landscape labels are placed in a 64×32 plane
+#   grp_portrait  labels are placed in a 32×64 plane
+# Both orientations stay allocated so we can swap quickly between rounds.
 
-bmp  = displayio.Bitmap(PHYS_W, PHYS_H, 16)
-grp  = displayio.Group()
-grp.append(displayio.TileGrid(bmp, pixel_shader=palette))
-lbl  = label.Label(terminalio.FONT, text=" ", color=0xFFFFFF)
-grp.append(lbl)
-lbl2 = label.Label(terminalio.FONT, text=" ", color=0xAAAAAA)
-lbl2.hidden = True
-grp.append(lbl2)
+bmp_landscape = displayio.Bitmap(64, 32, 16)
+grp_landscape = displayio.Group()
+grp_landscape.append(displayio.TileGrid(bmp_landscape, pixel_shader=palette))
+lbl_landscape  = label.Label(terminalio.FONT, text=" ", color=0xFFFFFF)
+lbl_landscape.hidden = True
+grp_landscape.append(lbl_landscape)
+lbl2_landscape = label.Label(terminalio.FONT, text=" ", color=0xAAAAAA)
+lbl2_landscape.hidden = True
+grp_landscape.append(lbl2_landscape)
+
+bmp_portrait = displayio.Bitmap(32, 64, 16)
+grp_portrait = displayio.Group()
+grp_portrait.append(displayio.TileGrid(bmp_portrait, pixel_shader=palette))
+lbl_portrait  = label.Label(terminalio.FONT, text=" ", color=0xFFFFFF)
+lbl_portrait.hidden = True
+grp_portrait.append(lbl_portrait)
+lbl2_portrait = label.Label(terminalio.FONT, text=" ", color=0xAAAAAA)
+lbl2_portrait.hidden = True
+grp_portrait.append(lbl2_portrait)
+
+# Active references — point at the current orientation's bitmap/group/labels.
+# start_round() reassigns these before each round.
+bmp  = bmp_landscape
+grp  = grp_landscape
+lbl  = lbl_landscape
+lbl2 = lbl2_landscape
 
 
 # ── SCORE DIGITS ──────────────────────────────────────────────────────────────
@@ -168,23 +194,24 @@ class GameMode:
     """
     def __init__(self, portrait):
         self.portrait    = portrait
-        self.bird_x      = BIRD_X
         self.bird_width  = BIRD_WIDTH
         self.bird_height = BIRD_HEIGHT
         self.gravity     = GRAVITY
         self.flap_power  = FLAP_POWER
         self.start_speed = START_SPEED
         if portrait:
-            # Virtual space is 32 wide × 64 tall — taller play area
+            # Game plane is 32 wide × 64 tall — taller play area
             self.virtual_width  = 32
             self.virtual_height = 64
+            self.bird_x         = PORTRAIT_BIRD_X
             self.ground_y       = PORTRAIT_GROUND_Y
             self.pipe_width     = PORTRAIT_PIPE_WIDTH
             self.pipe_gap       = PORTRAIT_PIPE_GAP
         else:
-            # Landscape: virtual space matches the physical 64×32 display
+            # Landscape: 64 wide × 32 tall
             self.virtual_width  = 64
             self.virtual_height = 32
+            self.bird_x         = BIRD_X
             self.ground_y       = GROUND_Y
             self.pipe_width     = PIPE_WIDTH
             self.pipe_gap       = PIPE_GAP
@@ -193,8 +220,8 @@ class GameMode:
 class Pipe:
     """One scrolling pipe pair (top + bottom with a gap in the middle)."""
     def __init__(self, x, gap_y):
-        self.x      = x          # virtual x-coordinate of the pipe's left edge
-        self.gap_y  = gap_y      # virtual y-coordinate of the top of the gap
+        self.x      = x          # x-coordinate of the pipe's left edge
+        self.gap_y  = gap_y      # y-coordinate of the top of the gap
         self.scored = False      # True once the bird has flown past this pipe
 
 
@@ -208,70 +235,56 @@ class Puff:
 
 
 # Current game mode — replaced by start_round() before each round.
-# Drawing helpers below read this single object instead of 13 separate globals.
 mode = GameMode(portrait=False)
 
 
-def start_round(portrait):
-    """Set up landscape or portrait settings for the next round."""
-    global mode
+def start_round(display, portrait):
+    """Configure orientation for the next round.
+
+    Sets display.rotation and swaps the active bitmap/group/label references
+    so the rest of the code can just draw without worrying about orientation.
+    """
+    global mode, bmp, grp, lbl, lbl2
     mode = GameMode(portrait)
+    if portrait:
+        bmp, grp = bmp_portrait, grp_portrait
+        lbl, lbl2 = lbl_portrait, lbl2_portrait
+        display.rotation = 90
+    else:
+        bmp, grp = bmp_landscape, grp_landscape
+        lbl, lbl2 = lbl_landscape, lbl2_landscape
+        display.rotation = 0
+    display.root_group = grp
 
 
-# ── COORDINATE TRANSFORM HELPERS ──────────────────────────────────────────────
-# The display is always 64 wide × 32 tall.  In portrait mode we pretend the
-# game world is 32 wide × 64 tall and rotate every pixel 90° clockwise when
-# drawing.  That lets the same game code work for both orientations.
-#
-# Portrait transform: virtual (vx, vy) → physical (px = vy, py = virtual_width - 1 - vx)
+# ── DRAWING HELPERS ───────────────────────────────────────────────────────────
+# With display.rotation handling the orientation, we draw to whichever bitmap
+# matches the current mode using natural coordinates: (0, 0) is always the
+# top-left of the player's view, regardless of how they're holding the device.
 
 def box(vx, vy, vw, vh, color_index):
-    """Fill a rectangle in virtual coords, rotating into portrait if needed."""
-    if mode.portrait:
-        # 90° CW: virtual rect → physical rect via px=vy, py=virtual_width-1-vx
-        vw_total = mode.virtual_width
-        x1 = max(0, vy);                     x2 = min(PHYS_W, vy + vh)
-        y1 = max(0, vw_total - vx - vw);     y2 = min(PHYS_H, vw_total - vx)
-    else:
-        x1 = max(0, vx);  x2 = min(PHYS_W, vx + vw)
-        y1 = max(0, vy);  y2 = min(PHYS_H, vy + vh)
+    """Fill a rectangle in the current bitmap, clipped to its bounds."""
+    x1 = max(0, vx); x2 = min(mode.virtual_width,  vx + vw)
+    y1 = max(0, vy); y2 = min(mode.virtual_height, vy + vh)
     if x2 > x1 and y2 > y1:
         bitmaptools.fill_region(bmp, x1, y1, x2, y2, color_index)
 
 
 def dot(vx, vy, color_index):
-    """Set a single pixel in virtual coords, rotating into portrait if needed."""
-    if mode.portrait:
-        px, py = vy, mode.virtual_width - 1 - vx
-    else:
-        px, py = vx, vy
-    if 0 <= px < PHYS_W and 0 <= py < PHYS_H:
-        bmp[px, py] = color_index
+    """Set a single pixel in the current bitmap, clipped to its bounds."""
+    if 0 <= vx < mode.virtual_width and 0 <= vy < mode.virtual_height:
+        bmp[vx, vy] = color_index
 
-
-# ── DRAWING FUNCTIONS ─────────────────────────────────────────────────────────
 
 def draw_score(n):
     """Draw the current score in the top-left corner."""
-    # In portrait we write directly in physical coords so the digits read upright.
-    if mode.portrait:
-        x = 2
-        for ch in str(n):
-            for row_idx, row in enumerate(DIGITS[int(ch)]):
-                for col_idx, glyph in enumerate(row):
-                    if glyph == '#':
-                        px, py = x + col_idx, 1 + row_idx
-                        if 0 <= px < PHYS_W and 0 <= py < PHYS_H:
-                            bmp[px, py] = CYN
-            x += 4
-    else:
-        x = 1
-        for ch in str(n):
-            for row_idx, row in enumerate(DIGITS[int(ch)]):
-                for col_idx, glyph in enumerate(row):
-                    if glyph == '#':
-                        dot(x + col_idx, 1 + row_idx, CYN)
-            x += 4
+    x = 1
+    for ch in str(n):
+        for row_idx, row in enumerate(DIGITS[int(ch)]):
+            for col_idx, glyph in enumerate(row):
+                if glyph == '#':
+                    dot(x + col_idx, 1 + row_idx, CYN)
+        x += 4
 
 
 def draw_bird(by, bird_v=0.0):
@@ -323,8 +336,8 @@ def draw_pipe(pipe):
 
 def draw_scene():
     """Paint the sky and ground — the background for every frame."""
-    box(0, 0,              mode.virtual_width, mode.ground_y,                          SKY)
-    box(0, mode.ground_y,  mode.virtual_width, mode.virtual_height - mode.ground_y,   GND)
+    box(0, 0,             mode.virtual_width, mode.ground_y,                         SKY)
+    box(0, mode.ground_y, mode.virtual_width, mode.virtual_height - mode.ground_y,   GND)
 
 
 # ── COLLISION DETECTION ───────────────────────────────────────────────────────
@@ -347,47 +360,36 @@ def collides(by, pipes):
     return False
 
 
-# Instructions are shown once per power-on, not once per run() call.
-instructions_shown = False
-
-
 # ── SCREEN FUNCTIONS ──────────────────────────────────────────────────────────
 
-def show_instructions(display, button_up, button_down, ext_button):
-    """Show the controls cheat-sheet until any button is pressed."""
-    g = displayio.Group()
-    # Title-screen controls
-    g.append(label.Label(terminalio.FONT, text="WIDE/TALL", color=0x888888, x=2, y=5))
-    # In-game: any button flaps; EXT starts a new game from the title screen too
-    g.append(label.Label(terminalio.FONT, text="TAP=FLAP",  color=0x00FFCC, x=2, y=16))
-    g.append(label.Label(terminalio.FONT, text="EXT=PLAY",  color=0xFF6600, x=2, y=25))
-    display.root_group = g
-    display.refresh()
-    while True:
-        button_up.update(); button_down.update(); ext_button.update()
-        if button_up.fell or button_down.fell or ext_button.fell:
-            break
-        time.sleep(0.02)
+def show_mode_picker(display, button_up, button_down, ext_button):
+    """Show the orientation picker; return True for portrait, False for landscape.
 
-
-def show_quit_confirm(display, button_up, button_down, ext_button):
-    """Ask the player to confirm quitting; return True to quit, False to resume.
-
-    EXT = keep playing (back to title) so clicker-only players never get stuck.
-    UP or DOWN = exit game mode back to the hub.
+    UP or EXT → landscape (False, the default)
+    DOWN      → portrait  (True)
     """
+    display.rotation = 0     # always show the picker upright in landscape
     g = displayio.Group()
-    g.append(label.Label(terminalio.FONT, text="QUIT?",    color=0xFF2200, x=16, y=5))
-    g.append(label.Label(terminalio.FONT, text="UP/DN=HUB",color=0xFF6600, x=1,  y=16))
-    g.append(label.Label(terminalio.FONT, text="EXT=PLAY", color=0x00FFCC, x=4,  y=25))
+    g.append(label.Label(terminalio.FONT, text="MODE?",      color=0xFFD700, x=17, y=5))
+    g.append(label.Label(terminalio.FONT, text="WIDE: UP",   color=0xFFFFFF, x=8,  y=16))
+    g.append(label.Label(terminalio.FONT, text="TALL: DOWN", color=0x00FFCC, x=2,  y=25))
     display.root_group = g
     display.refresh()
+    # Drain any stale button state — the click that entered game mode may still
+    # be in the debouncer's pipeline. Wait for all buttons released and call
+    # update() a couple extra times to consume any pending .fell events.
+    while not button_up.value or not button_down.value or not ext_button.value:
+        button_up.update(); button_down.update(); ext_button.update()
+        time.sleep(0.01)
+    for _ in range(3):
+        button_up.update(); button_down.update(); ext_button.update()
+        time.sleep(0.01)
     while True:
         button_up.update(); button_down.update(); ext_button.update()
-        if button_up.fell or button_down.fell:
-            return True    # exit to hub
-        if ext_button.fell:
-            return False   # keep playing — go back to title
+        if button_down.fell:
+            return True
+        if ext_button.fell or button_up.fell:
+            return False
         time.sleep(0.02)
 
 
@@ -399,7 +401,7 @@ def show_stats_screen(display, score, stats, button_up, button_down, ext_button)
     (7 px steps) fit the 32 px display but share ~1 px between adjacent rows.
     See PIXEL_FONT.md if you want gap-free hand-drawn text here instead.
     """
-    start_round(portrait=False)
+    start_round(display, portrait=False)
     new_best = score > 0 and score >= stats["high_score"]
     g = displayio.Group()
     g.append(label.Label(terminalio.FONT,
@@ -413,6 +415,10 @@ def show_stats_screen(display, score, stats, button_up, button_down, ext_button)
         text=f"RUNS  {stats['games_played']}", color=0x00FF00, x=4, y=26))
     display.root_group = g
     display.refresh()
+    # Wait for the OOF!-dismiss click to be released before listening for a fresh click
+    while not button_up.value or not button_down.value or not ext_button.value:
+        button_up.update(); button_down.update(); ext_button.update()
+        time.sleep(0.01)
     while True:
         button_up.update(); button_down.update(); ext_button.update()
         if button_up.fell or button_down.fell or ext_button.fell:
@@ -423,21 +429,15 @@ def show_stats_screen(display, score, stats, button_up, button_down, ext_button)
 # ── MAIN GAME LOOP ────────────────────────────────────────────────────────────
 
 def run(display, button_up, button_down, ext_button):
-    """Run Silly Bird from ready screen through games until the player exits.
+    """Run Silly Bird from the mode picker through games until the player exits.
 
-    The game runs in three nested loops:
-      outer loop  — ready screen → pick orientation
-      middle loop — one full game (bird moves, pipes scroll, score counts)
+    The game runs in two nested loops:
+      outer loop  — one full game (bird moves, pipes scroll, score counts)
       inner reads — buttons checked every frame (~20 FPS)
 
-    Ready-screen controls:
-      UP   → play landscape (64×32 wide)
-      DOWN → play portrait (32×64 tall — hold device long-side up, USB at bottom)
-      EXT  → play in the currently-selected mode
-    To exit game mode: hold UP+DOWN together to bring up QUIT_CONFIRM.
+    Mode is chosen once via MODE? screen on entry. The only exit from game
+    mode is the RESET button — crashing just starts another round.
     """
-    global instructions_shown
-
     print("Launching Silly Bird...")
 
     # Wait for any buttons still held by the launcher to be released
@@ -448,75 +448,41 @@ def run(display, button_up, button_down, ext_button):
     # Session stats — kept in RAM only, never written to disk
     stats = {"high_score": 0, "games_played": 0}
 
-    # Show controls once per power-on (not on every re-entry from the hub)
-    if not instructions_shown:
-        show_instructions(display, button_up, button_down, ext_button)
-        instructions_shown = True
+    # Pick orientation once on entry — UP/EXT = landscape, DOWN = portrait
+    portrait = show_mode_picker(display, button_up, button_down, ext_button)
+    print(f"Silly Bird — {'portrait' if portrait else 'landscape'}")
 
-    portrait = False   # remembered across rounds — sticks to last chosen mode
-
-    while True:  # outer loop: ready → game → stats → ready
-        # ── Ready state: draw the game scene and wait for first input ─────────
-        # No separate title screen — the game scene IS the menu.
-        start_round(portrait)
-        display.root_group = grp
-        draw_scene()
-        draw_bird(float(mode.ground_y // 2))
-
-        # Mode hint at the bottom — only in landscape; in portrait the labels
-        # would read sideways, and the rotated game scene speaks for itself.
-        if not portrait:
-            lbl.text      = "UP:WIDE"
-            lbl.color     = 0xFFFFFF
-            lbl.x, lbl.y  = 1, 22
-            lbl.hidden    = False
-            lbl2.text     = "DN:TALL"
-            lbl2.color    = 0x555555
-            lbl2.x, lbl2.y = 1, 29
-            lbl2.hidden   = False
-        else:
-            lbl.hidden  = True
-            lbl2.hidden = True
-        display.refresh()
-
-        while True:
-            button_up.update(); button_down.update(); ext_button.update()
-            if ext_button.fell:
-                break                   # play in current mode
-            if button_up.fell:
-                portrait = False
-                start_round(False)
-                break
-            if button_down.fell:
-                portrait = True
-                start_round(True)
-                break
-            time.sleep(0.02)
-
-        lbl.hidden = lbl2.hidden = True
-        print(f"Silly Bird — {'portrait' if portrait else 'landscape'}")
+    while True:  # outer loop: game → stats → next game
+        start_round(display, portrait)
+        # Clear any leftover labels (e.g. OOF! from the previous round)
+        lbl.hidden  = True
+        lbl2.hidden = True
 
         # ── Game loop ─────────────────────────────────────────────────────────
-        # Set up a fresh game: bird floats at the middle, no pipes yet
-        bird_y           = float(mode.ground_y // 2)
-        bird_v           = 0.0
-        pipes            = []
-        score            = 0
-        spd              = mode.start_speed
-        dist             = float(mode.virtual_width)   # first pipe appears after one virtual-width of scroll
-        puffs            = []
+        # Set up a fresh game: bird floats at the middle and we pre-spawn one
+        # "intro" pipe positioned AROUND the bird — bird is inside the gap.
+        # As the round starts the pipe scrolls left and the bird ends up past
+        # it, with the first real challenge pipe spawning normally from the
+        # right edge. This sets the scene without forcing an instant crash.
+        bird_y       = float(mode.ground_y // 2)
+        bird_v       = 0.0
+        centered_gap = int(bird_y) - (mode.pipe_gap - mode.bird_height) // 2
+        gap_min      = 4
+        gap_max      = mode.ground_y - mode.pipe_gap - 4
+        intro_gap_y  = max(gap_min, min(gap_max, centered_gap))
+        # Intro pipe is at the bird's x with the gap centered on the bird —
+        # the pipe surrounds the bird, no collision. As it scrolls left it
+        # auto-scores +1 a few frames in (a freebie welcome point — leaving
+        # it in keeps the code simpler and this is a fun game, not a contest).
+        pipes        = [Pipe(float(mode.bird_x), intro_gap_y)]
+        score        = 0
+        spd          = mode.start_speed
+        dist         = float(mode.virtual_width)
+        puffs        = []
         climb_flap_count = 0
-        quit_game        = False
 
         while True:
             button_up.update(); button_down.update(); ext_button.update()
-            # Both bird buttons held at once → ask before quitting
-            if not button_up.value and not button_down.value:
-                if show_quit_confirm(display, button_up, button_down, ext_button):
-                    quit_game = True
-                    break
-                # Player chose to resume — restore the game display
-                display.root_group = grp
             # Any button press is a flap; consecutive climbing flaps spawn puffs
             if button_up.fell or button_down.fell or ext_button.fell:
                 if bird_v < 0:
@@ -585,24 +551,17 @@ def run(display, button_up, button_down, ext_button):
             time.sleep(FRAME_DELAY)   # ~20 FPS at 0.05s
 
         # ── Game over ─────────────────────────────────────────────────────────
-        if quit_game:
-            continue    # loop back to ready screen (stay in game mode)
-
-        # Show "OOF!" over the crash frame.  Post-game screens always render
-        # in landscape (labels can't be rotated), so we switch coords and
-        # repaint the background before adding the label.  If the round was
-        # portrait, also show "TILT" so the player knows to rotate the device.
-        was_portrait = mode.portrait
-        start_round(portrait=False)
-        draw_scene()   # clear portrait bitmap content so OOF! has a clean background
+        # Show "OOF!" overlaid on the crash frame.  display.rotation already
+        # matches the round's orientation, so the label appears upright in
+        # both landscape and portrait — we just position it in the right plane.
         lbl.text   = "OOF!"
         lbl.color  = 0xFF2200
-        lbl.x, lbl.y = 20, 13
+        if mode.portrait:
+            lbl.x, lbl.y = 4, 30   # ~centered on the 32×64 portrait plane
+        else:
+            lbl.x, lbl.y = 20, 13  # ~centered on the 64×32 landscape plane
         lbl.hidden = False
-        lbl2.text    = "TILT" if was_portrait else " "
-        lbl2.color   = 0x888888
-        lbl2.x, lbl2.y = 20, 24
-        lbl2.hidden  = False
+        lbl2.hidden = True
         display.refresh()
 
         # Update stats and announce the result over USB serial
@@ -611,7 +570,11 @@ def run(display, button_up, button_down, ext_button):
             stats["high_score"] = score
         print(f"Silly Bird — score: {score}  best: {stats['high_score']}  runs: {stats['games_played']}")
 
-        # Wait for any click to dismiss OOF! — goes straight to stats
+        # Wait for the crash-causing flap to be released, then for a fresh
+        # click to dismiss OOF! — otherwise tap-spam would skip the OOF! screen.
+        while not button_up.value or not button_down.value or not ext_button.value:
+            button_up.update(); button_down.update(); ext_button.update()
+            time.sleep(0.01)
         while True:
             button_up.update(); button_down.update(); ext_button.update()
             if button_up.fell or button_down.fell or ext_button.fell:
@@ -619,4 +582,4 @@ def run(display, button_up, button_down, ext_button):
             time.sleep(0.02)
 
         show_stats_screen(display, score, stats, button_up, button_down, ext_button)
-        # loop back to ready screen
+        # loop back to a new round in the same mode
