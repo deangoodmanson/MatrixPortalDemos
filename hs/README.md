@@ -2,6 +2,9 @@
 
 This folder contains educational versions of the LED Matrix Camera Feed code, designed for high school students learning Python programming.
 
+> 💡 New here? Read [**Why Learn to Code if AI Can Write It?**](../docs/why-learn-to-code.md) —
+> how this project was built with AI, and why you still need to learn programming.
+
 ## What's Different?
 
 Compared to the `pro/` version, this version has:

@@ -5,7 +5,7 @@ an answer key.** That framing matters: the point of the exercises and the
 heavily-commented `hs/` code is to build *your* understanding. Used well, an AI
 assistant is a patient explainer and debugging partner. Used poorly, it short-
 circuits the learning. (See [`how-this-was-built.md`](how-this-was-built.md) and
-[`../hs/REQUIREMENTS.md`](../hs/REQUIREMENTS.md) for why that distinction is the
+[`why-learn-to-code.md`](why-learn-to-code.md) for why that distinction is the
 whole point.)
 
 Two tools, two roles:

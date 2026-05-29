@@ -6,7 +6,7 @@ through **prompts and configuration**, with an AI coding agent (Claude Code)
 doing the actual typing.
 
 It's shared openly because the "how" is as instructive for students and
-teachers as the "what" — especially alongside [`hs/REQUIREMENTS.md`](../hs/REQUIREMENTS.md),
+teachers as the "what" — especially alongside [`why-learn-to-code.md`](why-learn-to-code.md),
 which asks the honest question *"If AI generated this, why learn Python?"*
 
 ## The division of labor

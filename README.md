@@ -116,8 +116,8 @@ window is enough):
   Code as a *tutor* (not an answer key), for both teachers and students.
 - **[How this project was built](docs/how-this-was-built.md)** — the agentic-coding
   story, and a concrete answer to *"if AI can code, why learn to code?"*
-- **[Why learn Python if AI generated this?](hs/REQUIREMENTS.md)** — the project's
-  own take on responsible AI use in learning.
+- **[Why learn Python if AI generated this?](docs/why-learn-to-code.md)** — the
+  project's own take on responsible AI use in learning.
 
 ## Performance Optimizations
 We achieved a ~500% performance increase (5 FPS → 24 FPS) by:
