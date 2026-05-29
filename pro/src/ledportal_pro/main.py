@@ -6,6 +6,9 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+from numpy.typing import NDArray
+
 from .capture import create_camera
 from .capture.factory import list_available_cameras
 from .config import AppConfig, load_config
@@ -311,7 +314,7 @@ def run_snapshot_sequence(
 
 
 def instant_snapshot(
-    last_sent_frame: object,
+    last_sent_frame: NDArray[np.uint8] | None,
     transport: object | None,
     snapshot_manager: SnapshotManager,
     orientation: str,
@@ -335,9 +338,7 @@ def instant_snapshot(
         render_algorithm: Current LED preview render algorithm.
         led_size_pct: Current LED size percentage.
     """
-    import numpy as np
-
-    if not isinstance(last_sent_frame, np.ndarray):
+    if last_sent_frame is None:
         print("  A0 SNAP: no frame available yet — waiting for first frame")
         return
 
