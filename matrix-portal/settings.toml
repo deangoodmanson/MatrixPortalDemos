@@ -1,0 +1,7 @@
+# Matrix Portal M4 — app configuration
+# MODE options:
+#   "silly_bird"    — game only, no camera feed
+#   "image_display" — camera feed only, no game
+#   "both"          — camera feed primary; DOWN button switches to/from Silly Bird
+MODE = "both"
+BRIGHTNESS = "0.75"

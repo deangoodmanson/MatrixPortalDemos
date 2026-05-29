@@ -11,7 +11,7 @@ dependencies = [
     "opencv-python>=4.8.0",
     "pyserial>=3.5",
     "pyyaml>=6.0",
-    "pillow>=10.0.0",
+    "pillow>=12.2.0",
     "ledportal-utils",
 ]
 
@@ -29,7 +29,7 @@ build-backend = "hatchling.build"
 packages = ["src/ledportal_pro"]
 
 [dependency-groups]
-dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]
+dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=9.0.3"]
 
 [tool.ruff]
 line-length = 100

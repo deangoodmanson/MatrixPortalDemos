@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "LED Portal Team" }]
 dependencies = [
-    "pillow>=10.0.0",
+    "pillow>=12.2.0",
     "numpy>=1.24.0",
 ]
 
@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 packages = ["src/ledportal_utils"]
 
 [dependency-groups]
-dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=8.0"]
+dev = ["ruff>=0.4.0", "ty>=0.0.1a6", "pytest>=9.0.3"]
 
 [tool.ruff]
 line-length = 100

@@ -274,7 +274,7 @@ def list_available_cameras() -> list:
 
     # Check for Pi Camera
     try:
-        from picamera2 import Picamera2
+        from picamera2 import Picamera2  # type: ignore[unresolved-import]
         try:
             picam = Picamera2()
             camera_props = picam.camera_properties
@@ -327,7 +327,7 @@ def setup_camera(camera_number: int = 0) -> Tuple[Any, str]:
 
     # Try the Pi Camera first
     try:
-        from picamera2 import Picamera2
+        from picamera2 import Picamera2  # type: ignore[unresolved-import]
 
         print("  Trying Pi Camera...")
         picam = Picamera2()
@@ -849,7 +849,7 @@ def speak(text: str) -> None:
 
         else:  # Windows
             try:
-                import pyttsx3
+                import pyttsx3  # type: ignore[unresolved-import]
                 engine = pyttsx3.init()
                 engine.setProperty('rate', 130)
                 engine.say(text)

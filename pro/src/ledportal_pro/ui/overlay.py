@@ -2,6 +2,7 @@
 
 import math
 from enum import Enum
+from typing import cast
 
 import cv2
 import numpy as np
@@ -200,7 +201,10 @@ def render_led_preview(
     out_h, out_w = h * scale, w * scale
 
     if algorithm == PreviewAlgorithm.SQUARES:
-        return cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
+        return cast(
+            NDArray[np.uint8],
+            cv2.resize(small_frame, (out_w, out_h), interpolation=cv2.INTER_NEAREST),
+        )
 
     if algorithm == PreviewAlgorithm.GAUSSIAN_RAW:
         sigma = scale * 0.18  # σ ≈ 18% of cell — calibrated to raw hardware, no diffuser
