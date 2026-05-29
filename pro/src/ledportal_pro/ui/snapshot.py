@@ -45,7 +45,7 @@ def _dispatch_print(pdf_path: Path) -> None:
     if sys.platform != "darwin":
         return
     print("  Sending to printer...")
-    subprocess.run(
+    result = subprocess.run(
         [
             "lpr",
             "-o",
@@ -58,6 +58,8 @@ def _dispatch_print(pdf_path: Path) -> None:
         ],
         check=False,  # Don't crash the app if no printer is available
     )
+    if result.returncode != 0:
+        print(f"  Warning: lpr exited with code {result.returncode} — check printer setup")
 
 
 class SnapshotManager:

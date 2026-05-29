@@ -115,7 +115,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--export-4x6",
         action="store_true",
-        default=None,
         help="Generate a 4×6 photo-booth PDF on every snapshot (saved to disk, not printed)",
     )
     parser.add_argument(
@@ -126,7 +125,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--auto-print",
         action="store_true",
-        default=None,
         help="Generate and print a 4×6 photo-booth PDF after every snapshot (macOS only)",
     )
     parser.add_argument(
@@ -676,6 +674,9 @@ def main() -> int:
                             mirror_mode,
                             _ALGORITHM_LABELS[render_algorithm],
                             led_size_pct,
+                            auto_print=config.ui.auto_print,
+                            export_pdf=config.ui.export_pdf,
+                            export_4x6=config.ui.export_4x6,
                         )
                         continue
                     elif cmd == InputCommand.DEMO_MANUAL:
@@ -696,6 +697,9 @@ def main() -> int:
                             mirror_mode,
                             _ALGORITHM_LABELS[render_algorithm],
                             led_size_pct,
+                            auto_print=config.ui.auto_print,
+                            export_pdf=config.ui.export_pdf,
+                            export_4x6=config.ui.export_4x6,
                         )
                         # cmd falls through to normal handling below
                     else:
