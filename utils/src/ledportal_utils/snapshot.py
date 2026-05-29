@@ -5,7 +5,7 @@ for better viewing and sharing.
 """
 
 import math
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
@@ -390,8 +390,8 @@ def export_pdf(
     canvas.paste(pixel_portrait, (x + pixel_landscape.width + pair_gap, y))
     y += pair_h + padding
 
-    # 5. Timestamp at bottom
-    now = datetime.now(UTC).astimezone()
+    # 5. Timestamp at bottom (local time — recognizable wall-clock time of the shot)
+    now = datetime.now().astimezone()
     iso_stamp = now.isoformat(timespec="seconds")
     readable_stamp = now.strftime("%B %d, %Y at %I:%M:%S %p %Z")
     timestamp_text = f"{iso_stamp}  |  {readable_stamp}"
@@ -478,7 +478,7 @@ def export_4x6_pdf(
     canvas.paste(led_img, (x, y))
 
     # Timestamp — small, lower-right corner
-    now = datetime.now(UTC).astimezone()
+    now = datetime.now().astimezone()
     timestamp_text = now.strftime("%Y-%m-%d  %I:%M %p")
     draw = ImageDraw.Draw(canvas)
     font_size = round(dpi * 0.07)  # 0.07″ ≈ 21 pt at 300 dpi
