@@ -43,10 +43,11 @@ uv run ledportal
 **Simplest:** Direct file copy + Thonny editor
 ```bash
 # No git, no build tools needed!
-cd ~
-mkdir ledportal-hs
-wget <camera_feed.py>
-pip3 install opencv-python pyserial numpy
+mkdir ~/ledportal-hs && cd ~/ledportal-hs
+# Download both required files (camera_feed.py imports from config.py)
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
+wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
+pip3 install opencv-python pyserial numpy pillow
 python3 camera_feed.py
 # Or open in Thonny IDE (pre-installed on Pi)
 ```
