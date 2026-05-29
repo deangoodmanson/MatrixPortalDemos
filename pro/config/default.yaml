@@ -31,7 +31,9 @@ ui:
   #                       # image, thumbnails, pixel-to-pixel. Default: true.
   # export_4x6: false     # 4×6" landscape photo-booth PDF saved to disk. Default: false.
   # auto_print: false     # Send the 4×6 PDF to the default printer after every snapshot.
-  #                       # macOS only (via lpr). Implies export_4x6. Default: false.
+  #                       # macOS & Linux/Pi via lpr/CUPS (Pi needs: sudo apt install cups
+  #                       # + a default printer); Windows via the default PDF handler's
+  #                       # print verb. Implies export_4x6. Default: false.
 
 target_fps: 30
 debug_save_frames: false

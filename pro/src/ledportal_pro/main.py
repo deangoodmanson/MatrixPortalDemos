@@ -125,7 +125,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--auto-print",
         action="store_true",
-        help="Generate and print a 4×6 photo-booth PDF after every snapshot (macOS only)",
+        help="Generate and print a 4×6 photo-booth PDF after every snapshot (macOS/Linux/Windows)",
     )
     parser.add_argument(
         "--no-auto-print",

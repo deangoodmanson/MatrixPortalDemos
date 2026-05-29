@@ -1,5 +1,6 @@
 """Snapshot saving functionality."""
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -41,25 +42,49 @@ def _resolve_led_mode(algorithm: PreviewAlgorithm, led_size_pct: int) -> LedMode
 
 
 def _dispatch_print(pdf_path: Path) -> None:
-    """Send a PDF to the default printer via lpr. No-ops on non-macOS platforms."""
-    if sys.platform != "darwin":
-        return
+    """Send a 4×6 PDF to the default printer.
+
+    Platform-specific dispatch:
+
+    - **macOS** and **Linux/Raspberry Pi**: ``lpr`` (CUPS). macOS ships CUPS;
+      Linux/Pi needs it installed (``sudo apt install cups``) plus a configured
+      default printer (``lpstat -d``). The 4×6 media size and landscape
+      orientation are passed as CUPS options.
+    - **Windows**: the shell "print" verb (``os.startfile``), which routes the
+      PDF to the default printer through its associated viewer. The 4×6 page
+      size is already embedded in the PDF; CUPS media/orientation options do
+      not apply here.
+    """
     print("  Sending to printer...")
-    result = subprocess.run(
-        [
-            "lpr",
-            "-o",
-            "media=Custom.4x6in",
-            "-o",
-            "fit-to-page",
-            "-o",
-            "landscape",
-            str(pdf_path),
-        ],
-        check=False,  # Don't crash the app if no printer is available
-    )
-    if result.returncode != 0:
-        print(f"  Warning: lpr exited with code {result.returncode} — check printer setup")
+    if sys.platform in ("darwin", "linux"):
+        result = subprocess.run(
+            [
+                "lpr",
+                "-o",
+                "media=Custom.4x6in",
+                "-o",
+                "fit-to-page",
+                "-o",
+                "landscape",
+                str(pdf_path),
+            ],
+            check=False,  # Don't crash the app if no printer is available
+        )
+        if result.returncode != 0:
+            print(f"  Warning: lpr exited with code {result.returncode} — check printer setup")
+    elif sys.platform == "win32":
+        # os.startfile exists only on Windows; getattr keeps this importable
+        # and type-checkable on macOS/Linux where the attribute is absent.
+        startfile = getattr(os, "startfile", None)
+        if startfile is None:
+            print("  Warning: os.startfile unavailable — cannot print on this platform")
+            return
+        try:
+            startfile(str(pdf_path), "print")
+        except OSError as e:
+            print(f"  Warning: could not print ({e}) — check default PDF handler and printer")
+    else:
+        print(f"  Printing not supported on platform '{sys.platform}' — 4×6 PDF saved instead")
 
 
 class SnapshotManager:
@@ -108,8 +133,8 @@ class SnapshotManager:
             export_pdf_flag: If True (default), generate a Letter-page multi-format PDF.
             export_4x6: If True, generate a 4×6 photo-booth PDF saved to disk.
             auto_print: If True, generate a 4×6 PDF and send it to the default
-                printer (macOS only; silently skipped on other platforms). Implies
-                export_4x6.
+                printer (macOS/Linux via lpr/CUPS, Windows via the default PDF
+                handler). Implies export_4x6.
 
         Returns:
             Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None,
