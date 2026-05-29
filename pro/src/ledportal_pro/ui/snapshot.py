@@ -57,19 +57,24 @@ def _dispatch_print(pdf_path: Path) -> None:
     """
     print("  Sending to printer...")
     if sys.platform in ("darwin", "linux"):
-        result = subprocess.run(
-            [
-                "lpr",
-                "-o",
-                "media=Custom.4x6in",
-                "-o",
-                "fit-to-page",
-                "-o",
-                "landscape",
-                str(pdf_path),
-            ],
-            check=False,  # Don't crash the app if no printer is available
-        )
+        try:
+            result = subprocess.run(
+                [
+                    "lpr",
+                    "-o",
+                    "media=Custom.4x6in",
+                    "-o",
+                    "fit-to-page",
+                    "-o",
+                    "landscape",
+                    str(pdf_path),
+                ],
+                check=False,  # Don't crash the app if no printer is available
+            )
+        except FileNotFoundError:
+            # lpr not installed (no CUPS). Common on a headless Pi.
+            print("  Warning: 'lpr' not found — install CUPS (sudo apt install cups) to print")
+            return
         if result.returncode != 0:
             print(f"  Warning: lpr exited with code {result.returncode} — check printer setup")
     elif sys.platform == "win32":

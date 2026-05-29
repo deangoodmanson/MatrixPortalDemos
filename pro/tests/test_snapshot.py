@@ -76,17 +76,41 @@ class TestSnapshotManager:
         assert len(files_4x6) == 1
         assert files_4x6[0].suffix == ".pdf"
 
-    def test_auto_print_implies_4x6_created(self, tmp_path):
-        """auto_print=True should create the 4×6 PDF even if export_4x6=False."""
+    def test_auto_print_implies_4x6_created(self, tmp_path, monkeypatch):
+        """auto_print=True should create the 4×6 PDF even if export_4x6=False.
+
+        The print dispatch is stubbed so the test never shells out to a real
+        printer/`lpr` — it verifies only that auto_print implies the 4×6 file.
+        """
+        import ledportal_pro.ui.snapshot as snapshot_mod
+
+        dispatched = []
+        monkeypatch.setattr(snapshot_mod, "_dispatch_print", lambda path: dispatched.append(path))
+
         manager = SnapshotManager(output_dir=tmp_path)
         frame = np.zeros((32, 64, 3), dtype=np.uint8)
-
-        # auto_print=True but sys.platform != darwin in CI so lpr won't fire;
-        # the 4×6 PDF file is still created regardless of platform.
         manager.save(frame, export_4x6=False, auto_print=True)
 
         files_4x6 = [f for f in tmp_path.iterdir() if "_4x6" in f.name]
         assert len(files_4x6) == 1
+        # auto_print should have dispatched the created 4×6 PDF to the printer
+        assert dispatched == [files_4x6[0]]
+
+    def test_dispatch_print_survives_missing_lpr(self, tmp_path, monkeypatch):
+        """_dispatch_print must not crash when lpr is absent (no CUPS installed)."""
+        import subprocess
+
+        import ledportal_pro.ui.snapshot as snapshot_mod
+
+        monkeypatch.setattr(snapshot_mod.sys, "platform", "linux")
+
+        def _raise_missing(*_args, **_kwargs):
+            raise FileNotFoundError(2, "No such file or directory", "lpr")
+
+        monkeypatch.setattr(subprocess, "run", _raise_missing)
+
+        # Should print a warning and return, not raise
+        snapshot_mod._dispatch_print(tmp_path / "x_4x6.pdf")
 
     def test_save_debug_frame_overwrites(self, tmp_path):
         manager = SnapshotManager(output_dir=tmp_path)
