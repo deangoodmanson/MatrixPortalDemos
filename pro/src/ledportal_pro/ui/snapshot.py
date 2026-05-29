@@ -40,6 +40,26 @@ def _resolve_led_mode(algorithm: PreviewAlgorithm, led_size_pct: int) -> LedMode
     return LedMode.CIRCLES_CORNER  # unreachable: last threshold is 999
 
 
+def _dispatch_print(pdf_path: Path) -> None:
+    """Send a PDF to the default printer via lpr. No-ops on non-macOS platforms."""
+    if sys.platform != "darwin":
+        return
+    print("  Sending to printer...")
+    subprocess.run(
+        [
+            "lpr",
+            "-o",
+            "media=Custom.4x6in",
+            "-o",
+            "fit-to-page",
+            "-o",
+            "landscape",
+            str(pdf_path),
+        ],
+        check=False,  # Don't crash the app if no printer is available
+    )
+
+
 class SnapshotManager:
     """Manages saving snapshots of camera frames."""
 
@@ -67,6 +87,8 @@ class SnapshotManager:
         original_frame: NDArray[np.uint8] | None = None,
         render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
         led_size_pct: int = 100,
+        export_pdf_flag: bool = True,
+        export_4x6: bool = False,
         auto_print: bool = False,
     ) -> tuple[Path, Path | None, Path | None, Path | None]:
         """Save a snapshot of the current frame.
@@ -81,8 +103,11 @@ class SnapshotManager:
                 When provided, it is included in the generated PDF.
             render_algorithm: Current LED preview algorithm (used for PDF rendering).
             led_size_pct: Current LED size percentage (used for circle modes).
+            export_pdf_flag: If True (default), generate a Letter-page multi-format PDF.
+            export_4x6: If True, generate a 4×6 photo-booth PDF saved to disk.
             auto_print: If True, generate a 4×6 PDF and send it to the default
-                printer immediately (macOS only; silently skipped on other platforms).
+                printer (macOS only; silently skipped on other platforms). Implies
+                export_4x6.
 
         Returns:
             Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None,
@@ -120,7 +145,7 @@ class SnapshotManager:
                 with open(rgb565_path, "wb") as f:
                     f.write(frame_bytes)
 
-        # Generate PDF with LED preview, original image, and thumbnails
+        # Save original camera frame for inclusion in Letter PDF
         original_path = None
         if original_frame is not None:
             original_filename = f"{prefix}_{timestamp}_original.png"
@@ -128,14 +153,22 @@ class SnapshotManager:
             cv2.imwrite(str(original_path), original_frame)
 
         led_mode = _resolve_led_mode(render_algorithm, led_size_pct)
-        pdf_path = export_pdf(
-            snapshot_path,
-            original_path=original_path,
-            mode=led_mode,
-        )
 
-        if auto_print:
-            print_4x6(snapshot_path, led_mode)
+        # Letter-page multi-format PDF
+        pdf_path = None
+        if export_pdf_flag:
+            pdf_path = export_pdf(
+                snapshot_path,
+                original_path=original_path,
+                mode=led_mode,
+            )
+
+        # 4×6 photo-booth PDF (auto_print implies export_4x6)
+        if export_4x6 or auto_print:
+            path_4x6 = export_4x6_pdf(snapshot_path, mode=led_mode)
+            print(f"  4×6 PDF: {path_4x6}")
+            if auto_print:
+                _dispatch_print(path_4x6)
 
         return snapshot_path, debug_image_path, rgb565_path, pdf_path
 
@@ -152,33 +185,3 @@ class SnapshotManager:
         path = self._output_dir / filename
         cv2.imwrite(str(path), frame)
         return path
-
-
-def print_4x6(snapshot_path: Path, led_mode: LedMode = LedMode.SQUARES) -> None:
-    """Generate a 4×6 photo-booth PDF and send it to the default printer.
-
-    Creates a ``*_4x6.pdf`` alongside the snapshot, then dispatches it to the
-    system default printer via ``lpr``.  Silently no-ops on non-macOS platforms.
-
-    Args:
-        snapshot_path: Path to the saved snapshot BMP.
-        led_mode: LED render mode to use for the 4×6 PDF.
-    """
-    if sys.platform != "darwin":
-        return
-
-    pdf_path = export_4x6_pdf(snapshot_path, mode=led_mode)
-
-    subprocess.run(
-        [
-            "lpr",
-            "-o",
-            "media=Custom.4x6in",
-            "-o",
-            "fit-to-page",
-            "-o",
-            "landscape",
-            str(pdf_path),
-        ],
-        check=False,  # Don't crash the app if no printer is available
-    )

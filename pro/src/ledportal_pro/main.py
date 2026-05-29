@@ -107,6 +107,33 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable saving snapshots to disk (countdown still runs)",
     )
+    parser.add_argument(
+        "--no-pdf",
+        action="store_true",
+        help="Skip Letter-page PDF generation on snapshots",
+    )
+    parser.add_argument(
+        "--export-4x6",
+        action="store_true",
+        default=None,
+        help="Generate a 4×6 photo-booth PDF on every snapshot (saved to disk, not printed)",
+    )
+    parser.add_argument(
+        "--no-export-4x6",
+        action="store_true",
+        help="Disable 4×6 PDF generation even if set in config",
+    )
+    parser.add_argument(
+        "--auto-print",
+        action="store_true",
+        default=None,
+        help="Generate and print a 4×6 photo-booth PDF after every snapshot (macOS only)",
+    )
+    parser.add_argument(
+        "--no-auto-print",
+        action="store_true",
+        help="Disable auto-print even if set in config",
+    )
 
     # A0 hardware snap button (reads "SNAP" from the device console serial port)
     snap_group = parser.add_mutually_exclusive_group()
@@ -270,13 +297,15 @@ def run_snapshot_sequence(
             original_frame=last_original_frame,
             render_algorithm=render_algorithm,
             led_size_pct=led_size_pct,
+            export_pdf_flag=config.ui.export_pdf,
+            export_4x6=config.ui.export_4x6,
             auto_print=config.ui.auto_print,
         )
         print(f"\n{'=' * 60}")
         print("SNAPSHOT SAVED:")
         print(f"  Snapshot: {snapshot_path}")
         if pdf_path:
-            print(f"  PDF: {pdf_path}")
+            print(f"  Letter PDF: {pdf_path}")
         if debug_mode:
             if debug_path:
                 print(f"  Debug raw: {debug_path}")
@@ -412,6 +441,16 @@ def main() -> int:
         config.a0_snap_button = True
     if args.console_port is not None:
         config.console_port = args.console_port
+    if args.no_pdf:
+        config.ui.export_pdf = False
+    if args.export_4x6:
+        config.ui.export_4x6 = True
+    if args.no_export_4x6:
+        config.ui.export_4x6 = False
+    if args.auto_print:
+        config.ui.auto_print = True
+    if args.no_auto_print:
+        config.ui.auto_print = False
 
     # Print startup info
     print("LED Portal Pro v0.2.0")
@@ -547,6 +586,9 @@ def main() -> int:
             mirror_mode,
             _ALGORITHM_LABELS[render_algorithm],
             led_size_pct,
+            auto_print=config.ui.auto_print,
+            export_pdf=config.ui.export_pdf,
+            export_4x6=config.ui.export_4x6,
         )
         print("Starting — capturing and sending frames to Matrix Portal...")
         if transport is None:
@@ -781,6 +823,11 @@ def main() -> int:
                         else:
                             print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
                     continue
+                elif cmd == InputCommand.TOGGLE_AUTO_PRINT:
+                    config.ui.auto_print = not config.ui.auto_print
+                    state = "ON" if config.ui.auto_print else "OFF"
+                    print(f"\n=== AUTO-PRINT (4×6): {state} ===\n")
+                    continue
                 elif cmd == InputCommand.TOGGLE_DEBUG:
                     debug_mode = not debug_mode
                     mode_str = "ON" if debug_mode else "OFF"
@@ -867,7 +914,15 @@ def main() -> int:
                         print("  Saving paused frame...")
                         frame_bytes_save = convert_to_rgb565(last_sent_frame)
                         snapshot_manager.save(
-                            last_sent_frame, frame_bytes_save, orientation, debug_mode=debug_mode
+                            last_sent_frame,
+                            frame_bytes_save,
+                            orientation,
+                            debug_mode=debug_mode,
+                            render_algorithm=render_algorithm,
+                            led_size_pct=led_size_pct,
+                            export_pdf_flag=config.ui.export_pdf,
+                            export_4x6=config.ui.export_4x6,
+                            auto_print=config.ui.auto_print,
                         )
                         print("  Saved.")
                     else:

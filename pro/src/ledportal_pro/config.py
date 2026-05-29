@@ -63,7 +63,9 @@ class UIConfig:
     debug_mode: bool = False
     single_keypress: bool = True  # Use single-keypress input (Mac/Linux only)
     show_preview: bool = False  # Show side-by-side camera/matrix preview window
-    auto_print: bool = False  # Print a 4×6 photo-booth PDF after every snapshot (macOS)
+    export_pdf: bool = True  # Generate Letter-page multi-format PDF on every snapshot
+    export_4x6: bool = False  # Generate 4×6 photo-booth PDF on every snapshot (saved to disk)
+    auto_print: bool = False  # Send the 4×6 PDF to the default printer (macOS; implies export_4x6)
 
 
 @dataclass

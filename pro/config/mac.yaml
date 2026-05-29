@@ -26,6 +26,10 @@ ui:
   snapshot_pause_duration: 3.0
   enable_frame_limiting: false
   show_preview: true
+  # --- Snapshot output ---
+  # export_pdf: true      # Letter-page (8.5×11") multi-format PDF. Default: true.
+  # export_4x6: false     # 4×6" photo-booth PDF saved to disk. Default: false.
+  # auto_print: false     # Print the 4×6 PDF to the default printer (macOS lpr). Default: false.
 
 target_fps: 30
 debug_save_frames: false

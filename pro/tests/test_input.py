@@ -141,6 +141,7 @@ class TestInputCommand:
         "LED_SIZE_INCREASE",
         "LED_SIZE_DECREASE",
         "SNAPSHOT",
+        "TOGGLE_AUTO_PRINT",
         "AVATAR",
         "TOGGLE_DISPLAY",
         "TOGGLE_DEBUG",
