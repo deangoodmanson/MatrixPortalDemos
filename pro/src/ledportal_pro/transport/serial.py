@@ -155,11 +155,11 @@ def open_console_port(port: str) -> serial.Serial:
         ser = serial.Serial(
             port,
             baudrate=115200,
-            timeout=0,       # non-blocking: returns immediately if no data
+            timeout=0,  # non-blocking: returns immediately if no data
             dsrdtr=False,
             rtscts=False,
         )
-        ser.dtr = False      # prevent DTR from resetting the device
+        ser.dtr = False  # prevent DTR from resetting the device
         ser.rts = False
         ser.reset_input_buffer()
         return ser

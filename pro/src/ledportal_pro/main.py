@@ -528,7 +528,9 @@ def main() -> int:
                 print(f"Warning: Could not open console port {config.console_port}: {e}")
                 print("  A0 snap button disabled.  Check console_port in config.")
         elif config.a0_snap_button and not config.console_port:
-            print("A0 snap button enabled in config but console_port is not set — feature inactive.")
+            print(
+                "A0 snap button enabled in config but console_port is not set — feature inactive."
+            )
             print("  Set console_port in your YAML or use --console-port PORT to activate.")
 
         print()
@@ -565,7 +567,9 @@ def main() -> int:
                 if console_serial is not None and console_serial.is_open:
                     try:
                         while console_serial.in_waiting > 0:
-                            line = console_serial.readline().decode("utf-8", errors="ignore").strip()
+                            line = (
+                                console_serial.readline().decode("utf-8", errors="ignore").strip()
+                            )
                             if line == "SNAP" and save_enabled:
                                 instant_snapshot(
                                     last_sent_frame,
