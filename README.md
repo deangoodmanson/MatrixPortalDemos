@@ -2,6 +2,12 @@
 
 Real-time high-performance camera feed displayed on a 64x32 RGB LED matrix.
 
+![Macro close-up of the 64×32 RGB LED matrix lit up](docs/hardware/matrixPixelsGreenRaw.jpg)
+
+*Up close on the 64×32 Adafruit Matrix Portal display (raw, no diffuser). More hardware photos in [`docs/`](docs/).*
+
+> 🤖 **Built as an agentic-coding experiment** — written primarily through prompts and configuration, with an AI agent doing the coding. See [How this project was built](docs/how-this-was-built.md).
+
 ## System Overview
 
 ```
@@ -97,6 +103,21 @@ To display on a physical LED matrix:
 *   **Demo**: `x` auto demo · `Shift+X` manual demo · `.`/`,` next/prev step
 *   **Preview**: `w` toggle preview window with camera + LED side-by-side
 *   **System**: `t` toggle transmission · `d` debug · `r` reset · `h` help · `q` quit
+
+## For Educators & Learners
+
+This project is built for teaching Python and physical computing, with two
+learning on-ramps and no hardware required to start (a webcam + the preview
+window is enough):
+
+- **[High School edition](hs/README.md)** — single-file, heavily commented, with
+  a Learning Path, Key Concepts, and hands-on Exercises.
+- **[Learning with AI](docs/learning-with-ai.md)** — using Claude Desktop / Claude
+  Code as a *tutor* (not an answer key), for both teachers and students.
+- **[How this project was built](docs/how-this-was-built.md)** — the agentic-coding
+  story, and a concrete answer to *"if AI can code, why learn to code?"*
+- **[Why learn Python if AI generated this?](hs/REQUIREMENTS.md)** — the project's
+  own take on responsible AI use in learning.
 
 ## Performance Optimizations
 We achieved a ~500% performance increase (5 FPS → 24 FPS) by:
