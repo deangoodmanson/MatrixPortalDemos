@@ -343,7 +343,7 @@ Once you understand this code, check out the professional version in the `pro/` 
 - Type hints and type checking with ty
 - YAML configuration files
 - Command-line arguments
-- Comprehensive unit test suite (220+ tests)
+- Comprehensive unit test suite
 - Better error handling and logging
 
 ---
