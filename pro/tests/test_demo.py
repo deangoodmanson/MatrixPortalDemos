@@ -261,9 +261,7 @@ class TestNavigation:
         demo.next_step()  # advance once so prev_step has somewhere to go
         demo.prev_step()
         result = demo.get_next_command(time.time() + 0.1)
-        assert result is None, (
-            "prev_step() must set _step_start_time to time.time(), not 0.0"
-        )
+        assert result is None, "prev_step() must set _step_start_time to time.time(), not 0.0"
 
     def test_prev_step_wraps_around(self):
         demo = DemoMode()
