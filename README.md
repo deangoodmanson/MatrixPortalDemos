@@ -18,9 +18,21 @@ Camera → Computer (Pi, Mac, PC) → USB Serial (4M baud) → Matrix Portal M4 
 |--------|------|-------------|
 | **`pro/`** | **Professional** | Modular, production-ready Python application. Uses `uv`, strict typing, and advanced config. |
 | **`hs/`** | **High School** | Educational, single-folder version (`hs/src`) for students. Simplified code, cross-platform. |
-| **`matrix-portal/`**| **Firmware** | CircuitPython code for the Adafruit Matrix Portal M4. |
+| **`matrix-portal/`**| **Firmware** | CircuitPython apps for the Adafruit Matrix Portal M4 — see [Matrix Portal Demos](#matrix-portal-demos) below. |
 | **`utils/`** | **Utilities** | `ledportal-utils` library for snapshot export (PNG, blocks, circles). |
 | **`macropad/`** | **MacroPad Remote** | CircuitPython macro pages for the Adafruit MacroPad RP2040. Physical button controller for all camera feed commands. |
+
+### Matrix Portal Demos
+
+The on-device CircuitPython apps in `matrix-portal/`, selected from the boot **hub** screen using the onboard UP / DOWN buttons:
+
+| Demo | Hub selection | Description |
+|------|---------------|-------------|
+| **Camera Mirror** | `MIRROR` (default) | Displays the live USB camera feed streamed from the host `ledportal` app. |
+| **Photo Slideshow** | `UP → PHOTOS` | Cycles built-in images stored on the device (`dog.png`, `kitten.png`, …). |
+| **Silly Bird** | `DOWN → BIRD` | A silly bird fly through gates game, playable in portrait or landscape. |
+
+See [`matrix-portal/README.md`](matrix-portal/README.md) for deployment and [`matrix-portal/NAVIGATION.md`](matrix-portal/NAVIGATION.md) for the full screen-flow diagram.
 
 ## Raspberry Pi Workflows
 
@@ -40,16 +52,18 @@ uv run ledportal
 ```
 
 ### For HS Version (Educational)
-**Simplest:** Direct file copy + Thonny editor
+**Simplest:** get the code, then let `uv` handle Python + dependencies in one command:
 ```bash
-# No git, no build tools needed!
-cd ~
-mkdir ledportal-hs
-wget <camera_feed.py>
-pip3 install opencv-python pyserial numpy
-python3 camera_feed.py
-# Or open in Thonny IDE (pre-installed on Pi)
+git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
+cd MatrixPortalDemos/hs
+uv run python src/camera_feed.py   # uv installs Python 3.14 + all deps on first run
 ```
+
+**Getting the code without `git`:** download the repo ZIP from GitHub
+(**Code → Download ZIP**), unzip, then run the same `cd hs && uv run …`. For a
+classroom, a teacher can distribute the `hs/` folder over a shared network drive
+(SMB/NFS), cloud folder, or USB stick — each student just needs the `hs/` folder
+(it includes `pyproject.toml`, so `uv` knows what to install).
 
 See `hs/README.md` and `pro/README.md` for detailed workflows.
 
@@ -73,11 +87,8 @@ uv run ledportal
 #### Option B: Educational (Simple)
 Great for learning how it works.
 ```bash
-cd hs/src
-# Create venv and install dependencies (opencv-python, pyserial, numpy)
-uv venv && source .venv/bin/activate
-uv pip install opencv-python numpy pyserial
-python camera_feed.py
+cd hs
+uv run python src/camera_feed.py   # uv reads hs/pyproject.toml — no manual venv or pip
 ```
 
 ### 2. Setup Matrix Portal M4 (optional)
