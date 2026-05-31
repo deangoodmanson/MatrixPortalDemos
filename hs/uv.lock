@@ -23,7 +23,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "opencv-python", specifier = ">=4.8.0" },
-    { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "pyserial", specifier = ">=3.5" },
 ]
 
