@@ -1,18 +1,24 @@
 # Matrix Portal Live Camera Feed Project
 
+> **Note — original planning document.** This is the initial project spec. The
+> shipped implementation differs in two ways: the display is **64×32**
+> (landscape; 32×64 is the rotated *portrait* mode), and frames are sent over
+> **USB CDC serial**, not PyUSB bulk transfer. See the top-level `README.md` and
+> `CLAUDE.md` for the current architecture.
+
 ## Project Overview
-Build a real-time camera feed display system that captures video from a Raspberry Pi camera and displays it on a 32x64 RGB LED matrix via an Adafruit Matrix Portal controller.
+Build a real-time camera feed display system that captures video from a Raspberry Pi camera and displays it on a 64x32 RGB LED matrix via an Adafruit Matrix Portal controller.
 
 ## Hardware Components
 - **Raspberry Pi 3 or 4**: Main processing unit
 - **Adafruit Matrix Portal** (M4 or S3): LED matrix controller
-- **32x64 RGB LED Matrix**: HUB75-compatible display (standard kit size)
+- **64x32 RGB LED Matrix**: HUB75-compatible display (standard kit size)
 - **Pi Camera Module or USB Camera**: Video input source
 - **USB cable**: Pi to Matrix Portal connection
 
 ## Technical Requirements
 - **Target Frame Rate**: 24 FPS (achieved)
-- **Display Resolution**: 32x64 pixels
+- **Display Resolution**: 64x32 pixels
 - **Color Depth**: 16-bit (RGB565)
 - **Connection Method**: USB Serial (CDC) at 4M baud
 
@@ -27,7 +33,7 @@ Camera → Pi (Capture) → Pi (Process/Resize) → USB → Matrix Portal → LE
 
 **Raspberry Pi:**
 - Capture camera frames using picamera2 (for Pi Camera) or OpenCV (for USB camera)
-- Resize frames from camera resolution to 32x64 pixels
+- Resize frames from camera resolution to 64x32 pixels
 - Convert color space and reduce color depth if needed
 - Encode frame data for USB transfer
 - Send frames to Matrix Portal via PyUSB
@@ -50,7 +56,7 @@ Camera → Pi (Capture) → Pi (Process/Resize) → USB → Matrix Portal → LE
 
 **Processing Pipeline**:
 1. Capture frame from camera
-2. Resize to 32x64 using fast interpolation (INTER_NEAREST or INTER_LINEAR)
+2. Resize to 64x32 using fast interpolation (INTER_NEAREST or INTER_LINEAR)
 3. Convert to RGB565 (16-bit) or RGB332 (8-bit) format
 4. Flatten to byte array
 5. Send via USB bulk transfer
@@ -73,7 +79,7 @@ Camera → Pi (Capture) → Pi (Process/Resize) → USB → Matrix Portal → LE
 
 ### For 10 FPS Target:
 - **Per Frame Budget**: 100ms
-- **Data Size**: 32 × 64 × 2 bytes (RGB565) = 4,096 bytes per frame
+- **Data Size**: 64 × 32 × 2 bytes (RGB565) = 4,096 bytes per frame
 - **USB Transfer Speed**: USB 2.0 (480 Mbps) → easily achievable
 
 ### Optimization Strategies:

@@ -19,7 +19,7 @@ Captures video from a camera, processes it, and displays on a 64x32 RGB LED matr
 - Cross-platform text-to-speech (macOS say, Linux espeak-ng, Windows pyttsx3)
 - YAML configuration with CLI overrides
 - Type-safe Python code (checked with `ty`)
-- 187-test unit test suite
+- Comprehensive unit test suite
 
 ## Requirements
 
@@ -349,7 +349,7 @@ All checks passed!
 
 ### Unit Tests
 
-187 tests covering all non-hardware modules. No camera or serial port required.
+Unit tests cover all non-hardware modules. No camera or serial port required.
 
 ```bash
 # Run tests
@@ -404,7 +404,7 @@ pro/
 │   ├── default.yaml
 │   ├── mac.yaml
 │   └── pi.yaml
-├── tests/                  # Unit tests (187 tests, no hardware required)
+├── tests/                  # Unit tests (no hardware required)
 │   ├── conftest.py         # Shared fixtures
 │   ├── test_config.py
 │   ├── test_color.py

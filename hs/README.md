@@ -59,57 +59,49 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 #### Step 2: Get the Code
 
 ```bash
-# Method A: Clone the repository (recommended)
 git clone https://github.com/deangoodmanson/MatrixPortalDemos.git
-cd MatrixPortalDemos/hs/src
-
-# Method B: Download just the files you need
-mkdir ~/ledportal-hs
-cd ~/ledportal-hs
-wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/camera_feed.py
-wget https://raw.githubusercontent.com/deangoodmanson/MatrixPortalDemos/main/hs/src/config.py
+cd MatrixPortalDemos/hs
 ```
 
-#### Step 3: Install Python and Dependencies
+**No `git`?** Download the repo ZIP from GitHub (**Code → Download ZIP**), unzip,
+and `cd` into the `hs` folder. In a classroom, your teacher might instead share
+the `hs/` folder over a network drive (SMB/NFS), a cloud folder, or a USB stick —
+you only need that folder. It contains `pyproject.toml`, which tells `uv` exactly
+what to install, so the next step works the same either way.
 
-```bash
-# uv will automatically install Python 3.14 and create a virtual environment!
-uv venv
-
-# Activate the virtual environment
-source .venv/bin/activate  # Mac/Linux
-# OR on Windows: .venv\Scripts\activate
-
-# Install dependencies
-uv pip install opencv-python pyserial numpy pillow
-
-# On Raspberry Pi, also install Pi Camera support:
-sudo apt install -y python3-picamera2
-uv pip install picamera2
-```
-
-#### Step 4: Run the Program
+#### Step 3: Run the Program
 
 No LED matrix hardware is required. The program works with just a webcam — press
 `w` to open the preview window and see the LED simulation on screen.
 
 ```bash
-# Make sure virtual environment is activated
-source .venv/bin/activate
-
-# Run!
-python camera_feed.py
+# From the hs/ folder. On the FIRST run, uv installs Python 3.14 and all
+# dependencies (numpy, opencv-python, pyserial, pillow) automatically.
+uv run python src/camera_feed.py
 ```
+
+That's it — no manual virtual environment, no `pip install`, no dependency list
+to keep in sync. `uv` reads `pyproject.toml` and sets everything up for you.
+
+**Raspberry Pi Camera Module** (the ribbon-cable camera) needs the system
+package, which lives outside the uv environment:
+
+```bash
+sudo apt install -y python3-picamera2
+# Then run with the system Python so picamera2 is visible:
+uv run --python $(which python3) python src/camera_feed.py
+```
+
+A plain **USB webcam** needs none of this — `uv run python src/camera_feed.py`
+just works, and the code falls back to the USB camera automatically.
 
 ### Quick One-Liner Setup
 
 ```bash
-# Clone, create venv, install deps, and run (all in one!)
+# Clone and run — uv handles Python and dependencies on first run
 git clone https://github.com/deangoodmanson/MatrixPortalDemos.git && \
-cd MatrixPortalDemos/hs/src && \
-uv venv && source .venv/bin/activate && \
-uv pip install opencv-python pyserial numpy pillow && \
-python camera_feed.py
+cd MatrixPortalDemos/hs && \
+uv run python src/camera_feed.py
 ```
 
 #### Pi-Friendly Editors
@@ -120,21 +112,21 @@ python camera_feed.py
 - No terminal knowledge needed
 
 ```bash
-# Open in Thonny
-thonny camera_feed.py
+# From the hs/ folder, open the program in Thonny
+thonny src/camera_feed.py
 # Click the green "Run" button or press F5
 ```
 
 **nano (Quick Terminal Edits)**
 ```bash
-nano camera_feed.py
+nano src/camera_feed.py
 # Edit, Ctrl+O to save, Ctrl+X to exit
-python3 camera_feed.py
+uv run python src/camera_feed.py
 ```
 
 **VS Code (Advanced)**
 ```bash
-code camera_feed.py
+code src/camera_feed.py
 ```
 
 ### Why Learn uv?
@@ -154,11 +146,12 @@ Visual Studio Code makes it easy to step through your code line by line and see 
 ### Step 1: Open the folder in VS Code
 
 ```bash
-cd hs/src
+cd hs
+uv sync          # creates .venv with all dependencies for the debugger to use
 code .
 ```
 
-Or use File → Open Folder and select `hs/src`.
+Or use File → Open Folder and select `hs`.
 
 ### Step 2: Install the Python Extension
 
@@ -188,7 +181,7 @@ Or create `.vscode/launch.json` manually:
             "name": "Run Camera Feed",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/camera_feed.py",
+            "program": "${workspaceFolder}/src/camera_feed.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }
@@ -346,7 +339,7 @@ Once you understand this code, check out the professional version in the `pro/` 
 - Type hints and type checking with ty
 - YAML configuration files
 - Command-line arguments
-- Comprehensive unit test suite (187 tests)
+- Comprehensive unit test suite
 - Better error handling and logging
 
 ---
@@ -357,8 +350,9 @@ Once you understand this code, check out the professional version in the `pro/` 
 
 ### Dev Environment Setup
 
-The `hs/` folder has a `pyproject.toml` for developer tooling (type checking, linting).
-Students use the manual `uv pip install` approach in `hs/src/` — this is the developer setup.
+The `hs/` folder's `pyproject.toml` declares both the runtime dependencies and the
+developer tooling. Students just run `uv run python src/camera_feed.py` (uv installs
+the runtime deps from it automatically); the commands below add the dev tools.
 
 ```bash
 cd hs
