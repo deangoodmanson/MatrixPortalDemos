@@ -8,7 +8,41 @@ circuits the learning. (See [`how-this-was-built.md`](how-this-was-built.md) and
 [`why-learn-to-code.md`](why-learn-to-code.md) for why that distinction is the
 whole point.)
 
-Two tools, two roles:
+## Two editions, two coding philosophies
+
+The two host editions are intentionally designed around different ways of
+working — pick the one that matches your goal:
+
+- **`pro/` — designed around agentic coding.** Its modular structure, type hints,
+  tests, and config-as-deliverable exist so an AI agent (and a human reviewer)
+  can extend it safely through prompts and configuration. It's the worked example
+  of *directing* an agent to build production-quality software — the human is the
+  architect and reviewer, the agent is the implementer. See
+  [`how-this-was-built.md`](how-this-was-built.md).
+- **`hs/` — designed around hands-on, interactive coding.** A single, linear,
+  heavily-commented file you read, run, and modify yourself. The goal is for
+  *you* to build the understanding, line by line.
+
+These aren't walls. The `hs/` edition also **welcomes collaborative, AI-augmented
+coding** — pairing with an assistant to explain, debug, and extend code you
+understand. Tools that fit this model include:
+
+- **[Anthropic Claude Code](https://www.anthropic.com/claude-code)** and Claude Desktop
+- **[Microsoft / GitHub Copilot](https://github.com/features/copilot)**
+- **[Google Antigravity](https://antigravity.google/)**
+
+The principle is the same across all of them and is the heart of this guide:
+**use AI as a collaborator and tutor, not an answer key.** Augmented coding means
+*you* stay the author — the assistant accelerates work you can still read,
+explain, and defend.
+
+> This guide's examples use Anthropic's Claude tools because that's what the
+> project was built with, but the habits transfer directly to Copilot,
+> Antigravity, or any other assistant.
+
+---
+
+## Two tools, two roles (Claude)
 
 - **Claude Desktop** — the chat app. Great for conceptual Q&A, lesson planning,
   and explaining code or errors you paste in. It does **not** see your files
