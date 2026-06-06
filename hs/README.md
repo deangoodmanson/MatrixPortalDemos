@@ -104,29 +104,34 @@ cd MatrixPortalDemos/hs && \
 uv run python src/camera_feed.py
 ```
 
-#### Pi-Friendly Editors
+#### Recommended Editors
 
-**Thonny (Recommended for Students)**
-- Pre-installed on Raspberry Pi OS
-- Beginner-friendly with visual debugger
-- No terminal knowledge needed
+Any editor works, but two full Python IDEs are especially good for students —
+both are free and include a visual debugger (see [Debugging with VS Code](#debugging-with-vs-code)
+below to learn stepping through code line by line):
+
+**Visual Studio Code for Education (great starting point)**
+- A guided, browser-based version of VS Code built for the classroom — nothing to
+  install, runs at [vscodeedu.com](https://vscodeedu.com/)
+- Beginner-friendly with built-in coding lessons, then graduates to the same
+  VS Code professionals use
+- Pairs with the desktop [VS Code](https://code.visualstudio.com/) walkthrough below
+
+**PyCharm Community Edition (full-featured, free)**
+- Powerful Python-focused IDE from JetBrains with an excellent visual debugger
+- Free Community Edition: [jetbrains.com/pycharm](https://www.jetbrains.com/pycharm/)
+- Open the `hs/` folder, then run `src/camera_feed.py`
+
+**Lighter-weight options**
 
 ```bash
-# From the hs/ folder, open the program in Thonny
-thonny src/camera_feed.py
-# Click the green "Run" button or press F5
-```
-
-**nano (Quick Terminal Edits)**
-```bash
-nano src/camera_feed.py
-# Edit, Ctrl+O to save, Ctrl+X to exit
-uv run python src/camera_feed.py
-```
-
-**VS Code (Advanced)**
-```bash
+# VS Code (desktop) — open the program directly
 code src/camera_feed.py
+
+# nano (quick terminal edits, pre-installed on Raspberry Pi)
+nano src/camera_feed.py
+# Edit, Ctrl+O to save, Ctrl+X to exit, then run:
+uv run python src/camera_feed.py
 ```
 
 ### Why Learn uv?
