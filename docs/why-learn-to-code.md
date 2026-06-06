@@ -1,4 +1,8 @@
-# LED Portal High School Project - Requirements & Prompts
+# Why Learn to Code if AI Can Write It?
+
+How this project was created with Claude Code, the prompts used, and — most
+importantly — why you still need to learn programming. Written for students, but
+useful for anyone weighing the same question.
 
 ## "If AI Generated This, Why Learn Python?"
 
@@ -266,7 +270,7 @@ Without looking at comments, explain what `convert_to_rgb565()` does. If you can
 4. Compare your comments to the original
 
 ### Exercise 4: Break It, Fix It
-1. Change `BAUD_RATE = 2000000` to `BAUD_RATE = 100`
+1. Change `BAUD_RATE = 4000000` to `BAUD_RATE = 100`
 2. Run the program
 3. Observe what happens
 4. Explain why it happened

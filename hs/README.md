@@ -2,6 +2,9 @@
 
 This folder contains educational versions of the LED Matrix Camera Feed code, designed for high school students learning Python programming.
 
+> 💡 New here? Read [**Why Learn to Code if AI Can Write It?**](../docs/why-learn-to-code.md) —
+> how this project was built with AI, and why you still need to learn programming.
+
 ## What's Different?
 
 Compared to the `pro/` version, this version has:
@@ -101,30 +104,28 @@ cd MatrixPortalDemos/hs && \
 uv run python src/camera_feed.py
 ```
 
-#### Pi-Friendly Editors
+#### Recommended Editors
 
-**Thonny (Recommended for Students)**
-- Pre-installed on Raspberry Pi OS
-- Beginner-friendly with visual debugger
-- No terminal knowledge needed
+Any editor works, but these free options are especially good for students —
+each includes a visual debugger (see [Debugging with VS Code](#debugging-with-vs-code)
+below to learn stepping through code line by line):
 
-```bash
-# From the hs/ folder, open the program in Thonny
-thonny src/camera_feed.py
-# Click the green "Run" button or press F5
-```
+**Thonny (simplest, great for beginners)**
+- Beginner-friendly Python IDE, pre-installed on Raspberry Pi OS
+- No terminal knowledge needed; built-in variable inspector and debugger
+- Download: [thonny.org](https://thonny.org/) — open `src/camera_feed.py` and press F5
 
-**nano (Quick Terminal Edits)**
-```bash
-nano src/camera_feed.py
-# Edit, Ctrl+O to save, Ctrl+X to exit
-uv run python src/camera_feed.py
-```
+**Visual Studio Code for Education**
+- A guided, browser-based version of VS Code built for the classroom — nothing to
+  install, runs at [vscodeedu.com](https://vscodeedu.com/)
+- Beginner-friendly with built-in coding lessons, then graduates to the same
+  VS Code professionals use
+- Pairs with the desktop [VS Code](https://code.visualstudio.com/) walkthrough below
 
-**VS Code (Advanced)**
-```bash
-code src/camera_feed.py
-```
+**PyCharm Community Edition (full-featured, free)**
+- Powerful Python-focused IDE from JetBrains with an excellent visual debugger
+- Free Community Edition: [jetbrains.com/pycharm](https://www.jetbrains.com/pycharm/)
+- Open the `hs/` folder, then run `src/camera_feed.py`
 
 ### Why Learn uv?
 
