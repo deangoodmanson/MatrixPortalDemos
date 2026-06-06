@@ -106,11 +106,16 @@ uv run python src/camera_feed.py
 
 #### Recommended Editors
 
-Any editor works, but two full Python IDEs are especially good for students —
-both are free and include a visual debugger (see [Debugging with VS Code](#debugging-with-vs-code)
+Any editor works, but these free options are especially good for students —
+each includes a visual debugger (see [Debugging with VS Code](#debugging-with-vs-code)
 below to learn stepping through code line by line):
 
-**Visual Studio Code for Education (great starting point)**
+**Thonny (simplest, great for beginners)**
+- Beginner-friendly Python IDE, pre-installed on Raspberry Pi OS
+- No terminal knowledge needed; built-in variable inspector and debugger
+- Download: [thonny.org](https://thonny.org/) — open `src/camera_feed.py` and press F5
+
+**Visual Studio Code for Education**
 - A guided, browser-based version of VS Code built for the classroom — nothing to
   install, runs at [vscodeedu.com](https://vscodeedu.com/)
 - Beginner-friendly with built-in coding lessons, then graduates to the same
@@ -121,18 +126,6 @@ below to learn stepping through code line by line):
 - Powerful Python-focused IDE from JetBrains with an excellent visual debugger
 - Free Community Edition: [jetbrains.com/pycharm](https://www.jetbrains.com/pycharm/)
 - Open the `hs/` folder, then run `src/camera_feed.py`
-
-**Lighter-weight options**
-
-```bash
-# VS Code (desktop) — open the program directly
-code src/camera_feed.py
-
-# nano (quick terminal edits, pre-installed on Raspberry Pi)
-nano src/camera_feed.py
-# Edit, Ctrl+O to save, Ctrl+X to exit, then run:
-uv run python src/camera_feed.py
-```
 
 ### Why Learn uv?
 
