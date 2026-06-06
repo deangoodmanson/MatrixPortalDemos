@@ -34,6 +34,8 @@ The on-device CircuitPython apps in `matrix-portal/`, selected from the boot **h
 
 See [`matrix-portal/README.md`](matrix-portal/README.md) for deployment and [`matrix-portal/NAVIGATION.md`](matrix-portal/NAVIGATION.md) for the full screen-flow diagram.
 
+> 🏛️ **How it all fits together:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) maps the three apps, the host↔device wire protocol, and the `pro`/`hs` module structure with Mermaid diagrams.
+
 ## Raspberry Pi Workflows
 
 ### For Pro Version
