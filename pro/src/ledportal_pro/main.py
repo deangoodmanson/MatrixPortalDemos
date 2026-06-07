@@ -7,9 +7,10 @@ import time
 from pathlib import Path
 
 import numpy as np
+import serial
 from numpy.typing import NDArray
 
-from .capture import create_camera
+from .capture import CameraBase, create_camera
 from .capture.factory import list_available_cameras
 from .config import AppConfig, load_config
 from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
@@ -22,7 +23,7 @@ from .processing import (
     create_test_pattern,
     resize_frame,
 )
-from .transport import create_transport
+from .transport import TransportBase, create_transport
 from .ui import (
     _ALGORITHM_LABELS,
     LED_SIZE_DEFAULT,
@@ -383,6 +384,301 @@ def instant_snapshot(
         print(f"  A0 SNAP failed: {e}")
 
 
+def _apply_cli_overrides(config: AppConfig, args: argparse.Namespace) -> None:
+    """Apply command-line argument overrides onto the loaded config."""
+    if args.camera is not None:
+        config.camera.index = args.camera
+    if args.orientation is not None:
+        config.processing.orientation = args.orientation
+    if args.processing is not None:
+        config.processing.processing_mode = args.processing
+    if args.no_a0_snap:
+        config.a0_snap_button = False
+    elif args.a0_snap:
+        config.a0_snap_button = True
+    if args.console_port is not None:
+        config.console_port = args.console_port
+
+
+def _print_startup_info(config: AppConfig, args: argparse.Namespace) -> None:
+    """Print the version banner and capture summary."""
+    print("LED Portal Pro v0.2.0")
+    print(f"Matrix: {config.matrix.width}x{config.matrix.height}")
+    print(f"Target FPS: {config.target_fps}")
+    print(f"Frame size: {config.frame_size_bytes} bytes (RGB565)")
+    if args.frames > 0:
+        print(f"Will capture {args.frames} frames and exit")
+    print()
+
+
+def _print_camera_list(available_cameras: list[dict[str, str | int | float]]) -> None:
+    """Print the enumerated list of detected cameras."""
+    if available_cameras:
+        print(f"Found {len(available_cameras)} camera(s):")
+        for cam in available_cameras:
+            cam_type = cam.get("type", "unknown")
+            index = cam.get("index", "?")
+            backend = cam.get("backend", "unknown")
+            resolution = cam.get("resolution", "unknown")
+            fps = cam.get("fps", "unknown")
+            name = cam.get("name", cam.get("model", f"Camera {index}"))
+            print(
+                f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps (driver-reported)"
+            )
+    else:
+        print("  No cameras detected (will try to open anyway)")
+    print()
+
+
+def _print_camera_info(cam_info: dict[str, str | int | float]) -> None:
+    """Print the detailed information block for the opened camera."""
+    print("=" * 60)
+    print("CAMERA INFORMATION:")
+    print("=" * 60)
+    print(f"  Type: {cam_info.get('type', 'unknown')}")
+    if "index" in cam_info:
+        print(f"  Index: {cam_info['index']}")
+    if "backend" in cam_info:
+        print(f"  Backend: {cam_info['backend']}")
+    if "model" in cam_info:
+        print(f"  Model: {cam_info['model']}")
+    print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
+    if "fps" in cam_info:
+        print(f"  FPS (driver-reported): {cam_info['fps']} — camera driver reported speed.")
+    if "format" in cam_info and cam_info["format"] != "unknown":
+        print(f"  Format: {cam_info['format']}")
+    if "requested_resolution" in cam_info:
+        print(f"  Requested: {cam_info['requested_resolution']}")
+    if "sensor_modes" in cam_info:
+        print(f"  Sensor modes: {cam_info['sensor_modes']}")
+    print("=" * 60)
+    print()
+
+
+def _setup_transport(
+    config: AppConfig, args: argparse.Namespace, display_enabled: bool
+) -> TransportBase | None:
+    """Create and connect the transport, sending verification frames.
+
+    Returns:
+        The connected transport, or None if the device was not found.
+    """
+    transport = create_transport(config.transport)
+    try:
+        transport.connect(args.port)
+        print(f"Connected to Matrix Portal on {transport.port}")
+
+        # Send test patterns to verify connection (only if display enabled)
+        if display_enabled:
+            test_pattern = create_test_pattern(config.matrix)
+            # Only send 2 test frames (reduced from 5) to minimize power draw
+            # during initial connection when matrix may be USB-powered only
+            for i in range(2):
+                bytes_sent = transport.send_frame(test_pattern)
+                print(f"Test pattern {i + 1} sent: {bytes_sent} bytes")
+                time.sleep(0.5)  # Longer delay to avoid power spikes
+            print("Verification frames sent.")
+        else:
+            print("Display paused (--no-display flag). Press 't' to enable.")
+    except DeviceNotFoundError as e:
+        print(f"Warning: {e}")
+        print("Display paused (device not found). Press 't' to retry.")
+        return None
+    return transport
+
+
+def _open_console_if_configured(config: AppConfig) -> serial.Serial | None:
+    """Open the CDC console port for the A0 hardware snap button, if configured.
+
+    Returns:
+        The opened console serial port, or None if not configured/unavailable.
+    """
+    if config.a0_snap_button and config.console_port:
+        from .transport.serial import open_console_port
+
+        try:
+            console_serial = open_console_port(config.console_port)
+            print(f"A0 snap button enabled — console port: {config.console_port}")
+            print("  NOTE: REPL/terminal access to the device is suspended while running.")
+            print("  Use --no-a0-snap or set a0_snap_button: false to restore REPL access.")
+            return console_serial
+        except Exception as e:
+            print(f"Warning: Could not open console port {config.console_port}: {e}")
+            print("  A0 snap button disabled.  Check console_port in config.")
+    elif config.a0_snap_button and not config.console_port:
+        print("A0 snap button enabled in config but console_port is not set — feature inactive.")
+        print("  Set console_port in your YAML or use --console-port PORT to activate.")
+    return None
+
+
+def _poll_a0_snap(
+    console_serial: serial.Serial | None,
+    save_enabled: bool,
+    last_sent_frame: NDArray[np.uint8] | None,
+    transport: TransportBase | None,
+    snapshot_manager: SnapshotManager,
+    orientation: str,
+    debug_mode: bool,
+    render_algorithm: PreviewAlgorithm,
+    led_size_pct: int,
+) -> None:
+    """Poll the console port for an A0 hardware snap button press.
+
+    Reads "SNAP" lines from the device console and triggers an instant snapshot.
+    Serial errors are swallowed so they never crash the main loop.
+    """
+    if console_serial is not None and console_serial.is_open:
+        try:
+            while console_serial.in_waiting > 0:
+                line = console_serial.readline().decode("utf-8", errors="ignore").strip()
+                if line == "SNAP" and save_enabled:
+                    instant_snapshot(
+                        last_sent_frame,
+                        transport,
+                        snapshot_manager,
+                        orientation,
+                        debug_mode=debug_mode,
+                        render_algorithm=render_algorithm,
+                        led_size_pct=led_size_pct,
+                    )
+                elif line == "SNAP" and not save_enabled:
+                    print("  A0 SNAP received but snapshot saving disabled (--no-save)")
+        except Exception:
+            pass  # serial errors don't crash the main loop
+
+
+def process_and_send_frame(
+    camera: CameraBase,
+    transport: TransportBase | None,
+    config: AppConfig,
+    snapshot_manager: SnapshotManager,
+    *,
+    orientation: str,
+    processing_mode: str,
+    zoom_level: float,
+    mirror_mode: bool,
+    black_and_white: bool,
+    render_algorithm: PreviewAlgorithm,
+    led_size_pct: int,
+    display_enabled: bool,
+    debug_mode: bool,
+    demo: DemoMode,
+    demo_label: str,
+    frame_count: int,
+    start_time: float,
+    last_sent_frame: NDArray[np.uint8] | None,
+) -> tuple[NDArray[np.uint8] | None, TransportBase | None, int]:
+    """Capture, process, send, and preview one frame.
+
+    Encapsulates the full per-frame pipeline: capture → zoom → resize → effects →
+    demo overlay → brightness limit → RGB565 convert → send, followed by stats
+    output and the preview window.
+
+    Returns:
+        Tuple of (last_sent_frame, transport, frame_count). ``last_sent_frame`` is
+        updated only on a successful send; ``transport`` is set to None on send
+        failure so the 't' key can reconnect; ``frame_count`` is incremented only
+        when a frame was captured (unchanged on capture failure).
+    """
+    # Capture frame
+    try:
+        original_frame = camera.capture()  # Full resolution, pre-zoom
+    except CameraCaptureFailed:
+        time.sleep(0.1)
+        return last_sent_frame, transport, frame_count
+
+    # Apply zoom (frame is the working copy; original_frame stays full-res for preview)
+    frame = original_frame
+    if zoom_level < 1.0:
+        frame = apply_zoom_crop(frame, zoom_level)
+
+    # Process frame
+    small_frame = resize_frame(
+        frame, config.matrix, config.processing, orientation, processing_mode
+    )
+    if mirror_mode:
+        small_frame = apply_mirror(small_frame, orientation)
+    if black_and_white:
+        small_frame = apply_grayscale(small_frame)
+
+    # Save frame before brightness limiting — show_preview applies it internally
+    preview_frame = small_frame
+
+    # In demo mode, draw current step label in red on device frame and preview
+    if demo.is_active and demo_label:
+        small_frame = draw_text_overlay(
+            small_frame,
+            demo_label,
+            (2, 30),
+            color=(0, 0, 255),
+            font_scale=0.225,
+            thickness=1,
+        )
+        preview_frame = small_frame
+
+    # Apply brightness limiting for USB power safety
+    if config.processing.max_brightness < 255:
+        small_frame = apply_brightness_limit(small_frame, config.processing.max_brightness)
+
+    # Debug save
+    if config.debug_save_frames:
+        snapshot_manager.save_debug_frame(small_frame)
+
+    # Convert and send
+    frame_bytes = convert_to_rgb565(small_frame)
+    bytes_sent = 0
+
+    # Determine display status and send if enabled
+    if not display_enabled:
+        display_status = "PAUSED (user)"
+    elif transport is None:
+        display_status = "PAUSED (no device)"
+    else:
+        try:
+            bytes_sent = transport.send_frame(frame_bytes)
+            display_status = "ACTIVE"
+            last_sent_frame = small_frame  # Cache for pause-mode snapshot
+        except Exception as e:
+            transport = None  # Mark as disconnected so 't' can reconnect
+            display_status = "PAUSED (disconnected)"
+            print(f"Display disconnected: {e}")
+            print("\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n")
+
+    # Frame counting and stats
+    frame_count += 1
+    if frame_count == 1 and display_status == "ACTIVE":
+        print(f"First frame sent: {bytes_sent} bytes")
+
+    if debug_mode and frame_count % 10 == 0:
+        elapsed = time.time() - start_time
+        fps = frame_count / elapsed
+        bw_status = " [B&W]" if black_and_white else ""
+        mode_status = f" [{orientation}/{processing_mode}]"
+        zoom_status = f" [zoom={int(zoom_level * 100)}%]" if zoom_level < 1.0 else ""
+        display_info = f", Display: {display_status}" if display_status != "ACTIVE" else ""
+        print(
+            f"Frames: {frame_count}, FPS: {fps:.1f}, "
+            f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"
+        )
+
+    # Preview window
+    if config.ui.show_preview:
+        show_preview(
+            original_frame,
+            preview_frame,
+            config.matrix,
+            orientation,
+            processing_mode,
+            zoom_level,
+            render_algorithm,
+            led_size_pct,
+            config.processing.max_brightness,
+            demo_label if demo.is_active else "",
+        )
+
+    return last_sent_frame, transport, frame_count
+
+
 def main() -> int:
     """Main entry point.
 
@@ -399,46 +695,15 @@ def main() -> int:
         return 1
 
     # Override config with command line args
-    if args.camera is not None:
-        config.camera.index = args.camera
-    if args.orientation is not None:
-        config.processing.orientation = args.orientation
-    if args.processing is not None:
-        config.processing.processing_mode = args.processing
-    if args.no_a0_snap:
-        config.a0_snap_button = False
-    elif args.a0_snap:
-        config.a0_snap_button = True
-    if args.console_port is not None:
-        config.console_port = args.console_port
+    _apply_cli_overrides(config, args)
 
     # Print startup info
-    print("LED Portal Pro v0.2.0")
-    print(f"Matrix: {config.matrix.width}x{config.matrix.height}")
-    print(f"Target FPS: {config.target_fps}")
-    print(f"Frame size: {config.frame_size_bytes} bytes (RGB565)")
-    if args.frames > 0:
-        print(f"Will capture {args.frames} frames and exit")
-    print()
+    _print_startup_info(config, args)
 
     # List available cameras
     print("Detecting cameras...")
     available_cameras = list_available_cameras()
-    if available_cameras:
-        print(f"Found {len(available_cameras)} camera(s):")
-        for cam in available_cameras:
-            cam_type = cam.get("type", "unknown")
-            index = cam.get("index", "?")
-            backend = cam.get("backend", "unknown")
-            resolution = cam.get("resolution", "unknown")
-            fps = cam.get("fps", "unknown")
-            name = cam.get("name", cam.get("model", f"Camera {index}"))
-            print(
-                f"  [{index}] {name} ({cam_type}/{backend}) - {resolution} @ {fps} fps (driver-reported)"
-            )
-    else:
-        print("  No cameras detected (will try to open anyway)")
-    print()
+    _print_camera_list(available_cameras)
 
     # Initialize state
     camera = None
@@ -456,7 +721,6 @@ def main() -> int:
     led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
     save_enabled = not args.no_save  # Whether to save snapshots to disk
     display_enabled = not args.no_display  # User's intent to send to display
-    display_status = "unknown"  # Current display status with reason
     last_sent_frame = None  # Last frame successfully delivered to the device
     demo = DemoMode()  # Automatic feature cycling demo mode
     demo_label: str = ""  # Current step label drawn on the device frame
@@ -468,71 +732,16 @@ def main() -> int:
 
         # Display camera info
         cam_info = camera.get_camera_info()
-        print("=" * 60)
-        print("CAMERA INFORMATION:")
-        print("=" * 60)
-        print(f"  Type: {cam_info.get('type', 'unknown')}")
-        if "index" in cam_info:
-            print(f"  Index: {cam_info['index']}")
-        if "backend" in cam_info:
-            print(f"  Backend: {cam_info['backend']}")
-        if "model" in cam_info:
-            print(f"  Model: {cam_info['model']}")
-        print(f"  Resolution: {cam_info.get('resolution', 'unknown')}")
-        if "fps" in cam_info:
-            print(f"  FPS (driver-reported): {cam_info['fps']} — camera driver reported speed.")
-        if "format" in cam_info and cam_info["format"] != "unknown":
-            print(f"  Format: {cam_info['format']}")
-        if "requested_resolution" in cam_info:
-            print(f"  Requested: {cam_info['requested_resolution']}")
-        if "sensor_modes" in cam_info:
-            print(f"  Sensor modes: {cam_info['sensor_modes']}")
-        print("=" * 60)
-        print()
+        _print_camera_info(cam_info)
 
         # Setup transport
-        transport = create_transport(config.transport)
-        try:
-            transport.connect(args.port)
-            print(f"Connected to Matrix Portal on {transport.port}")
-
-            # Send test patterns to verify connection (only if display enabled)
-            if display_enabled:
-                test_pattern = create_test_pattern(config.matrix)
-                # Only send 2 test frames (reduced from 5) to minimize power draw
-                # during initial connection when matrix may be USB-powered only
-                for i in range(2):
-                    bytes_sent = transport.send_frame(test_pattern)
-                    print(f"Test pattern {i + 1} sent: {bytes_sent} bytes")
-                    time.sleep(0.5)  # Longer delay to avoid power spikes
-                print("Verification frames sent.")
-            else:
-                print("Display paused (--no-display flag). Press 't' to enable.")
-        except DeviceNotFoundError as e:
-            print(f"Warning: {e}")
-            print("Display paused (device not found). Press 't' to retry.")
-            transport = None
+        transport = _setup_transport(config, args, display_enabled)
 
         # Setup UI components
         snapshot_manager = SnapshotManager()
 
         # Open console port for A0 hardware snap button (if configured)
-        if config.a0_snap_button and config.console_port:
-            from .transport.serial import open_console_port
-
-            try:
-                console_serial = open_console_port(config.console_port)
-                print(f"A0 snap button enabled — console port: {config.console_port}")
-                print("  NOTE: REPL/terminal access to the device is suspended while running.")
-                print("  Use --no-a0-snap or set a0_snap_button: false to restore REPL access.")
-            except Exception as e:
-                print(f"Warning: Could not open console port {config.console_port}: {e}")
-                print("  A0 snap button disabled.  Check console_port in config.")
-        elif config.a0_snap_button and not config.console_port:
-            print(
-                "A0 snap button enabled in config but console_port is not set — feature inactive."
-            )
-            print("  Set console_port in your YAML or use --console-port PORT to activate.")
+        console_serial = _open_console_if_configured(config)
 
         print()
         print("Starting capture loop...")
@@ -565,26 +774,17 @@ def main() -> int:
                 cmd = input_result.command
 
                 # Poll A0 hardware snap button via console port
-                if console_serial is not None and console_serial.is_open:
-                    try:
-                        while console_serial.in_waiting > 0:
-                            line = (
-                                console_serial.readline().decode("utf-8", errors="ignore").strip()
-                            )
-                            if line == "SNAP" and save_enabled:
-                                instant_snapshot(
-                                    last_sent_frame,
-                                    transport,
-                                    snapshot_manager,
-                                    orientation,
-                                    debug_mode=debug_mode,
-                                    render_algorithm=render_algorithm,
-                                    led_size_pct=led_size_pct,
-                                )
-                            elif line == "SNAP" and not save_enabled:
-                                print("  A0 SNAP received but snapshot saving disabled (--no-save)")
-                    except Exception:
-                        pass  # serial errors don't crash the main loop
+                _poll_a0_snap(
+                    console_serial,
+                    save_enabled,
+                    last_sent_frame,
+                    transport,
+                    snapshot_manager,
+                    orientation,
+                    debug_mode,
+                    render_algorithm,
+                    led_size_pct,
+                )
 
                 # Demo mode input handling
                 if demo.is_active:
@@ -903,107 +1103,27 @@ def main() -> int:
                     keyboard.clear_buffer()
                     continue
 
-                # Capture frame
-                try:
-                    original_frame = camera.capture()  # Full resolution, pre-zoom
-                except CameraCaptureFailed:
-                    time.sleep(0.1)
-                    continue
-
-                # Apply zoom (frame is the working copy; original_frame stays full-res for preview)
-                frame = original_frame
-                if zoom_level < 1.0:
-                    frame = apply_zoom_crop(frame, zoom_level)
-
-                # Process frame
-                small_frame = resize_frame(
-                    frame, config.matrix, config.processing, orientation, processing_mode
+                # Capture, process, send, and preview one frame
+                last_sent_frame, transport, frame_count = process_and_send_frame(
+                    camera,
+                    transport,
+                    config,
+                    snapshot_manager,
+                    orientation=orientation,
+                    processing_mode=processing_mode,
+                    zoom_level=zoom_level,
+                    mirror_mode=mirror_mode,
+                    black_and_white=black_and_white,
+                    render_algorithm=render_algorithm,
+                    led_size_pct=led_size_pct,
+                    display_enabled=display_enabled,
+                    debug_mode=debug_mode,
+                    demo=demo,
+                    demo_label=demo_label,
+                    frame_count=frame_count,
+                    start_time=start_time,
+                    last_sent_frame=last_sent_frame,
                 )
-                if mirror_mode:
-                    small_frame = apply_mirror(small_frame, orientation)
-                if black_and_white:
-                    small_frame = apply_grayscale(small_frame)
-
-                # Save frame before brightness limiting — show_preview applies it internally
-                preview_frame = small_frame
-
-                # In demo mode, draw current step label in red on device frame and preview
-                if demo.is_active and demo_label:
-                    small_frame = draw_text_overlay(
-                        small_frame,
-                        demo_label,
-                        (2, 30),
-                        color=(0, 0, 255),
-                        font_scale=0.225,
-                        thickness=1,
-                    )
-                    preview_frame = small_frame
-
-                # Apply brightness limiting for USB power safety
-                if config.processing.max_brightness < 255:
-                    small_frame = apply_brightness_limit(
-                        small_frame, config.processing.max_brightness
-                    )
-
-                # Debug save
-                if config.debug_save_frames:
-                    snapshot_manager.save_debug_frame(small_frame)
-
-                # Convert and send
-                frame_bytes = convert_to_rgb565(small_frame)
-                bytes_sent = 0
-
-                # Determine display status and send if enabled
-                if not display_enabled:
-                    display_status = "PAUSED (user)"
-                elif transport is None:
-                    display_status = "PAUSED (no device)"
-                else:
-                    try:
-                        bytes_sent = transport.send_frame(frame_bytes)
-                        display_status = "ACTIVE"
-                        last_sent_frame = small_frame  # Cache for pause-mode snapshot
-                    except Exception as e:
-                        transport = None  # Mark as disconnected so 't' can reconnect
-                        display_status = "PAUSED (disconnected)"
-                        print(f"Display disconnected: {e}")
-                        print(
-                            "\n!!! Matrix Portal disconnected — plug in and press 't' to reconnect. !!!\n"
-                        )
-
-                # Frame counting and stats
-                frame_count += 1
-                if frame_count == 1 and display_status == "ACTIVE":
-                    print(f"First frame sent: {bytes_sent} bytes")
-
-                if debug_mode and frame_count % 10 == 0:
-                    elapsed = time.time() - start_time
-                    fps = frame_count / elapsed
-                    bw_status = " [B&W]" if black_and_white else ""
-                    mode_status = f" [{orientation}/{processing_mode}]"
-                    zoom_status = f" [zoom={int(zoom_level * 100)}%]" if zoom_level < 1.0 else ""
-                    display_info = (
-                        f", Display: {display_status}" if display_status != "ACTIVE" else ""
-                    )
-                    print(
-                        f"Frames: {frame_count}, FPS: {fps:.1f}, "
-                        f"Bytes: {bytes_sent}/{len(frame_bytes)}{bw_status}{mode_status}{zoom_status}{display_info}"
-                    )
-
-                # Preview window
-                if config.ui.show_preview:
-                    show_preview(
-                        original_frame,
-                        preview_frame,
-                        config.matrix,
-                        orientation,
-                        processing_mode,
-                        zoom_level,
-                        render_algorithm,
-                        led_size_pct,
-                        config.processing.max_brightness,
-                        demo_label if demo.is_active else "",
-                    )
 
                 # Frame rate limiting
                 if config.ui.enable_frame_limiting:
