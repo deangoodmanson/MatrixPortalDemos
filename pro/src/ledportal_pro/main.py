@@ -10,8 +10,9 @@ import numpy as np
 import serial
 from numpy.typing import NDArray
 
-from .capture import CameraBase, create_camera
+from .capture import create_camera
 from .capture.factory import list_available_cameras
+from .commands import COMMAND_HANDLERS
 from .config import AppConfig, load_config
 from .exceptions import CameraCaptureFailed, DeviceNotFoundError, LEDPortalError
 from .processing import (
@@ -23,12 +24,11 @@ from .processing import (
     create_test_pattern,
     resize_frame,
 )
+from .session import HandlerResult, LoopContext, SessionState
 from .transport import TransportBase, create_transport
 from .ui import (
     _ALGORITHM_LABELS,
     LED_SIZE_DEFAULT,
-    LED_SIZE_STEPS,
-    AvatarCaptureManager,
     DemoMode,
     DemoState,
     InputCommand,
@@ -548,44 +548,48 @@ def _poll_a0_snap(
 
 
 def process_and_send_frame(
-    camera: CameraBase,
-    transport: TransportBase | None,
-    config: AppConfig,
-    snapshot_manager: SnapshotManager,
+    state: SessionState,
+    ctx: LoopContext,
     *,
-    orientation: str,
-    processing_mode: str,
-    zoom_level: float,
-    mirror_mode: bool,
-    black_and_white: bool,
-    render_algorithm: PreviewAlgorithm,
-    led_size_pct: int,
-    display_enabled: bool,
-    debug_mode: bool,
-    demo: DemoMode,
-    demo_label: str,
-    frame_count: int,
     start_time: float,
-    last_sent_frame: NDArray[np.uint8] | None,
-) -> tuple[NDArray[np.uint8] | None, TransportBase | None, int]:
+) -> None:
     """Capture, process, send, and preview one frame.
 
     Encapsulates the full per-frame pipeline: capture → zoom → resize → effects →
     demo overlay → brightness limit → RGB565 convert → send, followed by stats
     output and the preview window.
 
-    Returns:
-        Tuple of (last_sent_frame, transport, frame_count). ``last_sent_frame`` is
-        updated only on a successful send; ``transport`` is set to None on send
-        failure so the 't' key can reconnect; ``frame_count`` is incremented only
-        when a frame was captured (unchanged on capture failure).
+    Mutates ``state`` in place: ``last_sent_frame`` is updated only on a successful
+    send; ``transport`` is set to None on send failure so the 't' key can
+    reconnect; ``frame_count`` is incremented only when a frame was captured
+    (unchanged on capture failure); ``display_status`` reflects the send outcome.
     """
+    # Local aliases for the loop state this function reads (kept so the pipeline
+    # body below is identical to its pre-refactor form).
+    camera = ctx.camera
+    config = ctx.config
+    snapshot_manager = ctx.snapshot_manager
+    demo = ctx.demo
+    transport = state.transport
+    orientation = state.orientation
+    processing_mode = state.processing_mode
+    zoom_level = state.zoom_level
+    mirror_mode = state.mirror_mode
+    black_and_white = state.black_and_white
+    render_algorithm = state.render_algorithm
+    led_size_pct = state.led_size_pct
+    display_enabled = state.display_enabled
+    debug_mode = state.debug_mode
+    demo_label = state.demo_label
+    frame_count = state.frame_count
+    last_sent_frame = state.last_sent_frame
+
     # Capture frame
     try:
         original_frame = camera.capture()  # Full resolution, pre-zoom
     except CameraCaptureFailed:
         time.sleep(0.1)
-        return last_sent_frame, transport, frame_count
+        return
 
     # Apply zoom (frame is the working copy; original_frame stays full-res for preview)
     frame = original_frame
@@ -676,7 +680,26 @@ def process_and_send_frame(
             demo_label if demo.is_active else "",
         )
 
-    return last_sent_frame, transport, frame_count
+    # Write back the values the loop carries forward.
+    state.last_sent_frame = last_sent_frame
+    state.transport = transport
+    state.frame_count = frame_count
+    state.display_status = display_status
+
+
+def _print_loop_help(state: SessionState, config: AppConfig) -> None:
+    """Print the help/status screen from the current session state."""
+    print_help(
+        state.orientation,
+        state.processing_mode,
+        state.black_and_white,
+        state.debug_mode,
+        state.zoom_level,
+        config.ui.show_preview,
+        state.mirror_mode,
+        _ALGORITHM_LABELS[state.render_algorithm],
+        state.led_size_pct,
+    )
 
 
 def main() -> int:
@@ -709,21 +732,17 @@ def main() -> int:
     camera = None
     transport = None
     console_serial = None  # CDC console port for A0 hardware snap button
-    black_and_white = args.bw
-    orientation = config.processing.orientation
-    processing_mode = config.processing.processing_mode
-    debug_mode = config.ui.debug_mode and not args.no_debug
-    zoom_level = 1.0  # 1.0 = 100%, 0.75 = 75%, etc.
-    mirror_mode = False  # Horizontal flip (mirror effect)
-    render_algorithm = (
-        PreviewAlgorithm.GAUSSIAN_DIFFUSED
-    )  # LED preview render algorithm (cycles with 'o')
-    led_size_pct = LED_SIZE_DEFAULT  # LED size percentage (only for CIRCLES)
-    save_enabled = not args.no_save  # Whether to save snapshots to disk
-    display_enabled = not args.no_display  # User's intent to send to display
-    last_sent_frame = None  # Last frame successfully delivered to the device
+
+    # Mutable runtime state of the capture loop (mutated by command handlers).
+    state = SessionState(
+        orientation=config.processing.orientation,
+        processing_mode=config.processing.processing_mode,
+        black_and_white=args.bw,
+        debug_mode=config.ui.debug_mode and not args.no_debug,
+        save_enabled=not args.no_save,
+        display_enabled=not args.no_display,
+    )
     demo = DemoMode()  # Automatic feature cycling demo mode
-    demo_label: str = ""  # Current step label drawn on the device frame
 
     try:
         # Setup camera
@@ -735,7 +754,8 @@ def main() -> int:
         _print_camera_info(cam_info)
 
         # Setup transport
-        transport = _setup_transport(config, args, display_enabled)
+        transport = _setup_transport(config, args, state.display_enabled)
+        state.transport = transport
 
         # Setup UI components
         snapshot_manager = SnapshotManager()
@@ -746,23 +766,30 @@ def main() -> int:
         print()
         print("Starting capture loop...")
         print_help(
-            orientation,
-            processing_mode,
-            black_and_white,
-            debug_mode,
-            zoom_level,
+            state.orientation,
+            state.processing_mode,
+            state.black_and_white,
+            state.debug_mode,
+            state.zoom_level,
             config.ui.show_preview,
-            mirror_mode,
-            _ALGORITHM_LABELS[render_algorithm],
-            led_size_pct,
+            state.mirror_mode,
+            _ALGORITHM_LABELS[state.render_algorithm],
+            state.led_size_pct,
         )
         print("Starting — capturing and sending frames to Matrix Portal...")
-        if transport is None:
+        if state.transport is None:
             print("\n!!! Matrix Portal not connected — press 't' to connect when ready. !!!\n")
 
         # Main loop with keyboard handler context manager
         with KeyboardHandler(single_keypress=config.ui.single_keypress) as keyboard:
-            frame_count = 0
+            ctx = LoopContext(
+                config=config,
+                args=args,
+                camera=camera,
+                snapshot_manager=snapshot_manager,
+                keyboard=keyboard,
+                demo=demo,
+            )
             start_time = time.time()
             frame_time = 1.0 / config.target_fps
 
@@ -776,17 +803,18 @@ def main() -> int:
                 # Poll A0 hardware snap button via console port
                 _poll_a0_snap(
                     console_serial,
-                    save_enabled,
-                    last_sent_frame,
-                    transport,
+                    state.save_enabled,
+                    state.last_sent_frame,
+                    state.transport,
                     snapshot_manager,
-                    orientation,
-                    debug_mode,
-                    render_algorithm,
-                    led_size_pct,
+                    state.orientation,
+                    state.debug_mode,
+                    state.render_algorithm,
+                    state.led_size_pct,
                 )
 
-                # Demo mode input handling
+                # Demo mode input handling (runs before normal dispatch; may
+                # rewrite ``cmd`` and fall through to the dispatch table below).
                 if demo.is_active:
                     if cmd == InputCommand.DEMO_NEXT:
                         demo_cmd = demo.next_step()
@@ -794,14 +822,14 @@ def main() -> int:
                             f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
                         )
                         cmd = demo_cmd.command
-                        demo_label = demo_cmd.label
+                        state.demo_label = demo_cmd.label
                     elif cmd == InputCommand.DEMO_PREV:
                         demo_cmd = demo.prev_step()
                         print(
                             f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
                         )
                         cmd = demo_cmd.command
-                        demo_label = demo_cmd.label
+                        state.demo_label = demo_cmd.label
                     elif cmd == InputCommand.SNAPSHOT and demo.state == DemoState.MANUAL:
                         # Space is not meaningful in manual demo — ignore rather than stopping demo
                         continue
@@ -821,19 +849,9 @@ def main() -> int:
                         continue
                     elif cmd == InputCommand.DEMO_TOGGLE:
                         demo.stop()
-                        demo_label = ""
+                        state.demo_label = ""
                         print("\n=== DEMO MODE: OFF ===\n")
-                        print_help(
-                            orientation,
-                            processing_mode,
-                            black_and_white,
-                            debug_mode,
-                            zoom_level,
-                            config.ui.show_preview,
-                            mirror_mode,
-                            _ALGORITHM_LABELS[render_algorithm],
-                            led_size_pct,
-                        )
+                        _print_loop_help(state, config)
                         continue
                     elif cmd == InputCommand.DEMO_MANUAL:
                         # Already active — ignore X while in demo
@@ -841,19 +859,9 @@ def main() -> int:
                     elif cmd != InputCommand.NONE:
                         # Any other keypress stops demo
                         demo.stop()
-                        demo_label = ""
+                        state.demo_label = ""
                         print("\n=== DEMO MODE: STOPPED ===\n")
-                        print_help(
-                            orientation,
-                            processing_mode,
-                            black_and_white,
-                            debug_mode,
-                            zoom_level,
-                            config.ui.show_preview,
-                            mirror_mode,
-                            _ALGORITHM_LABELS[render_algorithm],
-                            led_size_pct,
-                        )
+                        _print_loop_help(state, config)
                         # cmd falls through to normal handling below
                     else:
                         # No keypress — check auto-advance timer
@@ -863,267 +871,21 @@ def main() -> int:
                                 f"\n--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
                             )
                             cmd = demo_cmd.command
-                            demo_label = demo_cmd.label
+                            state.demo_label = demo_cmd.label
 
-                # Handle orientation changes
-                if cmd == InputCommand.ORIENTATION_LANDSCAPE:
-                    orientation = "landscape"
-                    print("\n=== ORIENTATION: LANDSCAPE ===\n")
-                    continue
-                elif cmd == InputCommand.ORIENTATION_PORTRAIT:
-                    orientation = "portrait"
-                    print("\n=== ORIENTATION: PORTRAIT ===\n")
-                    continue
-
-                # Handle processing mode changes
-                elif cmd == InputCommand.PROCESSING_CENTER:
-                    processing_mode = "center"
-                    print("\n=== PROCESSING: CENTER CROP ===\n")
-                    continue
-                elif cmd == InputCommand.PROCESSING_STRETCH:
-                    processing_mode = "stretch"
-                    print("\n=== PROCESSING: STRETCH ===\n")
-                    continue
-                elif cmd == InputCommand.PROCESSING_FIT:
-                    processing_mode = "fit"
-                    print("\n=== PROCESSING: FIT (letterbox) ===\n")
-                    continue
-
-                # Handle effects
-                elif cmd == InputCommand.TOGGLE_BW:
-                    black_and_white = not black_and_white
-                    mode_str = "BLACK & WHITE" if black_and_white else "COLOR"
-                    print(f"\n=== {mode_str} MODE ===\n")
-                    continue
-                elif cmd == InputCommand.TOGGLE_MIRROR:
-                    mirror_mode = not mirror_mode
-                    mode_str = "ON" if mirror_mode else "OFF"
-                    print(f"\n=== MIRROR: {mode_str} ===\n")
-                    continue
-                elif cmd == InputCommand.CYCLE_RENDER_ALGORITHM:
-                    next_val = (render_algorithm.value + 1) % len(PreviewAlgorithm)
-                    render_algorithm = PreviewAlgorithm(next_val)
-                    print(f"\n=== RENDER ALGORITHM: {_ALGORITHM_LABELS[render_algorithm]} ===\n")
-                    continue
-                elif cmd == InputCommand.LED_SIZE_INCREASE:
-                    if render_algorithm == PreviewAlgorithm.CIRCLES:
-                        idx = (
-                            LED_SIZE_STEPS.index(led_size_pct)
-                            if led_size_pct in LED_SIZE_STEPS
-                            else -1
-                        )
-                        if idx < len(LED_SIZE_STEPS) - 1:
-                            led_size_pct = LED_SIZE_STEPS[idx + 1]
-                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
-                    else:
-                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
-                    continue
-                elif cmd == InputCommand.LED_SIZE_DECREASE:
-                    if render_algorithm == PreviewAlgorithm.CIRCLES:
-                        idx = (
-                            LED_SIZE_STEPS.index(led_size_pct)
-                            if led_size_pct in LED_SIZE_STEPS
-                            else -1
-                        )
-                        if idx > 0:
-                            led_size_pct = LED_SIZE_STEPS[idx - 1]
-                        print(f"\n=== LED SIZE: {led_size_pct}% ===\n")
-                    else:
-                        print("\n=== LED SIZE: press 'o' to switch to Circles mode ===\n")
-                    continue
-                elif cmd == InputCommand.ZOOM_TOGGLE:
-                    # Cycle: 1.0 → 0.75 → 0.5 → 0.25 → 1.0
-                    if zoom_level == 1.0:
-                        zoom_level = 0.75
-                    elif zoom_level == 0.75:
-                        zoom_level = 0.5
-                    elif zoom_level == 0.5:
-                        zoom_level = 0.25
-                    else:
-                        zoom_level = 1.0
-
-                    zoom_pct = int(zoom_level * 100)
-                    print(f"\n=== ZOOM: {zoom_pct}% ===\n")
-                    continue
-
-                # Handle actions
-                elif cmd == InputCommand.TOGGLE_DISPLAY:
-                    if display_enabled and transport is None:
-                        # Already enabled but disconnected — reconnect without toggling to paused
-                        print("\n=== RECONNECTING TO MATRIX PORTAL ===")
-                        try:
-                            transport = create_transport(config.transport)
-                            transport.connect(args.port)
-                            print(f"Connected to Matrix Portal on {transport.port}\n")
-                        except DeviceNotFoundError as e:
-                            print(f"Connection failed: {e}")
-                            print("!!! Press 't' to try again when the portal is connected. !!!\n")
-                            transport = None
-                    else:
-                        display_enabled = not display_enabled
-                        if display_enabled:
-                            print("\n=== DISPLAY: ENABLED ===")
-                            if transport is None:
-                                print("Attempting to reconnect to Matrix Portal...")
-                                try:
-                                    transport = create_transport(config.transport)
-                                    transport.connect(args.port)
-                                    print(f"Connected to Matrix Portal on {transport.port}\n")
-                                except DeviceNotFoundError as e:
-                                    print(f"Connection failed: {e}")
-                                    print(
-                                        "!!! Press 't' to try again when the portal is connected. !!!\n"
-                                    )
-                                    transport = None
-                            else:
-                                print()
-                        else:
-                            print("\n=== DISPLAY: PAUSED (by user) — press 't' to resume ===\n")
-                    continue
-                elif cmd == InputCommand.TOGGLE_DEBUG:
-                    debug_mode = not debug_mode
-                    mode_str = "ON" if debug_mode else "OFF"
-                    print(f"\n=== DEBUG MODE: {mode_str} ===\n")
-                    continue
-                elif cmd == InputCommand.TOGGLE_PREVIEW:
-                    config.ui.show_preview = not config.ui.show_preview
-                    if config.ui.show_preview:
-                        print("\n=== PREVIEW WINDOW: ENABLED ===\n")
-                    else:
-                        import cv2 as _cv2
-
-                        _cv2.destroyAllWindows()
-                        _cv2.waitKey(1)
-                        print("\n=== PREVIEW WINDOW: DISABLED ===\n")
-                    continue
-                elif cmd == InputCommand.DEMO_TOGGLE:
-                    # Reset to clean known state and start auto demo
-                    orientation = "landscape"
-                    processing_mode = "center"
-                    black_and_white = False
-                    mirror_mode = False
-                    zoom_level = 1.0
-                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
-                    led_size_pct = LED_SIZE_DEFAULT
-                    demo.start_auto()
-                    print("\n=== DEMO MODE: AUTO (SPACE=pause, ./>=next, ,/<=prev, x=stop) ===\n")
-                    continue
-                elif cmd == InputCommand.DEMO_MANUAL:
-                    # Reset to clean known state and start manual demo
-                    orientation = "landscape"
-                    processing_mode = "center"
-                    black_and_white = False
-                    mirror_mode = False
-                    zoom_level = 1.0
-                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
-                    led_size_pct = LED_SIZE_DEFAULT
-                    demo.start_manual()
-                    demo_cmd = demo.next_step()
-                    demo_label = demo_cmd.label
-                    print("\n=== DEMO MODE: MANUAL (./>=next, ,/<=prev, x=stop) ===\n")
-                    print(
-                        f"--- Demo [{demo.step_position}]: {demo_cmd.description} ({demo.controls_hint}) ---"
-                    )
-                    cmd = demo_cmd.command
-                    # Fall through to handle the first step's command
-                elif cmd == InputCommand.RESET:
-                    orientation = "landscape"
-                    processing_mode = "center"
-                    black_and_white = False
-                    mirror_mode = False
-                    render_algorithm = PreviewAlgorithm.GAUSSIAN_DIFFUSED
-                    led_size_pct = LED_SIZE_DEFAULT
-                    debug_mode = False
-                    zoom_level = 1.0
-                    display_enabled = True
-                    print("\n=== RESET TO DEFAULTS ===")
-                    print(
-                        "Orientation=landscape, Processing=center, Color, Mirror=OFF, "
-                        "Algorithm=diffused panel emulation, Size=100%, Debug=OFF, Zoom=100%, Display=ON\n"
-                    )
-                    continue
-                elif cmd == InputCommand.HELP:
-                    print_help(
-                        orientation,
-                        processing_mode,
-                        black_and_white,
-                        debug_mode,
-                        zoom_level,
-                        config.ui.show_preview,
-                        mirror_mode,
-                        _ALGORITHM_LABELS[render_algorithm],
-                        led_size_pct,
-                    )
-                    continue
-                elif cmd == InputCommand.QUIT:
-                    print("\n=== QUIT REQUESTED ===\n")
-                    break
-                elif cmd == InputCommand.SNAPSHOT:
-                    if not save_enabled:
-                        print("  Snapshot saving disabled (--no-save)")
-                    elif not display_enabled and last_sent_frame is not None:
-                        # Paused: save the frozen frame on the device — no countdown
-                        print("  Saving paused frame...")
-                        frame_bytes_save = convert_to_rgb565(last_sent_frame)
-                        snapshot_manager.save(
-                            last_sent_frame, frame_bytes_save, orientation, debug_mode=debug_mode
-                        )
-                        print("  Saved.")
-                    else:
-                        run_snapshot_sequence(
-                            camera,
-                            transport,
-                            config,
-                            snapshot_manager,
-                            keyboard,
-                            black_and_white,
-                            orientation,
-                            processing_mode,
-                            zoom_level,
-                            debug_mode,
-                            mirror_mode,
-                            render_algorithm,
-                            led_size_pct,
-                        )
-                    keyboard.clear_buffer()
-                    continue
-                elif cmd == InputCommand.AVATAR:
-                    # Run avatar capture mode
-                    avatar_manager = AvatarCaptureManager()
-                    avatar_manager.run_capture_session(
-                        camera=camera,
-                        transport=transport,
-                        config=config,
-                        orientation=orientation,
-                        processing_mode=processing_mode,
-                        zoom_level=zoom_level,
-                        resize_fn=resize_frame,
-                        convert_fn=convert_to_rgb565,
-                    )
-                    keyboard.clear_buffer()
-                    continue
+                # Normal command dispatch via the handler table. Demo
+                # pre-handling above may have rewritten ``cmd``.
+                handler = COMMAND_HANDLERS.get(cmd)
+                if handler is not None:
+                    result = handler(state, ctx)
+                    if result is HandlerResult.BREAK:
+                        break
+                    if result is HandlerResult.CONTINUE:
+                        continue
+                    # FALLTHROUGH: render this frame with the updated state.
 
                 # Capture, process, send, and preview one frame
-                last_sent_frame, transport, frame_count = process_and_send_frame(
-                    camera,
-                    transport,
-                    config,
-                    snapshot_manager,
-                    orientation=orientation,
-                    processing_mode=processing_mode,
-                    zoom_level=zoom_level,
-                    mirror_mode=mirror_mode,
-                    black_and_white=black_and_white,
-                    render_algorithm=render_algorithm,
-                    led_size_pct=led_size_pct,
-                    display_enabled=display_enabled,
-                    debug_mode=debug_mode,
-                    demo=demo,
-                    demo_label=demo_label,
-                    frame_count=frame_count,
-                    start_time=start_time,
-                    last_sent_frame=last_sent_frame,
-                )
+                process_and_send_frame(state, ctx, start_time=start_time)
 
                 # Frame rate limiting
                 if config.ui.enable_frame_limiting:
@@ -1133,7 +895,7 @@ def main() -> int:
                         time.sleep(sleep_time)
 
                 # Check frame limit
-                if args.frames > 0 and frame_count >= args.frames:
+                if args.frames > 0 and state.frame_count >= args.frames:
                     print(f"Reached target of {args.frames} frames. Stopping.")
                     break
 
@@ -1143,11 +905,11 @@ def main() -> int:
         print(f"Error: {e}")
         return 1
     finally:
-        # Cleanup
+        # Cleanup. transport may have been rebound on state by reconnect paths.
         if camera is not None:
             camera.close()
-        if transport is not None:
-            transport.disconnect()
+        if state.transport is not None:
+            state.transport.disconnect()
         if console_serial is not None:
             try:
                 console_serial.close()
