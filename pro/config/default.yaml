@@ -26,6 +26,14 @@ ui:
   snapshot_pause_duration: 3.0
   enable_frame_limiting: false
   show_preview: true
+  # --- Snapshot output ---
+  # export_pdf: true      # Letter-page (8.5×11") multi-format PDF: LED preview, original
+  #                       # image, thumbnails, pixel-to-pixel. Default: true.
+  # export_4x6: false     # 4×6" landscape photo-booth PDF saved to disk. Default: false.
+  # auto_print: false     # Send the 4×6 PDF to the default printer after every snapshot.
+  #                       # macOS & Linux/Pi via lpr/CUPS (Pi needs: sudo apt install cups
+  #                       # + a default printer); Windows via the default PDF handler's
+  #                       # print verb. Implies export_4x6. Default: false.
 
 target_fps: 30
 debug_save_frames: false

@@ -12,7 +12,7 @@ Captures video from a camera, processes it, and displays on a 64x32 RGB LED matr
 - Orientation: landscape and portrait (90° CW rotation)
 - Processing modes: center crop, stretch, fit (letterbox)
 - Effects: black & white, mirror, zoom (100/75/50/25%), render algorithm cycling, LED size control
-- Snapshot capture with 3-2-1 countdown (BMP + PDF export)
+- Snapshot capture with 3-2-1 countdown (BMP + optional Letter PDF + optional 4×6 photo-booth print — see [PRINTING.md](PRINTING.md))
 - Avatar capture mode with guided voice prompts
 - Demo mode: auto, manual (step-by-step), and pausable
 - Side-by-side preview window with multiple LED render modes
@@ -162,6 +162,8 @@ usage: ledportal [-h] [--config CONFIG] [--frames FRAMES] [--no-display]
                  [--camera CAMERA] [--port PORT] [--bw]
                  [--orientation {landscape,portrait}]
                  [--processing {center,stretch,fit}] [--no-debug] [--no-save]
+                 [--no-pdf] [--export-4x6] [--no-export-4x6]
+                 [--auto-print] [--no-auto-print]
 
 LED Portal Pro - Camera feed for LED matrix display
 
@@ -179,7 +181,15 @@ options:
                         Processing mode (overrides config)
   --no-debug            Disable debug/stats output (toggle with 'd' key)
   --no-save             Disable saving snapshots to disk (countdown still runs)
+  --no-pdf              Skip Letter-page PDF generation on snapshots
+  --export-4x6          Generate a 4×6 photo-booth PDF on every snapshot (saved, not printed)
+  --no-export-4x6       Disable 4×6 PDF generation even if set in config
+  --auto-print          Generate and print a 4×6 photo-booth PDF (macOS/Linux/Windows)
+  --no-auto-print       Disable auto-print even if set in config
 ```
+
+See **[PRINTING.md](PRINTING.md)** for the full photo-booth printing guide
+(per-platform setup, CUPS on the Pi, Windows behavior, troubleshooting).
 
 ### Interactive Controls
 
@@ -221,7 +231,8 @@ Single keypress (no Enter needed, Mac/Linux only):
 
 | Key | Action |
 |-----|--------|
-| `Space` | Snapshot (3-2-1 countdown, saves BMP + PDF) |
+| `Space` | Snapshot (3-2-1 countdown, saves BMP + PDF; 4×6 print if enabled) |
+| `P` | Toggle 4×6 auto-print on/off (see [PRINTING.md](PRINTING.md)) |
 | `v` | Avatar capture mode (guided 18-pose session with voice prompts) |
 
 **Demo:**
@@ -291,6 +302,28 @@ processing:
 
 target_fps: 30
 ```
+
+## Snapshot output
+
+Pressing `Space` (or triggering the A0 hardware button) always saves a **BMP**.
+Two PDFs are optional, controlled by the `ui` config block, CLI flags, or the
+`P` key at runtime:
+
+| Output | Setting | Default | Description |
+|--------|---------|---------|-------------|
+| `snapshot_<ts>.bmp` | always | — | Raw image, viewable anywhere |
+| `snapshot_<ts>.pdf` | `export_pdf` | on | US Letter contact sheet (LED preview, original photo, thumbnails, pixel-to-pixel) |
+| `snapshot_<ts>_4x6.pdf` | `export_4x6` | off | 6×4" photo-booth print; `auto_print` also sends it to the printer |
+
+```yaml
+ui:
+  export_pdf: true     # Letter contact-sheet PDF
+  export_4x6: false    # 4×6 photo-booth PDF saved to disk
+  auto_print: false    # also print the 4×6 (implies export_4x6)
+```
+
+`auto_print` works on macOS, Linux/Pi (via CUPS), and Windows. **Setup,
+per-platform behavior, and troubleshooting live in [PRINTING.md](PRINTING.md).**
 
 ## Development
 

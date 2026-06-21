@@ -1,11 +1,14 @@
 """Snapshot saving functionality."""
 
+import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import cv2
 import numpy as np
-from ledportal_utils import LedMode, export_pdf
+from ledportal_utils import LedMode, export_4x6_pdf, export_pdf
 from numpy.typing import NDArray
 
 from .overlay import PreviewAlgorithm
@@ -38,6 +41,57 @@ def _resolve_led_mode(algorithm: PreviewAlgorithm, led_size_pct: int) -> LedMode
     return LedMode.CIRCLES_CORNER  # unreachable: last threshold is 999
 
 
+def _dispatch_print(pdf_path: Path) -> None:
+    """Send a 4×6 PDF to the default printer.
+
+    Platform-specific dispatch:
+
+    - **macOS** and **Linux/Raspberry Pi**: ``lpr`` (CUPS). macOS ships CUPS;
+      Linux/Pi needs it installed (``sudo apt install cups``) plus a configured
+      default printer (``lpstat -d``). The 4×6 media size and landscape
+      orientation are passed as CUPS options.
+    - **Windows**: the shell "print" verb (``os.startfile``), which routes the
+      PDF to the default printer through its associated viewer. The 4×6 page
+      size is already embedded in the PDF; CUPS media/orientation options do
+      not apply here.
+    """
+    print("  Sending to printer...")
+    if sys.platform in ("darwin", "linux"):
+        try:
+            result = subprocess.run(
+                [
+                    "lpr",
+                    "-o",
+                    "media=Custom.4x6in",
+                    "-o",
+                    "fit-to-page",
+                    "-o",
+                    "landscape",
+                    str(pdf_path),
+                ],
+                check=False,  # Don't crash the app if no printer is available
+            )
+        except FileNotFoundError:
+            # lpr not installed (no CUPS). Common on a headless Pi.
+            print("  Warning: 'lpr' not found — install CUPS (sudo apt install cups) to print")
+            return
+        if result.returncode != 0:
+            print(f"  Warning: lpr exited with code {result.returncode} — check printer setup")
+    elif sys.platform == "win32":
+        # os.startfile exists only on Windows; getattr keeps this importable
+        # and type-checkable on macOS/Linux where the attribute is absent.
+        startfile = getattr(os, "startfile", None)
+        if startfile is None:
+            print("  Warning: os.startfile unavailable — cannot print on this platform")
+            return
+        try:
+            startfile(str(pdf_path), "print")
+        except OSError as e:
+            print(f"  Warning: could not print ({e}) — check default PDF handler and printer")
+    else:
+        print(f"  Printing not supported on platform '{sys.platform}' — 4×6 PDF saved instead")
+
+
 class SnapshotManager:
     """Manages saving snapshots of camera frames."""
 
@@ -65,6 +119,9 @@ class SnapshotManager:
         original_frame: NDArray[np.uint8] | None = None,
         render_algorithm: PreviewAlgorithm = PreviewAlgorithm.SQUARES,
         led_size_pct: int = 100,
+        export_pdf_flag: bool = True,
+        export_4x6: bool = False,
+        auto_print: bool = False,
     ) -> tuple[Path, Path | None, Path | None, Path | None]:
         """Save a snapshot of the current frame.
 
@@ -78,6 +135,11 @@ class SnapshotManager:
                 When provided, it is included in the generated PDF.
             render_algorithm: Current LED preview algorithm (used for PDF rendering).
             led_size_pct: Current LED size percentage (used for circle modes).
+            export_pdf_flag: If True (default), generate a Letter-page multi-format PDF.
+            export_4x6: If True, generate a 4×6 photo-booth PDF saved to disk.
+            auto_print: If True, generate a 4×6 PDF and send it to the default
+                printer (macOS/Linux via lpr/CUPS, Windows via the default PDF
+                handler). Implies export_4x6.
 
         Returns:
             Tuple of (snapshot_path, debug_image_path or None, rgb565_path or None,
@@ -115,7 +177,7 @@ class SnapshotManager:
                 with open(rgb565_path, "wb") as f:
                     f.write(frame_bytes)
 
-        # Generate PDF with LED preview, original image, and thumbnails
+        # Save original camera frame for inclusion in Letter PDF
         original_path = None
         if original_frame is not None:
             original_filename = f"{prefix}_{timestamp}_original.png"
@@ -123,11 +185,22 @@ class SnapshotManager:
             cv2.imwrite(str(original_path), original_frame)
 
         led_mode = _resolve_led_mode(render_algorithm, led_size_pct)
-        pdf_path = export_pdf(
-            snapshot_path,
-            original_path=original_path,
-            mode=led_mode,
-        )
+
+        # Letter-page multi-format PDF
+        pdf_path = None
+        if export_pdf_flag:
+            pdf_path = export_pdf(
+                snapshot_path,
+                original_path=original_path,
+                mode=led_mode,
+            )
+
+        # 4×6 photo-booth PDF (auto_print implies export_4x6)
+        if export_4x6 or auto_print:
+            path_4x6 = export_4x6_pdf(snapshot_path, mode=led_mode)
+            print(f"  4×6 PDF: {path_4x6}")
+            if auto_print:
+                _dispatch_print(path_4x6)
 
         return snapshot_path, debug_image_path, rgb565_path, pdf_path
 

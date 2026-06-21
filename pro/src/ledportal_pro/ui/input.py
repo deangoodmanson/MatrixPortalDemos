@@ -38,6 +38,7 @@ class InputCommand(Enum):
     DEMO_MANUAL = auto()  # Start manual (navigate-only) demo mode
     DEMO_NEXT = auto()  # Next demo step
     DEMO_PREV = auto()  # Previous demo step
+    TOGGLE_AUTO_PRINT = auto()  # Toggle 4×6 auto-print on/off at runtime
     RESET = auto()
     HELP = auto()
     QUIT = auto()
@@ -69,6 +70,7 @@ _KEY_MAP: dict[str, InputCommand] = {
     "-": InputCommand.LED_SIZE_DECREASE,
     "_": InputCommand.LED_SIZE_DECREASE,
     " ": InputCommand.SNAPSHOT,
+    "P": InputCommand.TOGGLE_AUTO_PRINT,
     "v": InputCommand.AVATAR,
     "x": InputCommand.DEMO_TOGGLE,
     ".": InputCommand.DEMO_NEXT,
@@ -247,6 +249,9 @@ def print_help(
     mirror: bool = False,
     render_algorithm_name: str = "squares",
     led_size_pct: int = 100,
+    auto_print: bool = False,
+    export_pdf: bool = True,
+    export_4x6: bool = False,
 ) -> None:
     """Print help message with current settings.
 
@@ -260,6 +265,9 @@ def print_help(
         mirror: Whether mirror mode is active.
         render_algorithm_name: Display name of current LED preview render algorithm.
         led_size_pct: Current LED size percentage (only applies to Circles).
+        auto_print: Whether 4×6 auto-print is active.
+        export_pdf: Whether Letter-page PDF export is active.
+        export_4x6: Whether 4×6 PDF export is active.
     """
     print("")
     print("=" * 60)
@@ -268,19 +276,28 @@ def print_help(
     print("  Processing:  c=center  s=stretch  f=fit")
     print("  Effects:     b=B&W toggle  m=mirror toggle  z=zoom")
     print("  Preview:     w=on/off  o=algorithm  +/= size up  -/_ size down (Circles only)")
-    print("  Actions:     SPACE=snapshot  v=avatar")
+    print("  Actions:     SPACE=snapshot  P=toggle auto-print  v=avatar")
     print("  Demo:        x=auto  X=manual  ,/<  ./>  SPACE=pause/resume")
     print("  System:      t=toggle transmission  d=debug  r=reset  h=help  q=quit")
+    print("")
+    pdf_parts = []
+    if export_pdf:
+        pdf_parts.append("Letter PDF")
+    if export_4x6 or auto_print:
+        pdf_parts.append("4×6 PDF" + (" + print" if auto_print else ""))
+    snapshot_out = "BMP" + (f" + {' + '.join(pdf_parts)}" if pdf_parts else " only")
+    print(f"  Snapshot saves: {snapshot_out}")
     print("")
     bw_str = "B&W" if black_and_white else "Color"
     debug_str = "ON" if debug_mode else "OFF"
     zoom_pct = int(zoom_level * 100)
     preview_str = "ON" if show_preview else "OFF"
     mirror_str = "ON" if mirror else "OFF"
+    auto_print_str = "ON" if auto_print else "OFF"
     print(
         f"Current: {orientation.title()} + {processing_mode.title()}, {bw_str}, Mirror={mirror_str}, "
         f"Debug={debug_str}, Zoom={zoom_pct}%, Preview={preview_str}, "
-        f"Algorithm={render_algorithm_name}, Size={led_size_pct}%"
+        f"Algorithm={render_algorithm_name}, Size={led_size_pct}%, Auto-print={auto_print_str}"
     )
     print("=" * 60)
     print("")

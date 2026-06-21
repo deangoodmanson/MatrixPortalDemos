@@ -115,3 +115,17 @@ class TestSaveAndRoundTrip:
         loaded = load_config(path)
 
         assert loaded.transport.frame_header == b"TEST"
+
+    def test_round_trip_preserves_snapshot_output_flags(self, tmp_path):
+        original = AppConfig()
+        original.ui.export_pdf = False
+        original.ui.export_4x6 = True
+        original.ui.auto_print = True
+
+        path = tmp_path / "snapshot_flags_rt.yaml"
+        save_config(original, path)
+        loaded = load_config(path)
+
+        assert loaded.ui.export_pdf is False
+        assert loaded.ui.export_4x6 is True
+        assert loaded.ui.auto_print is True

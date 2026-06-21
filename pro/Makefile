@@ -1,4 +1,4 @@
-.PHONY: help install install-dev lint format typecheck check run run-mac run-pi test clean
+.PHONY: help install install-dev lint format format-check typecheck check ci run run-mac run-pi test clean
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  make format       Format code with ruff"
 	@echo "  make typecheck    Run ty type checker"
 	@echo "  make check        Run all checks (lint, format check, typecheck)"
+	@echo "  make ci           Run the exact CI gate (test, lint, format check, typecheck)"
 	@echo ""
 	@echo "Running:"
 	@echo "  make run          Run with default config"
@@ -48,6 +49,11 @@ typecheck:
 
 check: lint format-check typecheck
 	@echo "All checks passed!"
+
+# Exact CI gate — mirrors .github/workflows/ci.yml (pro job).
+# `make ci` green should mean the Pro CI job is green.
+ci: test lint format-check typecheck
+	@echo "CI checks passed!"
 
 # Running
 run:

@@ -63,6 +63,9 @@ class UIConfig:
     debug_mode: bool = False
     single_keypress: bool = True  # Use single-keypress input (Mac/Linux only)
     show_preview: bool = False  # Show side-by-side camera/matrix preview window
+    export_pdf: bool = True  # Generate Letter-page multi-format PDF on every snapshot
+    export_4x6: bool = False  # Generate 4×6 photo-booth PDF on every snapshot (saved to disk)
+    auto_print: bool = False  # Print the 4×6 PDF to the default printer (implies export_4x6)
 
 
 @dataclass
@@ -207,6 +210,9 @@ def save_config(config: AppConfig, config_path: Path | str) -> None:
             "debug_mode": config.ui.debug_mode,
             "single_keypress": config.ui.single_keypress,
             "show_preview": config.ui.show_preview,
+            "export_pdf": config.ui.export_pdf,
+            "export_4x6": config.ui.export_4x6,
+            "auto_print": config.ui.auto_print,
         },
         "target_fps": config.target_fps,
         "debug_save_frames": config.debug_save_frames,
