@@ -264,6 +264,18 @@ diameter (cell = 10×10 px at 10× scale).
 > Modes ≤ 100% are rendered with a fast vectorised NumPy mask.
 > Modes > 100% use painter's algorithm (2 048 `cv2.circle` calls) so that
 > overlapping regions between adjacent LEDs are drawn correctly.
+
+The Gaussian render modes are calibrated against the *real* panel. These macro
+photos of the physical 64×32 matrix show why the "raw" vs "diffused" distinction
+exists — the same content with and without a diffuser in front of the LEDs:
+
+| Raw panel (sharp LEDs) | Diffused panel (soft glow) |
+|------------------------|----------------------------|
+| ![Raw LED matrix close-up](../docs/hardware/matrixPixelsGreenRaw.jpg) | ![Diffused LED matrix close-up](../docs/hardware/matrixPixelsGreenDiffused.jpg) |
+
+The `GAUSSIAN_RAW` mode (σ ≈ 18% of cell) emulates the left; `GAUSSIAN_DIFFUSED`
+(σ ≈ 27% of cell) emulates the right. See [`../docs/LED_Analysis.md`](../docs/LED_Analysis.md)
+for the measurements behind these values.
 > Gaussian blur uses a point-source model with σ ≈ 27% of cell width,
 > calibrated to match the measured diffuser panel (FWHM ≈ 63% of cell,
 > gap/peak ratio ≈ 37%).
