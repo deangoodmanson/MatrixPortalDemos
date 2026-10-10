@@ -54,6 +54,11 @@ ignore = [
     "SIM105", # contextlib.suppress - try/except/pass is often clearer
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Command handlers share a uniform (state, ctx) signature so they can live in a
+# single dispatch table; some don't need ctx, but the signature must match.
+"src/ledportal_pro/commands.py" = ["ARG001"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["ledportal_pro"]
 
